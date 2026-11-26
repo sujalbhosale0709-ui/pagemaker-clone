@@ -77,11 +77,72 @@ function selectTool(tool) {
   });
 }
 
-function snapValue(val, axis) {
+/* Magnet Snap: गुलाबी मार्जिन लाईन आणि गाईड्सला चिकटवणे */
+function getMagnetTargets(axis) {
   ensurePageState(activePageId);
-  const guides = pageGuides[activePageId][axis] || [];
-  for (let g of guides) {
-    if (Math.abs(val - g) <= 5) return g;
+  const pageEl = document.getElementById('page');
+  const pageW = parseInt(pageEl.style.width) || (typeof currentPageW !== 'undefined' ? currentPageW : 816);
+  const pageH = parseInt(pageEl.style.height) || (typeof currentPageH !== 'undefined' ? currentPageH : 1056);
+  const m = (typeof getPageMargins === 'function')
+    ? getPageMargins(pageW, pageH)
+    : { left: 96, right: 72, top: 72, bottom: 72 };
+
+  const targets = axis === 'v'
+    ? [m.left, pageW - m.right, ...(pageGuides[activePageId].v || [])]
+    : [m.top, pageH - m.bottom, ...(pageGuides[activePageId].h || [])];
+
+  const colCfg = pageColumns[activePageId];
+  if (axis === 'v' && colCfg && colCfg.count > 1) {
+    const usableW = Math.max(40, pageW - m.left - m.right);
+    const totalGutter = colCfg.gutter * (colCfg.count - 1);
+    const colW = (usableW - totalGutter) / colCfg.count;
+    for (let c = 0; c < colCfg.count; c++) {
+      const lEdge = Math.round(m.left + c * (colW + colCfg.gutter));
+      const rEdge = Math.round(lEdge + colW);
+      targets.push(lEdge, rEdge);
+    }
+  }
+  return targets;
+}
+
+function snapBoxPosition(x, y, w, h, threshold = 7) {
+  const vTargets = getMagnetTargets('v');
+  const hTargets = getMagnetTargets('h');
+
+  let snappedX = x;
+  let snappedY = y;
+
+  // डावी कडा किंवा उजवी कडा गुलाबी मार्जिन/गाईड लाईनच्या जवळ आल्यास मॅग्नेटसारखे चिकटेल
+  for (const t of vTargets) {
+    if (Math.abs(x - t) <= threshold) {
+      snappedX = t;
+      break;
+    }
+    if (Math.abs((x + w) - t) <= threshold) {
+      snappedX = t - w;
+      break;
+    }
+  }
+
+  // वरची कडा किंवा खालची कडा गुलाबी मार्जिन/गाईड लाईनच्या जवळ आल्यास मॅग्नेटसारखे चिकटेल
+  for (const t of hTargets) {
+    if (Math.abs(y - t) <= threshold) {
+      snappedY = t;
+      break;
+    }
+    if (Math.abs((y + h) - t) <= threshold) {
+      snappedY = t - h;
+      break;
+    }
+  }
+
+  return { x: snappedX, y: snappedY };
+}
+
+function snapValue(val, axis) {
+  const targets = getMagnetTargets(axis);
+  for (const t of targets) {
+    if (Math.abs(val - t) <= 7) return t;
   }
   return val;
 }
@@ -350,10 +411,16 @@ function handlePagePointerDown(e) {
         previewBox.style.cssText = 'position:absolute;border:1px dashed #0a246a;background:rgba(10,36,106,0.06);pointer-events:none;z-index:200;';
         document.getElementById('page').appendChild(previewBox);
       }
-      previewBox.style.left = Math.min(startX, curX) + 'px';
-      previewBox.style.top = Math.min(startY, curY) + 'px';
-      previewBox.style.width = Math.max(60, w) + 'px';
-      previewBox.style.height = Math.max(30, h) + 'px';
+      const rawLeft = Math.min(startX, curX);
+      const rawTop = Math.min(startY, curY);
+      const rawW = Math.max(60, w);
+      const rawH = Math.max(30, h);
+      const snapped = snapBoxPosition(rawLeft, rawTop, rawW, rawH);
+
+      previewBox.style.left = snapped.x + 'px';
+      previewBox.style.top = snapped.y + 'px';
+      previewBox.style.width = rawW + 'px';
+      previewBox.style.height = rawH + 'px';
     }
 
     function cleanupTextDrag() {
@@ -432,8 +499,9 @@ function handlePagePointerDown(e) {
     const top = Math.min(startY, curY);
     const w = Math.max(12, Math.abs(curX - startX));
     const h = (shapeType === 'cline') ? 12 : Math.max(12, Math.abs(curY - startY));
-    el.style.left = left + 'px';
-    el.style.top = top + 'px';
+    const snapped = snapBoxPosition(left, top, w, h);
+    el.style.left = snapped.x + 'px';
+    el.style.top = snapped.y + 'px';
     el.style.width = w + 'px';
     el.style.height = h + 'px';
     populateShapeInner(el, shapeType, w, h);
@@ -461,7 +529,7 @@ function placeImage(event) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function(e) {
-    const el = createPMElement(60, 60, 180, 180);
+    const el = createPMElement(96, 72, 180, 180);
     const w = document.createElement('div');
     w.className = 'img-wrapper';
     const img = document.createElement('img');
@@ -543,11 +611,15 @@ function initDrag(e, el) {
   let sx = e.clientX, sy = e.clientY;
   let ox = parseInt(el.style.left) || 0;
   let oy = parseInt(el.style.top) || 0;
+  const w = parseInt(el.style.width) || 0;
+  const h = parseInt(el.style.height) || 0;
+
   function onMove(ev) {
-    const nx = snapValue(Math.round(ox + (ev.clientX - sx) / zoomLevel), 'v');
-    const ny = snapValue(Math.round(oy + (ev.clientY - sy) / zoomLevel), 'h');
-    el.style.left = nx + 'px';
-    el.style.top = ny + 'px';
+    const rawX = Math.round(ox + (ev.clientX - sx) / zoomLevel);
+    const rawY = Math.round(oy + (ev.clientY - sy) / zoomLevel);
+    const snapped = snapBoxPosition(rawX, rawY, w, h);
+    el.style.left = snapped.x + 'px';
+    el.style.top = snapped.y + 'px';
     updateControlPaletteInputs();
   }
   function onUp() {
@@ -573,15 +645,25 @@ function initResize(e, el, dir) {
     ev.preventDefault();
     let dx = (ev.clientX - sx) / zoomLevel;
     let dy = (ev.clientY - sy) / zoomLevel;
-    if (dir.includes('e')) el.style.width = Math.max(15, Math.round(ow + dx)) + 'px';
-    if (dir.includes('s')) el.style.height = Math.max(10, Math.round(oh + dy)) + 'px';
+    if (dir.includes('e')) {
+      const targetR = snapValue(Math.round(ox + ow + dx), 'v');
+      el.style.width = Math.max(15, targetR - ox) + 'px';
+    }
+    if (dir.includes('s')) {
+      const targetB = snapValue(Math.round(oy + oh + dy), 'h');
+      el.style.height = Math.max(10, targetB - oy) + 'px';
+    }
     if (dir.includes('w')) {
-      el.style.width = Math.max(15, Math.round(ow - dx)) + 'px';
-      el.style.left = Math.round(ox + dx) + 'px';
+      const targetL = snapValue(Math.round(ox + dx), 'v');
+      const newW = Math.max(15, (ox + ow) - targetL);
+      el.style.left = ((ox + ow) - newW) + 'px';
+      el.style.width = newW + 'px';
     }
     if (dir.includes('n')) {
-      el.style.height = Math.max(10, Math.round(oh - dy)) + 'px';
-      el.style.top = Math.round(oy + dy) + 'px';
+      const targetT = snapValue(Math.round(oy + dy), 'h');
+      const newH = Math.max(10, (oy + oh) - targetT);
+      el.style.top = ((oy + oh) - newH) + 'px';
+      el.style.height = newH + 'px';
     }
     checkTextOverflow(el);
     updateControlPaletteInputs();
@@ -735,6 +817,7 @@ function toggleReverseText() {
   }
 }
 
+/* १. एकाच शब्दातील अक्षरांमधील अंतर (Letter Spacing / Tracking) */
 function setLetterTrackingPrompt() {
   if (!selectedEl) {
     alert('प्रथम टेक्स्ट बॉक्स निवडा.');
@@ -743,10 +826,44 @@ function setLetterTrackingPrompt() {
   const tc = selectedEl.querySelector('.text-content');
   if (!tc) return;
   const cur = parseFloat(tc.style.letterSpacing) || 0;
-  const valStr = prompt('Letter Tracking / Spacing (px मध्ये, उदा. 0, 1, 2, -0.5):', cur);
+  const valStr = prompt('अक्षरांमधील अंतर (Letter Spacing px मध्ये, उदा. -1, 0, 1, 2, 4):', cur);
   if (valStr === null) return;
   saveState();
   tc.style.letterSpacing = (parseFloat(valStr) || 0) + 'px';
+  checkTextOverflow(selectedEl);
+}
+
+/* २. दोन शब्दांमधील अंतर (Word Spacing) */
+function setWordSpacingPrompt() {
+  if (!selectedEl) {
+    alert('प्रथम टेक्स्ट बॉक्स निवडा.');
+    return;
+  }
+  const tc = selectedEl.querySelector('.text-content');
+  if (!tc) return;
+  const cur = parseFloat(tc.style.wordSpacing) || 0;
+  const valStr = prompt('दोन शब्दांमधील अंतर (Word Spacing px मध्ये, उदा. 0, 3, 6, 12):', cur);
+  if (valStr === null) return;
+  saveState();
+  tc.style.wordSpacing = (parseFloat(valStr) || 0) + 'px';
+  checkTextOverflow(selectedEl);
+}
+
+/* ३. दोन उभ्या रेषांमधील / ओळींमधील अंतर (Line Spacing / Leading) */
+function setLineSpacingPrompt() {
+  if (!selectedEl) {
+    alert('प्रथम टेक्स्ट बॉक्स निवडा.');
+    return;
+  }
+  const tc = selectedEl.querySelector('.text-content');
+  if (!tc) return;
+  const cur = parseFloat(tc.style.lineHeight) || parseFloat(document.getElementById('line-leading').value) || 1.4;
+  const valStr = prompt('ओळींमधील / उभे अंतर (Line Leading, उदा. 1.1, 1.4, 1.8, 2.2):', cur);
+  if (valStr === null) return;
+  const nextVal = parseFloat(valStr) || 1.4;
+  document.getElementById('line-leading').value = nextVal;
+  saveState();
+  tc.style.lineHeight = nextVal;
   checkTextOverflow(selectedEl);
 }
 
