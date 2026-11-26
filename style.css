@@ -1,21 +1,76 @@
+/* Shree-Lipi Variants */
 @font-face {
   font-family: 'Shree-Dev-0708';
-  src: url('fonts/Shree-Dev-0708.ttf') format('truetype'),
-       url('fonts/Shree-Dev-0708.otf') format('opentype');
+  src: url('fonts/Shree-Dev-0708.ttf') format('truetype'), url('fonts/Shree-Dev-0708.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Shree-Dev-0702';
+  src: url('fonts/Shree-Dev-0702.ttf') format('truetype'), url('fonts/Shree-Dev-0702.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Shree-Dev-0714';
+  src: url('fonts/Shree-Dev-0714.ttf') format('truetype'), url('fonts/Shree-Dev-0714.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Shree-Dev-0720';
+  src: url('fonts/Shree-Dev-0720.ttf') format('truetype'), url('fonts/Shree-Dev-0720.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Shree-Dev-708E';
+  src: url('fonts/Shree-Dev-708E.ttf') format('truetype'), url('fonts/Shree-Dev-708E.otf') format('opentype');
   font-display: swap;
 }
 
+/* Kruti Dev Variants */
 @font-face {
   font-family: 'Kruti Dev 010';
-  src: url('fonts/Kruti-Dev-010.ttf') format('truetype'),
-       url('fonts/Kruti-Dev-010.otf') format('opentype');
+  src: url('fonts/Kruti-Dev-010.ttf') format('truetype'), url('fonts/Kruti-Dev-010.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Kruti Dev 020';
+  src: url('fonts/Kruti-Dev-020.ttf') format('truetype'), url('fonts/Kruti-Dev-020.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Kruti Dev 040';
+  src: url('fonts/Kruti-Dev-040.ttf') format('truetype'), url('fonts/Kruti-Dev-040.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Kruti Dev 050';
+  src: url('fonts/Kruti-Dev-050.ttf') format('truetype'), url('fonts/Kruti-Dev-050.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Kruti Dev 055';
+  src: url('fonts/Kruti-Dev-055.ttf') format('truetype'), url('fonts/Kruti-Dev-055.otf') format('opentype');
   font-display: swap;
 }
 
+/* Shivaji Lipi Variants */
 @font-face {
   font-family: 'Shivaji01';
-  src: url('fonts/Shivaji01.ttf') format('truetype'),
-       url('fonts/Shivaji01.otf') format('opentype');
+  src: url('fonts/Shivaji01.ttf') format('truetype'), url('fonts/Shivaji01.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Shivaji02';
+  src: url('fonts/Shivaji02.ttf') format('truetype'), url('fonts/Shivaji02.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Shivaji05';
+  src: url('fonts/Shivaji05.ttf') format('truetype'), url('fonts/Shivaji05.otf') format('opentype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Shivaji10';
+  src: url('fonts/Shivaji10.ttf') format('truetype'), url('fonts/Shivaji10.otf') format('opentype');
   font-display: swap;
 }
 
