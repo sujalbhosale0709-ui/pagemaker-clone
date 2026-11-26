@@ -559,6 +559,62 @@ function openStoryEditor() {
   }
 }
 
+function exportPageAsPNG() {
+  try {
+    const pageEl = document.getElementById('page');
+    const w = parseInt(pageEl.style.width) || 595;
+    const h = parseInt(pageEl.style.height) || 842;
+    const clone = pageEl.cloneNode(true);
+    ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
+      clone.querySelectorAll(sel).forEach(n => n.remove());
+    });
+    clone.querySelectorAll('.pm-element').forEach(el => {
+      el.classList.remove('selected', 'crop-mode');
+      el.style.outline = 'none';
+    });
+    clone.style.transform = 'none';
+
+    const svgData =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">` +
+      `<foreignObject width="100%" height="100%">` +
+      `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;background:#ffffff;position:relative;">` +
+      clone.innerHTML +
+      `</div></foreignObject></svg>`;
+
+    const img = new Image();
+    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    img.onload = function() {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0);
+        const pngUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = pngUrl;
+        a.download = `Page_${activePageId}.png`;
+        a.click();
+      } catch (err) {
+        alert('PNG तयार करताना अडचण आली; PDF / Print पर्याय वापरून पहा.');
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      alert('PNG एक्सपोर्ट शक्य झाले नाही; PDF / Print पर्याय वापरून पहा.');
+    };
+    img.src = url;
+  } catch (e) {
+    alert('PNG एक्सपोर्ट शक्य झाले नाही.');
+  }
+}
+
 function duplicateSelected() {
   if (!selectedEl) return;
   saveState();
