@@ -10,6 +10,23 @@ function ensureGuideBucket(id) {
   if (!pageGuides[id]) pageGuides[id] = { h: [], v: [] };
 }
 
+function applyFontFamily(fontVal) {
+  const selectEl = document.getElementById('font-family');
+  if (selectEl) {
+    selectEl.style.fontFamily = fontVal;
+  }
+  if (selectedEl) {
+    saveState();
+    const tc = selectedEl.querySelector('.text-content');
+    if (tc) {
+      tc.style.fontFamily = fontVal;
+      tc.querySelectorAll('*').forEach(child => {
+        child.style.fontFamily = fontVal;
+      });
+    }
+  }
+}
+
 function buildRulers() {
   const rh = document.getElementById('ruler-h');
   const rv = document.getElementById('ruler-v');
@@ -17,44 +34,63 @@ function buildRulers() {
   rh.innerHTML = '';
   rv.innerHTML = '';
 
-  const pxPerInch = 96 * zoomLevel;
-  const maxWidth = 1400;
-  const maxHeight = 1600;
+  const pageEl = document.getElementById('page');
+  const pbEl = document.getElementById('pasteboard');
+  const pageRect = pageEl.getBoundingClientRect();
+  const rhRect = rh.getBoundingClientRect();
+  const rvRect = rv.getBoundingClientRect();
 
-  for (let px = 0; px <= maxWidth; px += Math.max(8, Math.round(pxPerInch / 8))) {
-    const inchIndex = Math.round(px / (pxPerInch / 8));
-    const isInch = inchIndex % 8 === 0;
-    const isHalf = inchIndex % 4 === 0;
+  // पानाच्या 0 (डावी/वरची कड) पासून मोजणी सुरू होईल आणि 1 इंच = 96px * zoomLevel
+  const pxPerInch = 96 * zoomLevel;
+  const stepQuarter = pxPerInch / 4; // प्रत्येक पाव इंचावर १ रेष (एकूण 4 divisions per inch)
+
+  const originX = (pageRect.left - rhRect.left) + (pbEl ? pbEl.scrollLeft : 0);
+  const originY = (pageRect.top - rvRect.top) + (pbEl ? pbEl.scrollTop : 0);
+
+  const maxInchesH = 12;
+  const totalStepsH = maxInchesH * 4;
+  for (let i = 0; i <= totalStepsH; i++) {
+    const pos = Math.round(originX + i * stepQuarter);
+    if (pos < -20 || pos > rh.clientWidth + 40) continue;
+
+    const isInch = (i % 4 === 0);
+    const isHalf = (i % 2 === 0) && !isInch;
+
     const tick = document.createElement('div');
     tick.className = 'ruler-tick-h';
-    tick.style.left = px + 'px';
+    tick.style.left = pos + 'px';
     tick.style.height = isInch ? '12px' : (isHalf ? '8px' : '5px');
     rh.appendChild(tick);
 
     if (isInch) {
       const lbl = document.createElement('div');
       lbl.className = 'ruler-label-h';
-      lbl.style.left = px + 'px';
-      lbl.textContent = (inchIndex / 8);
+      lbl.style.left = pos + 'px';
+      lbl.textContent = (i / 4);
       rh.appendChild(lbl);
     }
   }
 
-  for (let py = 0; py <= maxHeight; py += Math.max(8, Math.round(pxPerInch / 8))) {
-    const inchIndex = Math.round(py / (pxPerInch / 8));
-    const isInch = inchIndex % 8 === 0;
-    const isHalf = inchIndex % 4 === 0;
+  const maxInchesV = 15;
+  const totalStepsV = maxInchesV * 4;
+  for (let j = 0; j <= totalStepsV; j++) {
+    const pos = Math.round(originY + j * stepQuarter);
+    if (pos < -20 || pos > rv.clientHeight + 40) continue;
+
+    const isInch = (j % 4 === 0);
+    const isHalf = (j % 2 === 0) && !isInch;
+
     const tick = document.createElement('div');
     tick.className = 'ruler-tick-v';
-    tick.style.top = py + 'px';
+    tick.style.top = pos + 'px';
     tick.style.width = isInch ? '12px' : (isHalf ? '8px' : '5px');
     rv.appendChild(tick);
 
     if (isInch) {
       const lbl = document.createElement('div');
       lbl.className = 'ruler-label-v';
-      lbl.style.top = py + 'px';
-      lbl.textContent = (inchIndex / 8);
+      lbl.style.top = pos + 'px';
+      lbl.textContent = (j / 4);
       rv.appendChild(lbl);
     }
   }
@@ -257,6 +293,7 @@ function setPageSize(w, h) {
   p.style.height = h + 'px';
   p.style.minWidth = w + 'px';
   p.style.minHeight = h + 'px';
+  buildRulers();
 }
 
 function setZoom(l) {
@@ -285,10 +322,16 @@ function printAllPages() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  const selectEl = document.getElementById('font-family');
+  if (selectEl) selectEl.style.fontFamily = selectEl.value;
   buildRulers();
   initRulerDrag();
   renderGuides();
   makePaletteDraggable('toolbox', 'toolbox-drag');
   makePaletteDraggable('color-palette', 'colors-drag');
   makePaletteDraggable('control-palette', 'control-drag');
+
+  const pb = document.getElementById('pasteboard');
+  if (pb) pb.addEventListener('scroll', buildRulers);
+  window.addEventListener('resize', buildRulers);
 });
