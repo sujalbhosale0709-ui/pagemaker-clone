@@ -34,6 +34,7 @@ function makePaletteDraggable(boxId, handleId) {
 
   handle.onpointerdown = (e) => {
     if (e.target.tagName === 'SPAN' && e.target.textContent === '×') return;
+    e.preventDefault();
     e.stopPropagation();
     const rect = box.getBoundingClientRect();
     const sx = e.clientX - rect.left;
@@ -50,9 +51,11 @@ function makePaletteDraggable(boxId, handleId) {
     function onUp() {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     }
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
   };
 }
 
@@ -194,6 +197,7 @@ function checkTextOverflow(el) {
       badge.textContent = '▼';
       badge.style.cssText = 'position:absolute;right:2px;bottom:2px;width:14px;height:14px;background:#d00;color:#fff;font-size:9px;line-height:14px;text-align:center;cursor:pointer;z-index:30;';
       badge.onpointerdown = (ev) => {
+        ev.preventDefault();
         ev.stopPropagation();
         pendingThreadSource = el;
         selectTool('text');
@@ -210,7 +214,9 @@ function attachElementEvents(el) {
   el.querySelectorAll('.handle').forEach(h => {
     const dir = h.className.replace('handle', '').trim();
     h.onpointerdown = (e) => {
+      e.preventDefault();
       e.stopPropagation();
+      selectElement(el);
       saveState();
       if (currentTool === 'crop') initCrop(e, el, dir);
       else initResize(e, el, dir);
@@ -234,6 +240,7 @@ function attachElementEvents(el) {
       selectElement(el);
       return;
     }
+    e.preventDefault();
     e.stopPropagation();
     selectElement(el);
     if (currentTool === 'rotate') { saveState(); initRotate(e, el); }
@@ -349,9 +356,14 @@ function handlePagePointerDown(e) {
       previewBox.style.height = Math.max(30, h) + 'px';
     }
 
-    function onTextDragUp(ev) {
+    function cleanupTextDrag() {
       window.removeEventListener('pointermove', onTextDragMove);
       window.removeEventListener('pointerup', onTextDragUp);
+      window.removeEventListener('pointercancel', cleanupTextDrag);
+    }
+
+    function onTextDragUp() {
+      cleanupTextDrag();
       if (previewBox) {
         const bx = parseInt(previewBox.style.left);
         const by = parseInt(previewBox.style.top);
@@ -402,6 +414,7 @@ function handlePagePointerDown(e) {
 
     window.addEventListener('pointermove', onTextDragMove);
     window.addEventListener('pointerup', onTextDragUp);
+    window.addEventListener('pointercancel', cleanupTextDrag);
     return;
   }
 
@@ -430,11 +443,13 @@ function handlePagePointerDown(e) {
   function onUp() {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
     selectTool('pointer');
   }
 
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 }
 
 function triggerPlaceImage() {
@@ -473,9 +488,11 @@ function handlePasteboardDown(e) {
     pb.style.cursor = 'grab';
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 }
 
 function initRotate(e, el) {
@@ -491,9 +508,11 @@ function initRotate(e, el) {
   function onUp() {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 }
 
 function initCrop(e, el, dir) {
@@ -513,9 +532,11 @@ function initCrop(e, el, dir) {
   function onUp() {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 }
 
 function initDrag(e, el) {
@@ -532,12 +553,15 @@ function initDrag(e, el) {
   function onUp() {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 }
 
 function initResize(e, el, dir) {
+  e.preventDefault();
   e.stopPropagation();
   let sx = e.clientX, sy = e.clientY;
   let ow = parseInt(el.style.width) || 50;
@@ -546,6 +570,7 @@ function initResize(e, el, dir) {
   let oy = parseInt(el.style.top) || 0;
 
   function onMove(ev) {
+    ev.preventDefault();
     let dx = (ev.clientX - sx) / zoomLevel;
     let dy = (ev.clientY - sy) / zoomLevel;
     if (dir.includes('e')) el.style.width = Math.max(15, Math.round(ow + dx)) + 'px';
@@ -564,9 +589,11 @@ function initResize(e, el, dir) {
   function onUp() {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 }
 
 function selectElement(el) {
@@ -871,8 +898,8 @@ function openStoryEditor() {
 function exportPageAsPNG() {
   try {
     const pageEl = document.getElementById('page');
-    const w = parseInt(pageEl.style.width) || 595;
-    const h = parseInt(pageEl.style.height) || 842;
+    const w = parseInt(pageEl.style.width) || 816;
+    const h = parseInt(pageEl.style.height) || 1056;
     const clone = pageEl.cloneNode(true);
     ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
       clone.querySelectorAll(sel).forEach(n => n.remove());
