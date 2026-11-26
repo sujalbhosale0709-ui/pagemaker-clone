@@ -469,6 +469,12 @@ function updateBoxRotation() {
 }
 
 function applyStyle(cmd, val = null) {
+  if (selectedEl) {
+    const tc = selectedEl.querySelector('.text-content');
+    if (tc && document.activeElement !== tc) {
+      tc.focus();
+    }
+  }
   document.execCommand(cmd, false, val);
   if (selectedEl && cmd === 'fontName') {
     applyFontFamily(val);
