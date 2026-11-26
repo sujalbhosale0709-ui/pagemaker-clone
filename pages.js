@@ -1,84 +1,294 @@
-let currentTool = 'text', selectedEl = null, zoomLevel = 1, activePageId = 1, totalPages = 1;
+let currentTool = 'text';
+let selectedEl = null;
+let zoomLevel = 1;
+let activePageId = 1;
+let totalPages = 1;
 let pagesData = { 'M': '', 1: '' };
+let pageGuides = { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
+
+function ensureGuideBucket(id) {
+  if (!pageGuides[id]) pageGuides[id] = { h: [], v: [] };
+}
+
+function buildRulers() {
+  const rh = document.getElementById('ruler-h');
+  const rv = document.getElementById('ruler-v');
+  if (!rh || !rv) return;
+  rh.innerHTML = '';
+  rv.innerHTML = '';
+
+  const pxPerInch = 96 * zoomLevel;
+  const maxWidth = 1400;
+  const maxHeight = 1600;
+
+  for (let px = 0; px <= maxWidth; px += Math.max(8, Math.round(pxPerInch / 8))) {
+    const inchIndex = Math.round(px / (pxPerInch / 8));
+    const isInch = inchIndex % 8 === 0;
+    const isHalf = inchIndex % 4 === 0;
+    const tick = document.createElement('div');
+    tick.className = 'ruler-tick-h';
+    tick.style.left = px + 'px';
+    tick.style.height = isInch ? '12px' : (isHalf ? '8px' : '5px');
+    rh.appendChild(tick);
+
+    if (isInch) {
+      const lbl = document.createElement('div');
+      lbl.className = 'ruler-label-h';
+      lbl.style.left = px + 'px';
+      lbl.textContent = (inchIndex / 8);
+      rh.appendChild(lbl);
+    }
+  }
+
+  for (let py = 0; py <= maxHeight; py += Math.max(8, Math.round(pxPerInch / 8))) {
+    const inchIndex = Math.round(py / (pxPerInch / 8));
+    const isInch = inchIndex % 8 === 0;
+    const isHalf = inchIndex % 4 === 0;
+    const tick = document.createElement('div');
+    tick.className = 'ruler-tick-v';
+    tick.style.top = py + 'px';
+    tick.style.width = isInch ? '12px' : (isHalf ? '8px' : '5px');
+    rv.appendChild(tick);
+
+    if (isInch) {
+      const lbl = document.createElement('div');
+      lbl.className = 'ruler-label-v';
+      lbl.style.top = py + 'px';
+      lbl.textContent = (inchIndex / 8);
+      rv.appendChild(lbl);
+    }
+  }
+}
+
+function renderGuides() {
+  ensureGuideBucket(activePageId);
+  const layer = document.getElementById('guides-layer');
+  if (!layer) return;
+  layer.innerHTML = '';
+
+  const bucket = pageGuides[activePageId];
+  bucket.h.forEach((pos, idx) => {
+    const line = document.createElement('div');
+    line.className = 'guide-line-h';
+    line.style.top = pos + 'px';
+    line.onpointerdown = (e) => {
+      e.stopPropagation();
+      const pageRect = document.getElementById('page').getBoundingClientRect();
+      function onMove(ev) {
+        const y = Math.round((ev.clientY - pageRect.top) / zoomLevel);
+        bucket.h[idx] = y;
+        line.style.top = y + 'px';
+      }
+      function onUp() {
+        if (bucket.h[idx] < 0) bucket.h.splice(idx, 1);
+        renderGuides();
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      }
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    };
+    layer.appendChild(line);
+  });
+
+  bucket.v.forEach((pos, idx) => {
+    const line = document.createElement('div');
+    line.className = 'guide-line-v';
+    line.style.left = pos + 'px';
+    line.onpointerdown = (e) => {
+      e.stopPropagation();
+      const pageRect = document.getElementById('page').getBoundingClientRect();
+      function onMove(ev) {
+        const x = Math.round((ev.clientX - pageRect.left) / zoomLevel);
+        bucket.v[idx] = x;
+        line.style.left = x + 'px';
+      }
+      function onUp() {
+        if (bucket.v[idx] < 0) bucket.v.splice(idx, 1);
+        renderGuides();
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      }
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    };
+    layer.appendChild(line);
+  });
+}
+
+function clearGuides() {
+  ensureGuideBucket(activePageId);
+  pageGuides[activePageId] = { h: [], v: [] };
+  renderGuides();
+}
+
+function toggleMargins() {
+  const mg = document.getElementById('margin-guide');
+  const gl = document.getElementById('guides-layer');
+  const hide = mg.style.display === 'none';
+  mg.style.display = hide ? 'block' : 'none';
+  gl.style.display = hide ? 'block' : 'none';
+}
+
+function initRulerDrag() {
+  const rh = document.getElementById('ruler-h');
+  const rv = document.getElementById('ruler-v');
+  if (rh) {
+    rh.onpointerdown = (e) => {
+      e.preventDefault();
+      ensureGuideBucket(activePageId);
+      const pageRect = document.getElementById('page').getBoundingClientRect();
+      const y0 = Math.max(0, Math.round((e.clientY - pageRect.top) / zoomLevel));
+      pageGuides[activePageId].h.push(y0);
+      const idx = pageGuides[activePageId].h.length - 1;
+      renderGuides();
+      function onMove(ev) {
+        pageGuides[activePageId].h[idx] = Math.round((ev.clientY - pageRect.top) / zoomLevel);
+        renderGuides();
+      }
+      function onUp() {
+        if (pageGuides[activePageId].h[idx] < 0) pageGuides[activePageId].h.splice(idx, 1);
+        renderGuides();
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      }
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    };
+  }
+  if (rv) {
+    rv.onpointerdown = (e) => {
+      e.preventDefault();
+      ensureGuideBucket(activePageId);
+      const pageRect = document.getElementById('page').getBoundingClientRect();
+      const x0 = Math.max(0, Math.round((e.clientX - pageRect.left) / zoomLevel));
+      pageGuides[activePageId].v.push(x0);
+      const idx = pageGuides[activePageId].v.length - 1;
+      renderGuides();
+      function onMove(ev) {
+        pageGuides[activePageId].v[idx] = Math.round((ev.clientX - pageRect.left) / zoomLevel);
+        renderGuides();
+      }
+      function onUp() {
+        if (pageGuides[activePageId].v[idx] < 0) pageGuides[activePageId].v.splice(idx, 1);
+        renderGuides();
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      }
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    };
+  }
+}
 
 function saveCurrentPageContent() {
- const clone = document.getElementById('page').cloneNode(true);
- const guide = clone.querySelector('.margin-guide'), master = clone.querySelector('.master-layer');
- if (guide) guide.remove(); 
- if (master) master.remove();
- clone.querySelectorAll('.pm-element').forEach(el => el.classList.remove('selected', 'crop-mode'));
- pagesData[activePageId] = clone.innerHTML;
+  const page = document.getElementById('page');
+  const clone = page.cloneNode(true);
+  ['.margin-guide', '.master-layer', '.guides-layer'].forEach(sel => {
+    const n = clone.querySelector(sel);
+    if (n) n.remove();
+  });
+  clone.querySelectorAll('.pm-element').forEach(el => el.classList.remove('selected', 'crop-mode'));
+  pagesData[activePageId] = clone.innerHTML;
 }
 
 function switchPage(targetId) {
- saveCurrentPageContent(); 
- activePageId = targetId; 
- selectedEl = null;
- const page = document.getElementById('page');
- const masterHTML = (targetId === 'M') ? '' : (pagesData['M'] || '');
- page.innerHTML = `<div class="margin-guide"></div><div class="master-layer" id="master-layer">${masterHTML}</div>${pagesData[targetId] || ''}`;
- page.querySelectorAll(':scope > .pm-element').forEach(el => attachElementEvents(el));
- document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
- const tab = document.getElementById('tab-' + targetId);
- if (tab) tab.classList.add('active');
- document.getElementById('page-indicator').innerText = (targetId === 'M') ? '[Master Page]' : `[Page ${targetId} of ${totalPages}]`;
+  saveCurrentPageContent();
+  activePageId = targetId;
+  ensureGuideBucket(activePageId);
+  selectedEl = null;
+
+  const page = document.getElementById('page');
+  const masterHTML = (targetId === 'M') ? '' : (pagesData['M'] || '');
+  page.innerHTML =
+    `<div class="margin-guide"></div>` +
+    `<div class="master-layer" id="master-layer">${masterHTML}</div>` +
+    `<div class="guides-layer" id="guides-layer"></div>` +
+    `${pagesData[targetId] || ''}`;
+
+  page.querySelectorAll(':scope > .pm-element').forEach(el => attachElementEvents(el));
+  renderGuides();
+
+  document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('tab-' + targetId);
+  if (tab) tab.classList.add('active');
+  document.getElementById('page-indicator').innerText =
+    (targetId === 'M') ? '[Master Page]' : `[Page ${targetId} of ${totalPages}]`;
 }
 
-function insertNewPage() { 
- saveState();
- saveCurrentPageContent(); 
- totalPages++; 
- pagesData[totalPages] = ''; 
- renderPageTabs(); 
- switchPage(totalPages); 
+function insertNewPage() {
+  saveState();
+  saveCurrentPageContent();
+  totalPages++;
+  pagesData[totalPages] = '';
+  ensureGuideBucket(totalPages);
+  renderPageTabs();
+  switchPage(totalPages);
 }
 
 function removeCurrentPage() {
- if (activePageId === 'M' || totalPages <= 1) return;
- if (!confirm(`Page ${activePageId} डिलीट करायचे का?`)) return;
- saveState();
- for (let i = activePageId; i < totalPages; i++) pagesData[i] = pagesData[i + 1];
- delete pagesData[totalPages]; 
- totalPages--; 
- renderPageTabs(); 
- switchPage(Math.min(activePageId, totalPages));
+  if (activePageId === 'M' || totalPages <= 1) return;
+  if (!confirm(`Page ${activePageId} डिलीट करायचे का?`)) return;
+  saveState();
+  for (let i = activePageId; i < totalPages; i++) {
+    pagesData[i] = pagesData[i + 1];
+    pageGuides[i] = pageGuides[i + 1];
+  }
+  delete pagesData[totalPages];
+  delete pageGuides[totalPages];
+  totalPages--;
+  renderPageTabs();
+  switchPage(Math.min(activePageId, totalPages));
 }
 
 function renderPageTabs() {
- const bar = document.getElementById('page-bar');
- bar.innerHTML = `<div class="page-tab master ${activePageId === 'M' ? 'active' : ''}" id="tab-M" onclick="switchPage('M')">M</div>`;
- for (let i = 1; i <= totalPages; i++) {
-  bar.innerHTML += `<div class="page-tab ${activePageId === i ? 'active' : ''}" id="tab-${i}" onclick="switchPage(${i})">${i}</div>`;
- }
- bar.innerHTML += `<button class="add-page-btn" onclick="insertNewPage()">+ Add Page</button>`;
+  const bar = document.getElementById('page-bar');
+  bar.innerHTML = `<div class="page-tab master ${activePageId === 'M' ? 'active' : ''}" id="tab-M" onclick="switchPage('M')">M</div>`;
+  for (let i = 1; i <= totalPages; i++) {
+    bar.innerHTML += `<div class="page-tab ${activePageId === i ? 'active' : ''}" id="tab-${i}" onclick="switchPage(${i})">${i}</div>`;
+  }
+  bar.innerHTML += `<button type="button" class="add-page-btn" onclick="insertNewPage()">+ Page</button>`;
 }
 
-function setPageSize(w, h) { 
- const p = document.getElementById('page'); 
- p.style.width = w + 'px'; 
- p.style.height = h + 'px'; 
- p.style.minWidth = w + 'px'; 
- p.style.minHeight = h + 'px'; 
+function setPageSize(w, h) {
+  saveState();
+  const p = document.getElementById('page');
+  p.style.width = w + 'px';
+  p.style.height = h + 'px';
+  p.style.minWidth = w + 'px';
+  p.style.minHeight = h + 'px';
 }
 
-function setZoom(l) { 
- zoomLevel = l; 
- document.getElementById('page').style.transform = `scale(${l})`; 
+function setZoom(l) {
+  zoomLevel = Math.max(0.4, Math.min(2.5, Number(l) || 1));
+  document.getElementById('page').style.transform = `scale(${zoomLevel})`;
+  const lbl = document.getElementById('zoom-lbl');
+  if (lbl) lbl.innerText = Math.round(zoomLevel * 100) + '%';
+  buildRulers();
 }
 
 function printAllPages() {
- saveCurrentPageContent();
- const container = document.getElementById('print-all-container');
- container.innerHTML = '';
- const pageW = document.getElementById('page').style.width || '595px';
- const pageH = document.getElementById('page').style.height || '842px';
- for (let i = 1; i <= totalPages; i++) {
-  const pDiv = document.createElement('div');
-  pDiv.className = 'print-page'; 
-  pDiv.style.width = pageW; 
-  pDiv.style.height = pageH;
-  pDiv.innerHTML = `<div class="master-layer">${pagesData['M'] || ''}</div>${pagesData[i] || ''}`;
-  container.appendChild(pDiv);
- }
- window.print();
+  saveCurrentPageContent();
+  const container = document.getElementById('print-all-container');
+  container.innerHTML = '';
+  const pageW = document.getElementById('page').style.width || '595px';
+  const pageH = document.getElementById('page').style.height || '842px';
+  for (let i = 1; i <= totalPages; i++) {
+    const pDiv = document.createElement('div');
+    pDiv.className = 'print-page';
+    pDiv.style.width = pageW;
+    pDiv.style.height = pageH;
+    pDiv.innerHTML = `<div class="master-layer">${pagesData['M'] || ''}</div>${pagesData[i] || ''}`;
+    container.appendChild(pDiv);
+  }
+  window.print();
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+  buildRulers();
+  initRulerDrag();
+  renderGuides();
+  makePaletteDraggable('toolbox', 'toolbox-drag');
+  makePaletteDraggable('color-palette', 'colors-drag');
+  makePaletteDraggable('control-palette', 'control-drag');
+});
