@@ -5,10 +5,11 @@ function saveState() {
   historyStack.push(JSON.stringify({
     pagesData,
     pageGuides,
+    pageColumns,
     totalPages,
     activePageId
   }));
-  if (historyStack.length > 30) historyStack.shift();
+  if (historyStack.length > 35) historyStack.shift();
 }
 
 function undo() {
@@ -16,6 +17,7 @@ function undo() {
   const prev = JSON.parse(historyStack.pop());
   pagesData = prev.pagesData || { 'M': '', 1: '' };
   pageGuides = prev.pageGuides || { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
+  pageColumns = prev.pageColumns || { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
   totalPages = prev.totalPages || 1;
   renderPageTabs();
   switchPage(prev.activePageId || 1);
@@ -23,7 +25,7 @@ function undo() {
 
 function saveProject() {
   saveCurrentPageContent();
-  const payload = JSON.stringify({ pagesData, pageGuides, totalPages, activePageId });
+  const payload = JSON.stringify({ pagesData, pageGuides, pageColumns, totalPages, activePageId });
   const blob = new Blob([payload], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -39,6 +41,7 @@ function loadProject(e) {
     const d = JSON.parse(ev.target.result);
     pagesData = d.pagesData || { 'M': '', 1: '' };
     pageGuides = d.pageGuides || { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
+    pageColumns = d.pageColumns || { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
     totalPages = d.totalPages || 1;
     renderPageTabs();
     switchPage(d.activePageId || 1);
@@ -52,13 +55,13 @@ function newDocument() {
     historyStack = [];
     pagesData = { 'M': '', 1: '' };
     pageGuides = { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
+    pageColumns = { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
     totalPages = 1;
     renderPageTabs();
     switchPage(1);
   }
 }
 
-// External Keyboard Shortcuts (मजकूर टाइप करत नसताना टूल्स व बॉक्स कंट्रोल)
 document.addEventListener('keydown', function(e) {
   const isTyping = document.activeElement &&
     (document.activeElement.classList.contains('text-content') ||
