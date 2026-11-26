@@ -3,158 +3,202 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Adobe PageMaker 7.0 - Multi-Page DTP Edition</title>
+<title>Adobe PageMaker 7.0 - DTP Studio</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body onclick="closeMenus()">
- <div class="menu-bar">
-  <div class="menu-item" onclick="toggleMenu(event, 'menu-file')"><u>F</u>ile</div>
-  <div class="menu-item" onclick="toggleMenu(event, 'menu-edit')"><u>E</u>dit</div>
-  <div class="menu-item" onclick="toggleMenu(event, 'menu-layout')"><u>L</u>ayout</div>
-  <div class="menu-item" onclick="toggleMenu(event, 'menu-element')"><u>E</u>lement</div>
-  <div class="menu-item" onclick="toggleMenu(event, 'menu-view')"><u>V</u>iew</div>
-  <div class="menu-item" onclick="toggleColorPalette()"><u>W</u>indow (Colors)</div>
- </div>
-
- <div id="menu-file" class="dropdown" style="left: 4px;">
-  <div class="dropdown-item" onclick="newDocument()"><span>New Publication</span><span>Ctrl+N</span></div>
-  <div class="dropdown-item" onclick="document.getElementById('project-input').click()"><span>Open...</span><span>Ctrl+O</span></div>
-  <div class="dropdown-item" onclick="saveProject()"><span>Save Project</span><span>Ctrl+S</span></div>
-  <div class="dropdown-divider"></div>
-  <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place Image...</span><span>Ctrl+D</span></div>
-  <div class="dropdown-divider"></div>
-  <div class="dropdown-item" onclick="printAllPages()"><span>Print All Pages / PDF</span><span>Ctrl+P</span></div>
- </div>
-
- <div id="menu-edit" class="dropdown" style="left: 38px;">
-  <div class="dropdown-item" onclick="undo()"><span>Undo</span><span>Ctrl+Z</span></div>
-  <div class="dropdown-divider"></div>
-  <div class="dropdown-item" onclick="duplicateSelected()"><span>Duplicate Box</span><span>Ctrl+V</span></div>
-  <div class="dropdown-item" onclick="deleteSelected()"><span>Clear Box</span><span>Del</span></div>
- </div>
-
- <div id="menu-layout" class="dropdown" style="left: 75px;">
-  <div class="dropdown-item" onclick="insertNewPage()"><span>Insert Pages...</span></div>
-  <div class="dropdown-item" onclick="removeCurrentPage()"><span>Remove Current Page</span></div>
-  <div class="dropdown-divider"></div>
-  <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Portrait</span></div>
-  <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Landscape</span></div>
-  <div class="dropdown-item" onclick="setPageSize(420, 595)"><span>A5 Wedding Card</span></div>
- </div>
-
- <div id="menu-element" class="dropdown" style="left: 122px;">
-  <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span></div>
-  <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span></div>
-  <div class="dropdown-divider"></div>
-  <div class="dropdown-item" onclick="changeStrokeWidth(1)"><span>Stroke: 1pt</span></div>
-  <div class="dropdown-item" onclick="changeStrokeWidth(3)"><span>Stroke: 3pt</span></div>
-  <div class="dropdown-item" onclick="changeStrokeWidth(6)"><span>Stroke: 6pt</span></div>
- </div>
-
- <div id="menu-view" class="dropdown" style="left: 175px;">
-  <div class="dropdown-item" onclick="setZoom(1)"><span>Actual Size (100%)</span></div>
-  <div class="dropdown-item" onclick="setZoom(0.6)"><span>Fit in Window (60%)</span></div>
-  <div class="dropdown-item" onclick="setZoom(1.5)"><span>Zoom In (150%)</span></div>
- </div>
-
- <input type="file" id="image-input" accept="image/*" style="display:none" onchange="placeImage(event)">
- <input type="file" id="project-input" accept=".json" style="display:none" onchange="loadProject(event)">
-
- <div class="toolbar">
-  <button class="btn" onclick="newDocument()">New</button>
-  <button class="btn" onclick="saveProject()">Save</button>
-  <button class="btn" onclick="undo()">Undo</button>
-  <button class="btn" onclick="triggerPlaceImage()">Place (Ctrl+D)</button>
-  <button class="btn" onclick="duplicateSelected()">Copy</button>
-  <button class="btn" onclick="deleteSelected()">Delete</button>
-  <button class="btn" onclick="printAllPages()">PDF / Print</button>
-  <span id="page-indicator" style="font-weight:bold; color:#8b0000; margin-left: 6px;">[Page 1 of 1]</span>
- </div>
-
- <div class="workspace-container">
-  <div class="ruler-corner"></div>
-  <div class="ruler-h">0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8 in</div>
-  <div class="ruler-v">0<br><br><br>1<br><br><br>2<br><br><br>3<br><br><br>4<br><br><br>5<br><br><br>6<br><br><br>7<br><br><br>8<br><br><br>9<br><br><br>10</div>
-
-  <div class="toolbox" id="toolbox">
-   <div class="palette-header">Tools</div>
-   <div class="tool-grid">
-    <div class="tool-btn" id="tool-pointer" onclick="selectTool('pointer')" title="Pointer">↖</div>
-    <div class="tool-btn active" id="tool-text" onclick="selectTool('text')" title="Text">T</div>
-    <div class="tool-btn" id="tool-rotate" onclick="selectTool('rotate')" title="Rotate">↻</div>
-    <div class="tool-btn" id="tool-crop" onclick="selectTool('crop')" title="Crop">◰</div>
-    <div class="tool-btn" id="tool-line" onclick="selectTool('line')" title="Line">╲</div>
-    <div class="tool-btn" id="tool-cline" onclick="selectTool('cline')" title="Constrained Line">│</div>
-    <div class="tool-btn" id="tool-rect" onclick="selectTool('rect')" title="Rectangle">▭</div>
-    <div class="tool-btn" id="tool-rectframe" onclick="selectTool('rectframe')" title="Rectangle Frame">☒</div>
-    <div class="tool-btn" id="tool-ellipse" onclick="selectTool('ellipse')" title="Ellipse">○</div>
-    <div class="tool-btn" id="tool-ellipseframe" onclick="selectTool('ellipseframe')" title="Ellipse Frame">⊗</div>
-    <div class="tool-btn" id="tool-polygon" onclick="selectTool('polygon')" title="Polygon">⬠</div>
-    <div class="tool-btn" id="tool-polygonframe" onclick="selectTool('polygonframe')" title="Polygon Frame">⬡</div>
-    <div class="tool-btn" id="tool-hand" onclick="selectTool('hand')" title="Hand">✋</div>
-    <div class="tool-btn" id="tool-zoom" onclick="selectTool('zoom')" title="Zoom">🔍</div>
-   </div>
+  <div class="menu-bar" id="menu-bar">
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-file')"><u>F</u>ile</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-edit')"><u>E</u>dit</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-layout')"><u>L</u>ayout</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-type')"><u>T</u>ype</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-element')"><u>E</u>lement</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-utilities')"><u>U</u>tilities</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-view')"><u>V</u>iew</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-window')"><u>W</u>indow</div>
   </div>
 
-  <div class="color-palette" id="color-palette">
-   <div class="palette-header">Colors</div>
-   <div class="swatch-list">
-    <div class="swatch" onclick="applyColor('#000000')"><div class="swatch-box" style="background:#000000"></div>Black</div>
-    <div class="swatch" onclick="applyColor('#ff0000')"><div class="swatch-box" style="background:#ff0000"></div>Red</div>
-    <div class="swatch" onclick="applyColor('#0000ff')"><div class="swatch-box" style="background:#0000ff"></div>Blue</div>
-    <div class="swatch" onclick="applyColor('#008000')"><div class="swatch-box" style="background:#008000"></div>Green</div>
-    <div class="swatch" onclick="applyColor('#ff00ff')"><div class="swatch-box" style="background:#ff00ff"></div>Magenta</div>
-    <div class="swatch" onclick="applyColor('#00ffff')"><div class="swatch-box" style="background:#00ffff"></div>Cyan</div>
-    <div class="swatch" onclick="applyColor('#ffff00')"><div class="swatch-box" style="background:#ffff00"></div>Yellow</div>
-    <div class="swatch" onclick="applyFillColor()"><div class="swatch-box" style="background:#ffe4b5"></div>Fill Box</div>
-   </div>
+  <!-- Menus -->
+  <div id="menu-file" class="dropdown" style="left: 4px;">
+    <div class="dropdown-item" onclick="newDocument()"><span>New Publication</span><span>Ctrl+N</span></div>
+    <div class="dropdown-item" onclick="document.getElementById('project-input').click()"><span>Open...</span><span>Ctrl+O</span></div>
+    <div class="dropdown-item" onclick="saveProject()"><span>Save</span><span>Ctrl+S</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place...</span><span>Ctrl+D</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="printAllPages()"><span>Print / PDF</span><span>Ctrl+P</span></div>
   </div>
 
-  <div class="pasteboard" id="pasteboard" onpointerdown="handlePasteboardDown(event)" onclick="deselectAll(event)">
-   <div class="page" id="page" onclick="handlePageClick(event)">
-    <div class="margin-guide"></div>
-    <div class="master-layer" id="master-layer"></div>
-   </div>
+  <div id="menu-edit" class="dropdown" style="left: 34px;">
+    <div class="dropdown-item" onclick="undo()"><span>Undo</span><span>Ctrl+Z</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="duplicateSelected()"><span>Duplicate</span><span>Ctrl+D / V</span></div>
+    <div class="dropdown-item" onclick="deleteSelected()"><span>Clear</span><span>Del</span></div>
+    <div class="dropdown-item" onclick="selectAllOnPage()"><span>Select All</span><span>Ctrl+A</span></div>
   </div>
 
-  <div class="control-palette">
-   <div class="palette-header" style="writing-mode: vertical-rl; height: 28px;">Control</div>
-   <select id="font-family" onchange="applyStyle('fontName', this.value)">
-    <option value="Mangal">Mangal (मराठी)</option>
-    <option value="Kokila">Kokila (मराठी)</option>
-    <option value="Shree-Dev-0708">Shree-Dev-0708</option>
-    <option value="Kruti Dev 010">Kruti Dev 010</option>
-    <option value="Times New Roman">Times New Roman</option>
-    <option value="Arial">Arial</option>
-   </select>
-   <input type="number" id="font-size" value="16" min="6" max="150" style="width: 45px;" onchange="changeFontSize(this.value)">
-   <input type="color" id="picker-color" value="#000000" onchange="applyColor(this.value)">
-   <button class="btn" onclick="applyStyle('bold')"><b>B</b></button>
-   <button class="btn" onclick="applyStyle('italic')"><i>I</i></button>
-   <button class="btn" onclick="applyStyle('underline')"><u>U</u></button>
-   <button class="btn" onclick="applyStyle('justifyLeft')">L</button>
-   <button class="btn" onclick="applyStyle('justifyCenter')">C</button>
-   <button class="btn" onclick="applyStyle('justifyRight')">R</button>
-   <span style="border-left:1px solid #808080; padding-left:5px;">
-    X:<input type="number" id="pos-x" style="width:42px;" onchange="updateBoxGeometry()">
-    Y:<input type="number" id="pos-y" style="width:42px;" onchange="updateBoxGeometry()">
-    W:<input type="number" id="box-w" style="width:42px;" onchange="updateBoxGeometry()">
-    H:<input type="number" id="box-h" style="width:42px;" onchange="updateBoxGeometry()">
-    Rot:<input type="number" id="box-rot" style="width:40px;" value="0" onchange="updateBoxRotation()">°
-   </span>
+  <div id="menu-layout" class="dropdown" style="left: 66px;">
+    <div class="dropdown-item" onclick="insertNewPage()"><span>Insert Page</span></div>
+    <div class="dropdown-item" onclick="removeCurrentPage()"><span>Remove Page</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Portrait</span></div>
+    <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Landscape</span></div>
+    <div class="dropdown-item" onclick="setPageSize(420, 595)"><span>A5 Card</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="clearGuides()"><span>Clear All Guides</span></div>
   </div>
 
-  <div class="page-bar" id="page-bar">
-   <div class="page-tab master" id="tab-M" onclick="switchPage('M')">M</div>
-   <div class="page-tab active" id="tab-1" onclick="switchPage(1)">1</div>
-   <button class="add-page-btn" onclick="insertNewPage()">+ Add Page</button>
+  <div id="menu-type" class="dropdown" style="left: 108px;">
+    <div class="dropdown-item" onclick="applyStyle('bold')"><span>Bold</span><span>Ctrl+B</span></div>
+    <div class="dropdown-item" onclick="applyStyle('italic')"><span>Italic</span><span>Ctrl+I</span></div>
+    <div class="dropdown-item" onclick="applyStyle('underline')"><span>Underline</span><span>Ctrl+U</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="setLineHeight(1.15)"><span>Leading: Tight (1.15)</span></div>
+    <div class="dropdown-item" onclick="setLineHeight(1.4)"><span>Leading: Normal (1.4)</span></div>
+    <div class="dropdown-item" onclick="setLineHeight(1.8)"><span>Leading: Loose (1.8)</span></div>
   </div>
- </div>
 
- <div id="print-all-container"></div>
+  <div id="menu-element" class="dropdown" style="left: 142px;">
+    <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span></div>
+    <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="changeStrokeWidth(1)"><span>Line: 1pt</span></div>
+    <div class="dropdown-item" onclick="changeStrokeWidth(2)"><span>Line: 2pt</span></div>
+    <div class="dropdown-item" onclick="changeStrokeWidth(5)"><span>Line: 5pt</span></div>
+  </div>
 
- <script src="pages.js"></script>
- <script src="tools.js"></script>
- <script src="history.js"></script>
+  <div id="menu-utilities" class="dropdown" style="left: 190px;">
+    <div class="dropdown-item" onclick="insertPageNumberBox()"><span>Insert Page Number (#)</span></div>
+    <div class="dropdown-item" onclick="findAndReplaceText()"><span>Find & Replace...</span></div>
+  </div>
+
+  <div id="menu-view" class="dropdown" style="left: 242px;">
+    <div class="dropdown-item" onclick="setZoom(0.6)"><span>Fit in Window (60%)</span></div>
+    <div class="dropdown-item" onclick="setZoom(1)"><span>Actual Size (100%)</span></div>
+    <div class="dropdown-item" onclick="setZoom(1.5)"><span>200% / Zoom In (150%)</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="toggleMargins()"><span>Show/Hide Guides</span></div>
+  </div>
+
+  <div id="menu-window" class="dropdown" style="left: 280px;">
+    <div class="dropdown-item" onclick="toggleToolbox()"><span>Show/Hide Tools</span></div>
+    <div class="dropdown-item" onclick="toggleControlPalette()"><span>Show/Hide Control Palette</span></div>
+    <div class="dropdown-item" onclick="toggleColorPalette()"><span>Show/Hide Colors</span></div>
+  </div>
+
+  <input type="file" id="image-input" accept="image/*" style="display:none" onchange="placeImage(event)">
+  <input type="file" id="project-input" accept=".json" style="display:none" onchange="loadProject(event)">
+
+  <!-- Quick Top Bar -->
+  <div class="toolbar">
+    <button class="btn" onclick="newDocument()">New</button>
+    <button class="btn" onclick="saveProject()">Save</button>
+    <button class="btn" onclick="undo()">Undo</button>
+    <button class="btn" onclick="triggerPlaceImage()">Place</button>
+    <button class="btn" onclick="duplicateSelected()">Copy</button>
+    <button class="btn" onclick="deleteSelected()">Del</button>
+    <button class="btn" onclick="printAllPages()">Print/PDF</button>
+    <span id="page-indicator" style="font-weight:bold; color:#8b0000; margin-left:4px;">[Page 1 of 1]</span>
+  </div>
+
+  <div class="workspace-container">
+    <div class="ruler-corner" title="Reset Zoom / Add Guide" onclick="setZoom(1)"></div>
+    <div class="ruler-h" id="ruler-h" title="Drag down to pull Horizontal Guide"></div>
+    <div class="ruler-v" id="ruler-v" title="Drag right to pull Vertical Guide"></div>
+
+    <!-- Compact PageMaker 7.0 Toolbox -->
+    <div class="toolbox" id="toolbox">
+      <div class="palette-header" id="toolbox-drag"><span>Tools</span></div>
+      <div class="tool-grid">
+        <button type="button" class="tool-btn" id="tool-pointer" onclick="selectTool('pointer')" title="Pointer (Esc)">↖</button>
+        <button type="button" class="tool-btn active" id="tool-text" onclick="selectTool('text')" title="Text (T)">T</button>
+        <button type="button" class="tool-btn" id="tool-rotate" onclick="selectTool('rotate')" title="Rotate (R)">↻</button>
+        <button type="button" class="tool-btn" id="tool-crop" onclick="selectTool('crop')" title="Crop (C)">◰</button>
+        <button type="button" class="tool-btn" id="tool-line" onclick="selectTool('line')" title="Diagonal Line">╲</button>
+        <button type="button" class="tool-btn" id="tool-cline" onclick="selectTool('cline')" title="Constrained Line">│</button>
+        <button type="button" class="tool-btn" id="tool-rect" onclick="selectTool('rect')" title="Rectangle">▭</button>
+        <button type="button" class="tool-btn" id="tool-rectframe" onclick="selectTool('rectframe')" title="Rectangle Frame">☒</button>
+        <button type="button" class="tool-btn" id="tool-ellipse" onclick="selectTool('ellipse')" title="Ellipse">○</button>
+        <button type="button" class="tool-btn" id="tool-ellipseframe" onclick="selectTool('ellipseframe')" title="Ellipse Frame">⊗</button>
+        <button type="button" class="tool-btn" id="tool-polygon" onclick="selectTool('polygon')" title="Polygon">⬠</button>
+        <button type="button" class="tool-btn" id="tool-polygonframe" onclick="selectTool('polygonframe')" title="Polygon Frame">⬡</button>
+        <button type="button" class="tool-btn" id="tool-hand" onclick="selectTool('hand')" title="Hand (H)">✋</button>
+        <button type="button" class="tool-btn" id="tool-zoom" onclick="selectTool('zoom')" title="Zoom (Z)">🔍</button>
+      </div>
+    </div>
+
+    <!-- Colors Palette -->
+    <div class="color-palette" id="color-palette">
+      <div class="palette-header" id="colors-drag"><span>Colors</span><span style="cursor:pointer" onclick="toggleColorPalette()">×</span></div>
+      <div class="swatch-list">
+        <div class="swatch" onclick="applyColor('#000000')"><div class="swatch-box" style="background:#000000"></div>Black</div>
+        <div class="swatch" onclick="applyColor('#ff0000')"><div class="swatch-box" style="background:#ff0000"></div>Red</div>
+        <div class="swatch" onclick="applyColor('#0000ff')"><div class="swatch-box" style="background:#0000ff"></div>Blue</div>
+        <div class="swatch" onclick="applyColor('#008000')"><div class="swatch-box" style="background:#008000"></div>Green</div>
+        <div class="swatch" onclick="applyColor('#ff00ff')"><div class="swatch-box" style="background:#ff00ff"></div>Magenta</div>
+        <div class="swatch" onclick="applyColor('#00ffff')"><div class="swatch-box" style="background:#00ffff"></div>Cyan</div>
+        <div class="swatch" onclick="applyColor('#ffff00')"><div class="swatch-box" style="background:#ffff00"></div>Yellow</div>
+        <div class="swatch" onclick="applyFillColor()"><div class="swatch-box" style="background:#ffe4b5"></div>Fill Box</div>
+      </div>
+    </div>
+
+    <!-- Pasteboard & Active Page -->
+    <div class="pasteboard" id="pasteboard" onpointerdown="handlePasteboardDown(event)" onclick="deselectAll(event)">
+      <div class="page" id="page" onpointerdown="handlePagePointerDown(event)">
+        <div class="margin-guide" id="margin-guide"></div>
+        <div class="master-layer" id="master-layer"></div>
+        <div class="guides-layer" id="guides-layer"></div>
+      </div>
+    </div>
+
+    <!-- Compact PageMaker 7.0 Control Palette -->
+    <div class="control-palette" id="control-palette">
+      <div class="control-strip-bar" id="control-drag">Control</div>
+      <div class="control-body">
+        <div class="ctrl-row">
+          <select id="font-family" onchange="applyStyle('fontName', this.value)">
+            <option value="Mangal">Mangal</option>
+            <option value="Kokila">Kokila</option>
+            <option value="Shree-Dev-0708">Shree-Dev-0708</option>
+            <option value="Kruti Dev 010">Kruti Dev 010</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Arial">Arial</option>
+          </select>
+          <input type="number" id="font-size" value="16" min="6" max="150" style="width:38px;" title="Font Size" onchange="changeFontSize(this.value)">
+          <input type="number" id="line-leading" value="1.4" step="0.1" min="0.8" max="3" style="width:38px;" title="Leading" onchange="setLineHeight(this.value)">
+          <input type="color" id="picker-color" value="#000000" title="Color" onchange="applyColor(this.value)">
+          <button type="button" class="cbtn" title="Bold" onclick="applyStyle('bold')"><b>B</b></button>
+          <button type="button" class="cbtn" title="Italic" onclick="applyStyle('italic')"><i>I</i></button>
+          <button type="button" class="cbtn" title="Underline" onclick="applyStyle('underline')"><u>U</u></button>
+          <button type="button" class="cbtn" title="Align Left" onclick="applyStyle('justifyLeft')">L</button>
+          <button type="button" class="cbtn" title="Align Center" onclick="applyStyle('justifyCenter')">C</button>
+          <button type="button" class="cbtn" title="Align Right" onclick="applyStyle('justifyRight')">R</button>
+        </div>
+        <div class="ctrl-sep"></div>
+        <div class="ctrl-row">
+          <span class="ctrl-lbl">X</span><input type="number" id="pos-x" style="width:38px;" onchange="updateBoxGeometry()">
+          <span class="ctrl-lbl">Y</span><input type="number" id="pos-y" style="width:38px;" onchange="updateBoxGeometry()">
+          <span class="ctrl-lbl">W</span><input type="number" id="box-w" style="width:38px;" onchange="updateBoxGeometry()">
+          <span class="ctrl-lbl">H</span><input type="number" id="box-h" style="width:38px;" onchange="updateBoxGeometry()">
+          <span class="ctrl-lbl">↻</span><input type="number" id="box-rot" style="width:36px;" value="0" onchange="updateBoxRotation()">
+          <button type="button" class="cbtn" title="Zoom Out" onclick="setZoom(Math.max(0.4, +(zoomLevel - 0.1).toFixed(2)))">-</button>
+          <span id="zoom-lbl" class="ctrl-lbl">100%</span>
+          <button type="button" class="cbtn" title="Zoom In" onclick="setZoom(Math.min(2.5, +(zoomLevel + 0.1).toFixed(2)))">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-bar" id="page-bar">
+      <div class="page-tab master" id="tab-M" onclick="switchPage('M')">M</div>
+      <div class="page-tab active" id="tab-1" onclick="switchPage(1)">1</div>
+      <button type="button" class="add-page-btn" onclick="insertNewPage()">+ Page</button>
+    </div>
+  </div>
+
+  <div id="print-all-container"></div>
+
+  <script src="pages.js"></script>
+  <script src="tools.js"></script>
+  <script src="history.js"></script>
 </body>
 </html>
