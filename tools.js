@@ -1,4 +1,32 @@
 let clipboardElementHTML = null;
+let pageZoomTouchLocked = false;
+
+function togglePageZoomLock() {
+  pageZoomTouchLocked = !pageZoomTouchLocked;
+  const btn = document.getElementById('page-zoom-lock-btn');
+  const pageEl = document.getElementById('page');
+
+  if (btn) {
+    btn.textContent = pageZoomTouchLocked ? '🔍 Page Lock: ON' : '🔍 Page Lock: OFF';
+    btn.style.background = pageZoomTouchLocked ? '#0a246a' : '#d4d0c8';
+    btn.style.color = pageZoomTouchLocked ? '#ffffff' : '#000000';
+  }
+
+  if (pageEl) {
+    pageEl.classList.toggle('page-touch-locked', pageZoomTouchLocked);
+  }
+
+  if (pageZoomTouchLocked) {
+    if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('text-content')) {
+      document.activeElement.blur();
+    }
+    setZoom(zoomLevel >= 1.5 ? 0.75 : +(zoomLevel + 0.25).toFixed(2));
+  }
+}
+
+function isPageTouchBlocked() {
+  return Boolean(pageZoomTouchLocked);
+}
 
 function toggleMenu(e, id) {
   e.stopPropagation();
@@ -72,7 +100,7 @@ function selectTool(tool) {
     el.classList.toggle('crop-mode', tool === 'crop' && el === selectedEl);
   });
   document.querySelectorAll('#page > .pm-element .text-content').forEach(tc => {
-    tc.contentEditable = 'true';
+    tc.contentEditable = isPageTouchBlocked() ? 'false' : 'true';
     tc.style.cursor = (tool === 'text') ? 'text' : 'move';
   });
 }
@@ -104,31 +132,44 @@ function getMagnetTargets(axis) {
   return targets;
 }
 
+function getElementExactSize(el) {
+  const w = Math.round(el.offsetWidth || parseFloat(el.style.width) || 0);
+  const h = Math.round(el.offsetHeight || parseFloat(el.style.height) || 0);
+  return { w, h };
+}
+
 function snapBoxPosition(x, y, w, h, threshold = 7) {
   const vTargets = getMagnetTargets('v');
   const hTargets = getMagnetTargets('h');
 
-  let snappedX = x;
-  let snappedY = y;
+  const bx = Math.round(x);
+  const by = Math.round(y);
+  const bw = Math.round(w);
+  const bh = Math.round(h);
+
+  let snappedX = bx;
+  let snappedY = by;
 
   for (const t of vTargets) {
-    if (Math.abs(x - t) <= threshold) {
-      snappedX = t;
+    const targetX = Math.round(t);
+    if (Math.abs(bx - targetX) <= threshold) {
+      snappedX = targetX;
       break;
     }
-    if (Math.abs((x + w) - t) <= threshold) {
-      snappedX = t - w;
+    if (Math.abs((bx + bw) - targetX) <= threshold) {
+      snappedX = targetX - bw;
       break;
     }
   }
 
   for (const t of hTargets) {
-    if (Math.abs(y - t) <= threshold) {
-      snappedY = t;
+    const targetY = Math.round(t);
+    if (Math.abs(by - targetY) <= threshold) {
+      snappedY = targetY;
       break;
     }
-    if (Math.abs((y + h) - t) <= threshold) {
-      snappedY = t - h;
+    if (Math.abs((by + bh) - targetY) <= threshold) {
+      snappedY = targetY - bh;
       break;
     }
   }
@@ -138,10 +179,12 @@ function snapBoxPosition(x, y, w, h, threshold = 7) {
 
 function snapValue(val, axis) {
   const targets = getMagnetTargets(axis);
+  const v = Math.round(val);
   for (const t of targets) {
-    if (Math.abs(val - t) <= 7) return t;
+    const target = Math.round(t);
+    if (Math.abs(v - target) <= 7) return target;
   }
-  return val;
+  return v;
 }
 
 function unicodeToLegacyDevanagari(str, familyType) {
@@ -257,6 +300,7 @@ function checkTextOverflow(el) {
       badge.onpointerdown = (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        if (isPageTouchBlocked()) return;
         pendingThreadSource = el;
         selectTool('text');
         alert('आता पानावर जिथे उरलेला मजकूर हवा आहे तिथे बोटाने बॉक्स ओढा.');
@@ -272,6 +316,11 @@ function attachElementEvents(el) {
   el.querySelectorAll('.handle').forEach(h => {
     const dir = h.className.replace('handle', '').trim();
     h.onpointerdown = (e) => {
+      if (isPageTouchBlocked()) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       selectElement(el);
@@ -283,14 +332,23 @@ function attachElementEvents(el) {
 
   const tc = el.querySelector('.text-content');
   if (tc) {
-    tc.contentEditable = 'true';
+    tc.contentEditable = isPageTouchBlocked() ? 'false' : 'true';
     tc.style.touchAction = 'manipulation';
     tc.addEventListener('pointerdown', (ev) => {
+      if (isPageTouchBlocked()) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
       selectElement(el);
-      // टेक्स्ट कंटेंटवर टच केल्यावर कीबोर्ड उघडण्यासाठी e.preventDefault() करू नका
       ev.stopPropagation();
     });
     tc.addEventListener('click', (ev) => {
+      if (isPageTouchBlocked()) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
       ev.stopPropagation();
       selectElement(el);
       tc.contentEditable = 'true';
@@ -305,6 +363,11 @@ function attachElementEvents(el) {
   }
 
   el.onpointerdown = (e) => {
+    if (isPageTouchBlocked()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (currentTool === 'hand' || currentTool === 'zoom') return;
     if (e.target.classList.contains('handle') || e.target.classList.contains('overflow-badge')) return;
     if (e.target.classList.contains('text-content')) {
@@ -325,10 +388,10 @@ function createPMElement(x, y, w, h) {
   saveState();
   const el = document.createElement('div');
   el.className = 'pm-element selected';
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  el.style.width = w + 'px';
-  el.style.height = h + 'px';
+  el.style.left = Math.round(x) + 'px';
+  el.style.top = Math.round(y) + 'px';
+  el.style.width = Math.round(w) + 'px';
+  el.style.height = Math.round(h) + 'px';
   el.dataset.rotation = 0;
   el.style.zIndex = 10;
 
@@ -387,12 +450,17 @@ function populateShapeInner(el, type, w, h) {
     c.style.position = 'absolute';
     c.style.top = '0';
     c.style.left = '0';
-    c.contentEditable = true;
+    c.contentEditable = isPageTouchBlocked() ? 'false' : 'true';
     el.appendChild(c);
   }
 }
 
 function handlePagePointerDown(e) {
+  if (isPageTouchBlocked()) {
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
   if (e.target.id !== 'page' && !e.target.classList.contains('guides-layer') && !e.target.classList.contains('margin-guide')) return;
   if (currentTool === 'zoom') {
     setZoom(zoomLevel >= 1.5 ? 0.75 : zoomLevel + 0.25);
@@ -452,7 +520,7 @@ function handlePagePointerDown(e) {
           const el = createPMElement(bx, by, bw, bh);
           const content = document.createElement('div');
           content.className = 'text-content';
-          content.contentEditable = true;
+          content.contentEditable = 'true';
           content.style.touchAction = 'manipulation';
           const chosenFont = document.getElementById('font-family').value;
           content.style.fontFamily = chosenFont;
@@ -618,8 +686,7 @@ function initDrag(e, el) {
   let sx = e.clientX, sy = e.clientY;
   let ox = parseInt(el.style.left) || 0;
   let oy = parseInt(el.style.top) || 0;
-  const w = parseInt(el.style.width) || 0;
-  const h = parseInt(el.style.height) || 0;
+  const { w, h } = getElementExactSize(el);
 
   function onMove(ev) {
     const rawX = Math.round(ox + (ev.clientX - sx) / zoomLevel);
@@ -643,8 +710,7 @@ function initResize(e, el, dir) {
   e.preventDefault();
   e.stopPropagation();
   let sx = e.clientX, sy = e.clientY;
-  let ow = parseInt(el.style.width) || 50;
-  let oh = parseInt(el.style.height) || 50;
+  const { w: ow, h: oh } = getElementExactSize(el);
   let ox = parseInt(el.style.left) || 0;
   let oy = parseInt(el.style.top) || 0;
 
@@ -770,10 +836,11 @@ function pasteMultiple() {
 
 function updateControlPaletteInputs() {
   if (!selectedEl) return;
+  const { w, h } = getElementExactSize(selectedEl);
   document.getElementById('pos-x').value = parseInt(selectedEl.style.left) || 0;
   document.getElementById('pos-y').value = parseInt(selectedEl.style.top) || 0;
-  document.getElementById('box-w').value = parseInt(selectedEl.style.width) || 0;
-  document.getElementById('box-h').value = parseInt(selectedEl.style.height) || 0;
+  document.getElementById('box-w').value = w;
+  document.getElementById('box-h').value = h;
   document.getElementById('box-rot').value = selectedEl.dataset.rotation || 0;
 }
 
@@ -948,13 +1015,16 @@ function alignObjects(mode) {
     return;
   }
   saveState();
-  const rects = els.map(el => ({
-    el,
-    left: parseInt(el.style.left) || 0,
-    top: parseInt(el.style.top) || 0,
-    w: parseInt(el.style.width) || 0,
-    h: parseInt(el.style.height) || 0
-  }));
+  const rects = els.map(el => {
+    const { w, h } = getElementExactSize(el);
+    return {
+      el,
+      left: parseInt(el.style.left) || 0,
+      top: parseInt(el.style.top) || 0,
+      w,
+      h
+    };
+  });
 
   if (mode === 'left') {
     const minL = Math.min(...rects.map(r => r.left));
