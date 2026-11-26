@@ -1,3 +1,24 @@
+@font-face {
+  font-family: 'Shree-Dev-0708';
+  src: url('fonts/Shree-Dev-0708.ttf') format('truetype'),
+       url('fonts/Shree-Dev-0708.otf') format('opentype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kruti Dev 010';
+  src: url('fonts/Kruti-Dev-010.ttf') format('truetype'),
+       url('fonts/Kruti-Dev-010.otf') format('opentype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Shivaji01';
+  src: url('fonts/Shivaji01.ttf') format('truetype'),
+       url('fonts/Shivaji01.otf') format('opentype');
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
   font-family: 'Tahoma', 'Arial', sans-serif;
