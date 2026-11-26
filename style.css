@@ -731,5 +731,11 @@ input[type="color"] {
   .print-page .guides-layer,
   .print-page .handle,
   .print-page .overflow-badge { display: none !important; }
-  .print-page .pm-element { outline: none !important; box-shadow: none !important; }
+  .print-page .pm-element,
+  .print-page .pm-element.selected,
+  .print-page .pm-element.crop-mode {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
 }
