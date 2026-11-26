@@ -13,6 +13,21 @@ function ensurePageState(id) {
   if (!pageColumns[id]) pageColumns[id] = { count: 1, gutter: 12 };
 }
 
+function cleanMasterHTML(rawHTML) {
+  if (!rawHTML) return '';
+  const temp = document.createElement('div');
+  temp.innerHTML = rawHTML;
+  temp.querySelectorAll('.pm-element').forEach(el => {
+    el.classList.remove('selected', 'crop-mode');
+    el.style.pointerEvents = 'none';
+  });
+  temp.querySelectorAll('.handle, .overflow-badge').forEach(h => h.remove());
+  temp.querySelectorAll('.text-content').forEach(tc => {
+    tc.contentEditable = 'false';
+  });
+  return temp.innerHTML;
+}
+
 function applyFontFamily(fontVal) {
   const selectEl = document.getElementById('font-family');
   if (selectEl) {
@@ -122,11 +137,9 @@ function renderGuides() {
 
   const pageEl = document.getElementById('page');
   const pageW = parseInt(pageEl.style.width) || 595;
-  const pageH = parseInt(pageEl.style.height) || 842;
   const margin = 40;
   const colCfg = pageColumns[activePageId];
 
-  // Column Guides (PageMaker Style)
   if (colCfg && colCfg.count > 1) {
     const usableW = pageW - margin * 2;
     const totalGutter = colCfg.gutter * (colCfg.count - 1);
@@ -289,7 +302,10 @@ function saveCurrentPageContent() {
     const n = clone.querySelector(sel);
     if (n) n.remove();
   });
-  clone.querySelectorAll('.pm-element').forEach(el => el.classList.remove('selected', 'crop-mode'));
+  clone.querySelectorAll('.pm-element').forEach(el => {
+    el.classList.remove('selected', 'crop-mode');
+    el.style.pointerEvents = '';
+  });
   pagesData[activePageId] = clone.innerHTML;
 }
 
@@ -300,7 +316,7 @@ function switchPage(targetId) {
   selectedEl = null;
 
   const page = document.getElementById('page');
-  const masterHTML = (targetId === 'M') ? '' : (pagesData['M'] || '');
+  const masterHTML = (targetId === 'M') ? '' : cleanMasterHTML(pagesData['M'] || '');
   page.innerHTML =
     `<div class="margin-guide" id="margin-guide"></div>` +
     `<div class="master-layer" id="master-layer">${masterHTML}</div>` +
@@ -381,12 +397,13 @@ function printAllPages() {
   container.innerHTML = '';
   const pageW = document.getElementById('page').style.width || '595px';
   const pageH = document.getElementById('page').style.height || '842px';
+  const masterClean = cleanMasterHTML(pagesData['M'] || '');
   for (let i = 1; i <= totalPages; i++) {
     const pDiv = document.createElement('div');
     pDiv.className = 'print-page';
     pDiv.style.width = pageW;
     pDiv.style.height = pageH;
-    pDiv.innerHTML = `<div class="master-layer">${pagesData['M'] || ''}</div>${pagesData[i] || ''}`;
+    pDiv.innerHTML = `<div class="master-layer">${masterClean}</div>${pagesData[i] || ''}`;
     container.appendChild(pDiv);
   }
   window.print();
