@@ -6,7 +6,7 @@
 <title>Adobe PageMaker 7.0 - DTP Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaina+2:wght@400;600;700&family=Hind:wght@400;600;700&family=Karma:wght@400;600;700&family=Khand:wght@500;700&family=Martel:wght@400;700&family=Modak&family=Mukta:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Serif+Devanagari:wght@400;700&family=Teko:wght@500;700&family=Tiro+Devanagari+Marathi:ital@0;1&family=Yatra+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Annapurna+SIL:wght@400;700&family=Baloo+Bhaina+2:wght@400;600;700&family=Eczar:wght@400;600;700&family=Gotu&family=Hind:wght@400;600;700&family=Jaini&family=Jaini+Purva&family=Kalam:wght@400;700&family=Karma:wght@400;600;700&family=Khula:wght@400;600;700&family=Khand:wght@500;700&family=Laila:wght@400;600;700&family=Martel:wght@400;700&family=Martel+Sans:wght@400;700&family=Modak&family=Mukta:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Serif+Devanagari:wght@400;700&family=Palanquin:wght@400;600;700&family=Palanquin+Dark:wght@400;700&family=Poppins:wght@400;600;700&family=Pragati+Narrow:wght@400;700&family=Rajdhani:wght@500;700&family=Rozha+One&family=Sahitya:wght@400;700&family=Teko:wght@500;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Tiro+Devanagari+Marathi:ital@0;1&family=Yatra+One&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body onclick="closeMenus()">
@@ -166,26 +166,43 @@
       <div class="control-body">
         <div class="ctrl-row">
           <select id="font-family" onchange="applyFontFamily(this.value)">
-            <optgroup label="Court / Bond / Formal">
-              <option value="'Noto Serif Devanagari', serif" style="font-family:'Noto Serif Devanagari',serif;">Noto Serif Devanagari (Bond/Court)</option>
-              <option value="'Karma', serif" style="font-family:'Karma',serif;">Karma (Legal/Formal)</option>
-              <option value="'Martel', serif" style="font-family:'Martel',serif;">Martel (Document/Book)</option>
+            <optgroup label="Court / Bond / Legal / Formal">
+              <option value="'Noto Serif Devanagari', serif" style="font-family:'Noto Serif Devanagari',serif;">Noto Serif Devanagari</option>
+              <option value="'Karma', serif" style="font-family:'Karma',serif;">Karma</option>
+              <option value="'Martel', serif" style="font-family:'Martel',serif;">Martel</option>
               <option value="'Tiro Devanagari Marathi', serif" style="font-family:'Tiro Devanagari Marathi',serif;">Tiro Devanagari Marathi</option>
+              <option value="'Tiro Devanagari Hindi', serif" style="font-family:'Tiro Devanagari Hindi',serif;">Tiro Devanagari Hindi</option>
+              <option value="'Eczar', serif" style="font-family:'Eczar',serif;">Eczar</option>
+              <option value="'Sahitya', serif" style="font-family:'Sahitya',serif;">Sahitya</option>
+              <option value="'Annapurna SIL', serif" style="font-family:'Annapurna SIL',serif;">Annapurna SIL</option>
             </optgroup>
-            <optgroup label="General Marathi Typing">
+            <optgroup label="Marathi Typing & Body">
               <option value="'Hind', sans-serif" style="font-family:'Hind',sans-serif;">Hind</option>
               <option value="'Mukta', sans-serif" style="font-family:'Mukta',sans-serif;">Mukta</option>
               <option value="'Noto Sans Devanagari', sans-serif" style="font-family:'Noto Sans Devanagari',sans-serif;">Noto Sans Devanagari</option>
+              <option value="'Khula', sans-serif" style="font-family:'Khula',sans-serif;">Khula</option>
+              <option value="'Martel Sans', sans-serif" style="font-family:'Martel Sans',sans-serif;">Martel Sans</option>
+              <option value="'Palanquin', sans-serif" style="font-family:'Palanquin',sans-serif;">Palanquin</option>
+              <option value="'Gotu', sans-serif" style="font-family:'Gotu',sans-serif;">Gotu</option>
+              <option value="'Laila', serif" style="font-family:'Laila',serif;">Laila</option>
             </optgroup>
-            <optgroup label="Headings / Display">
+            <optgroup label="Headings / Display / Calligraphy">
               <option value="'Teko', sans-serif" style="font-family:'Teko',sans-serif;">Teko</option>
               <option value="'Khand', sans-serif" style="font-family:'Khand',sans-serif;">Khand</option>
               <option value="'Yatra One', cursive" style="font-family:'Yatra One',cursive;">Yatra One</option>
               <option value="'Baloo Bhaina 2', cursive" style="font-family:'Baloo Bhaina 2',cursive;">Baloo Bhaina 2</option>
+              <option value="'Rozha One', serif" style="font-family:'Rozha One',serif;">Rozha One</option>
+              <option value="'Palanquin Dark', sans-serif" style="font-family:'Palanquin Dark',sans-serif;">Palanquin Dark</option>
+              <option value="'Kalam', cursive" style="font-family:'Kalam',cursive;">Kalam</option>
+              <option value="'Pragati Narrow', sans-serif" style="font-family:'Pragati Narrow',sans-serif;">Pragati Narrow</option>
+              <option value="'Rajdhani', sans-serif" style="font-family:'Rajdhani',sans-serif;">Rajdhani</option>
+              <option value="'Jaini', cursive" style="font-family:'Jaini',cursive;">Jaini</option>
+              <option value="'Jaini Purva', cursive" style="font-family:'Jaini Purva',cursive;">Jaini Purva</option>
               <option value="'Modak', cursive" style="font-family:'Modak',cursive;">Modak</option>
             </optgroup>
             <optgroup label="English Fonts">
               <option value="'Times New Roman', serif" style="font-family:'Times New Roman',serif;">Times New Roman</option>
+              <option value="'Poppins', sans-serif" style="font-family:'Poppins',sans-serif;">Poppins</option>
               <option value="'Arial', sans-serif" style="font-family:'Arial',sans-serif;">Arial</option>
             </optgroup>
           </select>
