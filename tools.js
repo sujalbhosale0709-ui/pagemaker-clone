@@ -1,3 +1,5 @@
+let clipboardElementHTML = null;
+
 function toggleMenu(e, id) {
   e.stopPropagation();
   const t = document.getElementById(id);
@@ -81,11 +83,8 @@ function snapValue(val, axis) {
   return val;
 }
 
-/* Unicode Marathi -> Legacy ASCII Converter for Kruti Dev / Shivaji / SHREE-DEV7 */
 function unicodeToLegacyDevanagari(str, familyType) {
-  if (!str) return str;
-  // जर मजकुरात आधीच देवनागरी युनिकोड नसेल तर तसेच ठेवा
-  if (!/[\u0900-\u097F]/.test(str)) return str;
+  if (!str || !/[\u0900-\u097F]/.test(str)) return str;
 
   if (familyType === 'kruti') {
     const map = [
@@ -103,12 +102,8 @@ function unicodeToLegacyDevanagari(str, familyType) {
       ['ै', 'S'], ['ो', 'ks'], ['ौ', 'kS'], ['ं', 'a'], ['ः', '%'],
       ['ँ', '¡'], ['।', 'A'], ['्', '~']
     ];
-    let out = str;
-    // 'ि' मात्रा अक्षराच्या आधी जाते
-    out = out.replace(/([\u0915-\u0939\u0958-\u095F])ि/g, 'f$1');
-    for (const [u, l] of map) {
-      out = out.split(u).join(l);
-    }
+    let out = str.replace(/([\u0915-\u0939\u0958-\u095F])ि/g, 'f$1');
+    for (const [u, l] of map) out = out.split(u).join(l);
     return out;
   }
 
@@ -127,11 +122,8 @@ function unicodeToLegacyDevanagari(str, familyType) {
       ['ा', 'a'], ['ी', 'I'], ['ु', 'u'], ['ू', 'U'], ['े', 'o'],
       ['ै', 'O'], ['ो', 'ao'], ['ौ', 'aO'], ['ं', 'M'], ['ः', ':']
     ];
-    let out = str;
-    out = out.replace(/([\u0915-\u0939\u0958-\u095F])ि/g, 'i$1');
-    for (const [u, l] of map) {
-      out = out.split(u).join(l);
-    }
+    let out = str.replace(/([\u0915-\u0939\u0958-\u095F])ि/g, 'i$1');
+    for (const [u, l] of map) out = out.split(u).join(l);
     return out;
   }
 
@@ -150,11 +142,8 @@ function unicodeToLegacyDevanagari(str, familyType) {
       ['ा', 'm'], ['ी', 'r'], ['ु', 'w'], ['ू', 'y'], ['े', 'o'],
       ['ै', '¡'], ['ो', 'mo'], ['ौ', 'm¡'], ['ं', '§'], ['ः', '…']
     ];
-    let out = str;
-    out = out.replace(/([\u0915-\u0939\u0958-\u095F])ि/g, 'p$1');
-    for (const [u, l] of map) {
-      out = out.split(u).join(l);
-    }
+    let out = str.replace(/([\u0915-\u0939\u0958-\u095F])ि/g, 'p$1');
+    for (const [u, l] of map) out = out.split(u).join(l);
     return out;
   }
 
@@ -183,9 +172,7 @@ function convertSelectedToLegacyFont() {
     return;
   }
   saveState();
-  if (!tc.dataset.unicodeSource) {
-    tc.dataset.unicodeSource = tc.innerText;
-  }
+  if (!tc.dataset.unicodeSource) tc.dataset.unicodeSource = tc.innerText;
   tc.innerText = unicodeToLegacyDevanagari(tc.dataset.unicodeSource, legacyType);
   checkTextOverflow(selectedEl);
 }
@@ -265,6 +252,7 @@ function createPMElement(x, y, w, h) {
   el.style.width = w + 'px';
   el.style.height = h + 'px';
   el.dataset.rotation = 0;
+  el.style.zIndex = 10;
 
   ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'].forEach(dir => {
     const hDiv = document.createElement('div');
@@ -332,7 +320,6 @@ function handlePagePointerDown(e) {
     setZoom(zoomLevel >= 1.5 ? 0.75 : zoomLevel + 0.25);
     return;
   }
-  // Pointer, Hand, Rotate, Crop निवडल्यावर पानावर टच केल्यास काहीही नवीन तयार होणार नाही
   if (currentTool === 'hand' || currentTool === 'pointer' || currentTool === 'rotate' || currentTool === 'crop') return;
 
   e.stopPropagation();
@@ -340,7 +327,6 @@ function handlePagePointerDown(e) {
   const startX = snapValue(Math.round((e.clientX - rect.left) / zoomLevel), 'v');
   const startY = snapValue(Math.round((e.clientY - rect.top) / zoomLevel), 'h');
 
-  // Text Tool साठी: फक्त ओढून (Drag करून) बॉक्स आखला तरच टेक्स्ट बॉक्स तयार होईल, चुकून टच केल्यास नाही!
   if (currentTool === 'text') {
     let previewBox = null;
     let moved = false;
@@ -597,11 +583,73 @@ function selectAllOnPage() {
   if (els.length > 0) selectedEl = els[els.length - 1];
 }
 
+function deselectAllElements() {
+  document.querySelectorAll('#page > .pm-element').forEach(i => i.classList.remove('selected', 'crop-mode'));
+  selectedEl = null;
+}
+
 function deselectAll(e) {
   if (e.target.classList.contains('pasteboard') || e.target.id === 'page') {
-    document.querySelectorAll('#page > .pm-element').forEach(i => i.classList.remove('selected'));
-    selectedEl = null;
+    deselectAllElements();
   }
+}
+
+function copySelected() {
+  if (!selectedEl) return;
+  const clone = selectedEl.cloneNode(true);
+  clone.classList.remove('selected', 'crop-mode');
+  clipboardElementHTML = clone.outerHTML;
+}
+
+function cutSelected() {
+  if (!selectedEl) return;
+  copySelected();
+  deleteSelected();
+}
+
+function pasteCopied() {
+  if (!clipboardElementHTML) return;
+  saveState();
+  const temp = document.createElement('div');
+  temp.innerHTML = clipboardElementHTML;
+  const newEl = temp.firstElementChild;
+  newEl.style.left = ((parseInt(newEl.style.left) || 40) + 18) + 'px';
+  newEl.style.top = ((parseInt(newEl.style.top) || 40) + 18) + 'px';
+  attachElementEvents(newEl);
+  document.getElementById('page').appendChild(newEl);
+  selectElement(newEl);
+}
+
+function pasteMultiple() {
+  if (!selectedEl) {
+    alert('प्रथम कोणताही घटक निवडा.');
+    return;
+  }
+  const countStr = prompt('किती प्रती पेस्ट करायच्या आहेत?', '5');
+  if (countStr === null) return;
+  const count = Math.max(1, Math.min(50, parseInt(countStr) || 1));
+  const dxStr = prompt('Horizontal Offset (X अंतर px मध्ये):', '15');
+  if (dxStr === null) return;
+  const dyStr = prompt('Vertical Offset (Y अंतर px मध्ये):', '15');
+  if (dyStr === null) return;
+  const dx = parseInt(dxStr) || 0;
+  const dy = parseInt(dyStr) || 0;
+
+  saveState();
+  let baseX = parseInt(selectedEl.style.left) || 40;
+  let baseY = parseInt(selectedEl.style.top) || 40;
+  let lastEl = selectedEl;
+
+  for (let i = 1; i <= count; i++) {
+    const c = selectedEl.cloneNode(true);
+    c.classList.remove('selected', 'crop-mode');
+    c.style.left = (baseX + dx * i) + 'px';
+    c.style.top = (baseY + dy * i) + 'px';
+    attachElementEvents(c);
+    document.getElementById('page').appendChild(c);
+    lastEl = c;
+  }
+  selectElement(lastEl);
 }
 
 function updateControlPaletteInputs() {
@@ -645,6 +693,36 @@ function applyStyle(cmd, val = null) {
   if (selectedEl) checkTextOverflow(selectedEl);
 }
 
+function toggleReverseText() {
+  if (!selectedEl) return;
+  const tc = selectedEl.querySelector('.text-content');
+  if (!tc) return;
+  saveState();
+  const isRev = tc.dataset.reversed === '1';
+  if (isRev) {
+    tc.dataset.reversed = '0';
+    tc.style.color = '#000000';
+  } else {
+    tc.dataset.reversed = '1';
+    tc.style.color = '#ffffff';
+  }
+}
+
+function setLetterTrackingPrompt() {
+  if (!selectedEl) {
+    alert('प्रथम टेक्स्ट बॉक्स निवडा.');
+    return;
+  }
+  const tc = selectedEl.querySelector('.text-content');
+  if (!tc) return;
+  const cur = parseFloat(tc.style.letterSpacing) || 0;
+  const valStr = prompt('Letter Tracking / Spacing (px मध्ये, उदा. 0, 1, 2, -0.5):', cur);
+  if (valStr === null) return;
+  saveState();
+  tc.style.letterSpacing = (parseFloat(valStr) || 0) + 'px';
+  checkTextOverflow(selectedEl);
+}
+
 function changeFontSize(s) {
   if (selectedEl) {
     saveState();
@@ -685,10 +763,75 @@ function applyFillColor() {
   selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => s.setAttribute('fill', c));
 }
 
+function applyFillStrokePrompt() {
+  if (!selectedEl) {
+    alert('प्रथम कोणताही आकार निवडा.');
+    return;
+  }
+  const fillCol = prompt('Fill Color (उदा. #ffe4b5, none, #ffffff):', '#ffe4b5');
+  if (fillCol === null) return;
+  const strokeCol = prompt('Stroke Color (उदा. #000000, #ff0000):', '#000000');
+  if (strokeCol === null) return;
+  const strokeW = prompt('Stroke Width (pt/px मध्ये, उदा. 1, 2, 4):', '2');
+  if (strokeW === null) return;
+
+  saveState();
+  selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => {
+    s.setAttribute('fill', fillCol.trim() || 'none');
+    s.setAttribute('stroke', strokeCol.trim() || '#000000');
+    s.setAttribute('stroke-width', parseFloat(strokeW) || 1);
+  });
+  selectedEl.querySelectorAll('line').forEach(s => {
+    s.setAttribute('stroke', strokeCol.trim() || '#000000');
+    s.setAttribute('stroke-width', parseFloat(strokeW) || 1);
+  });
+}
+
 function changeStrokeWidth(w) {
   if (!selectedEl) return;
   saveState();
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke-width', w));
+}
+
+function alignObjects(mode) {
+  const els = Array.from(document.querySelectorAll('#page > .pm-element.selected'));
+  if (els.length < 2) {
+    alert('Align Objects साठी Select All किंवा एकापेक्षा जास्त घटक निवडा.');
+    return;
+  }
+  saveState();
+  const rects = els.map(el => ({
+    el,
+    left: parseInt(el.style.left) || 0,
+    top: parseInt(el.style.top) || 0,
+    w: parseInt(el.style.width) || 0,
+    h: parseInt(el.style.height) || 0
+  }));
+
+  if (mode === 'left') {
+    const minL = Math.min(...rects.map(r => r.left));
+    rects.forEach(r => { r.el.style.left = minL + 'px'; });
+  } else if (mode === 'right') {
+    const maxR = Math.max(...rects.map(r => r.left + r.w));
+    rects.forEach(r => { r.el.style.left = (maxR - r.w) + 'px'; });
+  } else if (mode === 'center') {
+    const minL = Math.min(...rects.map(r => r.left));
+    const maxR = Math.max(...rects.map(r => r.left + r.w));
+    const midX = (minL + maxR) / 2;
+    rects.forEach(r => { r.el.style.left = Math.round(midX - r.w / 2) + 'px'; });
+  } else if (mode === 'top') {
+    const minT = Math.min(...rects.map(r => r.top));
+    rects.forEach(r => { r.el.style.top = minT + 'px'; });
+  } else if (mode === 'bottom') {
+    const maxB = Math.max(...rects.map(r => r.top + r.h));
+    rects.forEach(r => { r.el.style.top = (maxB - r.h) + 'px'; });
+  } else if (mode === 'middle') {
+    const minT = Math.min(...rects.map(r => r.top));
+    const maxB = Math.max(...rects.map(r => r.top + r.h));
+    const midY = (minT + maxB) / 2;
+    rects.forEach(r => { r.el.style.top = Math.round(midY - r.h / 2) + 'px'; });
+  }
+  updateControlPaletteInputs();
 }
 
 function toggleTextWrap() {
@@ -794,6 +937,20 @@ function duplicateSelected() {
 
 function bringToFront() { if (selectedEl) { saveState(); selectedEl.style.zIndex = 50; } }
 function sendToBack() { if (selectedEl) { saveState(); selectedEl.style.zIndex = 5; } }
+function bringForward() {
+  if (selectedEl) {
+    saveState();
+    const cur = parseInt(selectedEl.style.zIndex) || 10;
+    selectedEl.style.zIndex = Math.min(80, cur + 1);
+  }
+}
+function sendBackward() {
+  if (selectedEl) {
+    saveState();
+    const cur = parseInt(selectedEl.style.zIndex) || 10;
+    selectedEl.style.zIndex = Math.max(3, cur - 1);
+  }
+}
 function deleteSelected() { if (selectedEl) { saveState(); selectedEl.remove(); selectedEl = null; } }
 
 function insertPageNumberBox() {
