@@ -26,6 +26,7 @@
     <div class="dropdown-item" onclick="newDocument()"><span>New Publication</span><span>Ctrl+N</span></div>
     <div class="dropdown-item" onclick="document.getElementById('project-input').click()"><span>Open (.json)...</span><span>Ctrl+O</span></div>
     <div class="dropdown-item" onclick="saveProject()"><span>Save Project (.json)</span><span>Ctrl+S</span></div>
+    <div class="dropdown-item" onclick="openDocumentSetup()"><span>Document Setup...</span><span></span></div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place Image...</span><span>Ctrl+D</span></div>
     <div class="dropdown-divider"></div>
@@ -35,63 +36,97 @@
 
   <div id="menu-edit" class="dropdown" style="left: 34px;">
     <div class="dropdown-item" onclick="undo()"><span>Undo</span><span>Ctrl+Z</span></div>
-    <div class="dropdown-item" onclick="openStoryEditor()"><span>Edit Story</span><span>Ctrl+E</span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="duplicateSelected()"><span>Duplicate</span><span>Ctrl+D / V</span></div>
+    <div class="dropdown-item" onclick="cutSelected()"><span>Cut</span><span>Ctrl+X</span></div>
+    <div class="dropdown-item" onclick="copySelected()"><span>Copy</span><span>Ctrl+C</span></div>
+    <div class="dropdown-item" onclick="pasteCopied()"><span>Paste</span><span>Ctrl+V</span></div>
+    <div class="dropdown-item" onclick="pasteMultiple()"><span>Paste Multiple...</span><span></span></div>
     <div class="dropdown-item" onclick="deleteSelected()"><span>Clear</span><span>Del</span></div>
+    <div class="dropdown-divider"></div>
     <div class="dropdown-item" onclick="selectAllOnPage()"><span>Select All</span><span>Ctrl+A</span></div>
+    <div class="dropdown-item" onclick="deselectAllElements()"><span>Deselect All</span><span></span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="openStoryEditor()"><span>Edit Story</span><span>Ctrl+E</span></div>
   </div>
 
   <div id="menu-layout" class="dropdown" style="left: 66px;">
-    <div class="dropdown-item" onclick="insertNewPage()"><span>Insert Page</span></div>
-    <div class="dropdown-item" onclick="removeCurrentPage()"><span>Remove Page</span></div>
-    <div class="dropdown-item" onclick="setColumnGuides()"><span>Column Guides...</span></div>
+    <div class="dropdown-item" onclick="goToPagePrompt()"><span>Go To Page...</span><span></span></div>
+    <div class="dropdown-item" onclick="insertNewPage()"><span>Insert Page</span><span></span></div>
+    <div class="dropdown-item" onclick="insertMultiplePages()"><span>Insert Multiple Pages...</span><span></span></div>
+    <div class="dropdown-item" onclick="removeCurrentPage()"><span>Remove Page</span><span></span></div>
+    <div class="dropdown-item" onclick="removePageRangePrompt()"><span>Remove Page Range...</span><span></span></div>
+    <div class="dropdown-item" onclick="goPageStep(-1)"><span>Go Back</span><span>Ctrl+PgUp</span></div>
+    <div class="dropdown-item" onclick="goPageStep(1)"><span>Go Forward</span><span>Ctrl+PgDn</span></div>
     <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Portrait</span></div>
-    <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Landscape</span></div>
-    <div class="dropdown-item" onclick="setPageSize(420, 595)"><span>A5 Card</span></div>
+    <div class="dropdown-item" onclick="setColumnGuides()"><span>Column Guides...</span><span></span></div>
     <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="clearGuides()"><span>Clear All Guides</span></div>
+    <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Portrait</span><span></span></div>
+    <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Landscape</span><span></span></div>
+    <div class="dropdown-item" onclick="setPageSize(420, 595)"><span>A5 Card</span><span></span></div>
+    <div class="dropdown-item" onclick="setPageSize(336, 240)"><span>Visiting Card (3.5×2.5")</span><span></span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="clearGuides()"><span>Clear All Guides</span><span></span></div>
   </div>
 
   <div id="menu-type" class="dropdown" style="left: 108px;">
     <div class="dropdown-item" onclick="applyStyle('bold')"><span>Bold</span><span>Ctrl+B</span></div>
     <div class="dropdown-item" onclick="applyStyle('italic')"><span>Italic</span><span>Ctrl+I</span></div>
     <div class="dropdown-item" onclick="applyStyle('underline')"><span>Underline</span><span>Ctrl+U</span></div>
+    <div class="dropdown-item" onclick="applyStyle('strikeThrough')"><span>Strikethrough</span><span></span></div>
+    <div class="dropdown-item" onclick="toggleReverseText()"><span>Reverse (White Text)</span><span></span></div>
     <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="setLineHeight(1.15)"><span>Leading: Tight (1.15)</span></div>
-    <div class="dropdown-item" onclick="setLineHeight(1.4)"><span>Leading: Normal (1.4)</span></div>
-    <div class="dropdown-item" onclick="setLineHeight(1.8)"><span>Leading: Loose (1.8)</span></div>
+    <div class="dropdown-item" onclick="setLineHeight(1.15)"><span>Leading: Tight (1.15)</span><span></span></div>
+    <div class="dropdown-item" onclick="setLineHeight(1.4)"><span>Leading: Normal (1.4)</span><span></span></div>
+    <div class="dropdown-item" onclick="setLineHeight(1.8)"><span>Leading: Loose (1.8)</span><span></span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="setLetterTrackingPrompt()"><span>Expert Tracking...</span><span></span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="applyStyle('justifyLeft')"><span>Align Left</span><span></span></div>
+    <div class="dropdown-item" onclick="applyStyle('justifyCenter')"><span>Align Center</span><span></span></div>
+    <div class="dropdown-item" onclick="applyStyle('justifyRight')"><span>Align Right</span><span></span></div>
+    <div class="dropdown-item" onclick="applyStyle('justifyFull')"><span>Align Justify</span><span></span></div>
   </div>
 
   <div id="menu-element" class="dropdown" style="left: 142px;">
-    <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span></div>
-    <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span></div>
-    <div class="dropdown-item" onclick="toggleTextWrap()"><span>Text Wrap Toggle</span></div>
+    <div class="dropdown-item" onclick="applyFillStrokePrompt()"><span>Fill & Stroke...</span><span></span></div>
     <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="changeStrokeWidth(1)"><span>Line: 1pt</span></div>
-    <div class="dropdown-item" onclick="changeStrokeWidth(2)"><span>Line: 2pt</span></div>
-    <div class="dropdown-item" onclick="changeStrokeWidth(5)"><span>Line: 5pt</span></div>
+    <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span><span></span></div>
+    <div class="dropdown-item" onclick="bringForward()"><span>Bring Forward</span><span></span></div>
+    <div class="dropdown-item" onclick="sendBackward()"><span>Send Backward</span><span></span></div>
+    <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span><span></span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="alignObjects('left')"><span>Align Objects: Left</span><span></span></div>
+    <div class="dropdown-item" onclick="alignObjects('center')"><span>Align Objects: Center</span><span></span></div>
+    <div class="dropdown-item" onclick="alignObjects('right')"><span>Align Objects: Right</span><span></span></div>
+    <div class="dropdown-item" onclick="alignObjects('top')"><span>Align Objects: Top</span><span></span></div>
+    <div class="dropdown-item" onclick="alignObjects('middle')"><span>Align Objects: Middle</span><span></span></div>
+    <div class="dropdown-item" onclick="alignObjects('bottom')"><span>Align Objects: Bottom</span><span></span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="toggleTextWrap()"><span>Text Wrap Toggle</span><span></span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="changeStrokeWidth(1)"><span>Line: 1pt</span><span></span></div>
+    <div class="dropdown-item" onclick="changeStrokeWidth(2)"><span>Line: 2pt</span><span></span></div>
+    <div class="dropdown-item" onclick="changeStrokeWidth(5)"><span>Line: 5pt</span><span></span></div>
   </div>
 
   <div id="menu-utilities" class="dropdown" style="left: 190px;">
-    <div class="dropdown-item" onclick="insertPageNumberBox()"><span>Insert Page Number (#)</span></div>
-    <div class="dropdown-item" onclick="findAndReplaceText()"><span>Find & Replace...</span></div>
+    <div class="dropdown-item" onclick="insertPageNumberBox()"><span>Insert Page Number (#)</span><span></span></div>
+    <div class="dropdown-item" onclick="findAndReplaceText()"><span>Find & Replace...</span><span></span></div>
+    <div class="dropdown-item" onclick="convertSelectedToLegacyFont()"><span>Convert to Selected Legacy Font</span><span></span></div>
   </div>
 
   <div id="menu-view" class="dropdown" style="left: 242px;">
-    <div class="dropdown-item" onclick="setZoom(0.5)"><span>50%</span></div>
-    <div class="dropdown-item" onclick="setZoom(0.75)"><span>75%</span></div>
-    <div class="dropdown-item" onclick="setZoom(1)"><span>Actual Size (100%)</span></div>
-    <div class="dropdown-item" onclick="setZoom(2)"><span>200%</span></div>
+    <div class="dropdown-item" onclick="setZoom(0.5)"><span>50%</span><span></span></div>
+    <div class="dropdown-item" onclick="setZoom(0.75)"><span>75%</span><span></span></div>
+    <div class="dropdown-item" onclick="setZoom(1)"><span>Actual Size (100%)</span><span></span></div>
+    <div class="dropdown-item" onclick="setZoom(2)"><span>200%</span><span></span></div>
     <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="toggleMargins()"><span>Show/Hide Guides</span></div>
+    <div class="dropdown-item" onclick="toggleMargins()"><span>Show/Hide Guides</span><span></span></div>
   </div>
 
   <div id="menu-window" class="dropdown" style="left: 280px;">
-    <div class="dropdown-item" onclick="toggleToolbox()"><span>Show/Hide Tools</span></div>
-    <div class="dropdown-item" onclick="toggleControlPalette()"><span>Show/Hide Control Palette</span></div>
-    <div class="dropdown-item" onclick="toggleColorPalette()"><span>Show/Hide Colors</span></div>
+    <div class="dropdown-item" onclick="toggleToolbox()"><span>Show/Hide Tools</span><span></span></div>
+    <div class="dropdown-item" onclick="toggleControlPalette()"><span>Show/Hide Control Palette</span><span></span></div>
+    <div class="dropdown-item" onclick="toggleColorPalette()"><span>Show/Hide Colors</span><span></span></div>
   </div>
 
   <input type="file" id="image-input" accept="image/*" style="display:none" onchange="placeImage(event)">
@@ -103,7 +138,8 @@
     <button type="button" class="btn" onclick="saveProject()">Save</button>
     <button type="button" class="btn" onclick="undo()">Undo</button>
     <button type="button" class="btn" onclick="triggerPlaceImage()">Place</button>
-    <button type="button" class="btn" onclick="duplicateSelected()">Copy</button>
+    <button type="button" class="btn" onclick="copySelected()">Copy</button>
+    <button type="button" class="btn" onclick="pasteCopied()">Paste</button>
     <button type="button" class="btn" onclick="deleteSelected()">Del</button>
     <button type="button" class="btn" onclick="exportPageAsPNG()">PNG</button>
     <button type="button" class="btn" onclick="printAllPages()">PDF/Print</button>
@@ -147,6 +183,7 @@
         <div class="swatch" onclick="applyColor('#ff00ff')"><div class="swatch-box" style="background:#ff00ff"></div>Magenta</div>
         <div class="swatch" onclick="applyColor('#00ffff')"><div class="swatch-box" style="background:#00ffff"></div>Cyan</div>
         <div class="swatch" onclick="applyColor('#ffff00')"><div class="swatch-box" style="background:#ffff00"></div>Yellow</div>
+        <div class="swatch" onclick="applyColor('#ffffff')"><div class="swatch-box" style="background:#ffffff"></div>Paper</div>
         <div class="swatch" onclick="applyFillColor()"><div class="swatch-box" style="background:#ffe4b5"></div>Fill Box</div>
       </div>
     </div>
