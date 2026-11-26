@@ -1,4 +1,4 @@
-let currentTool = 'text';
+let currentTool = 'pointer';
 let selectedEl = null;
 let pendingThreadSource = null;
 let zoomLevel = 1;
@@ -41,6 +41,15 @@ function applyFontFamily(fontVal) {
       tc.querySelectorAll('*').forEach(child => {
         child.style.fontFamily = fontVal;
       });
+      if (/[\u0900-\u097F]/.test(tc.innerText)) {
+        tc.dataset.unicodeSource = tc.innerText;
+      }
+      const lType = (typeof getLegacyFontType === 'function') ? getLegacyFontType(fontVal) : null;
+      if (lType && tc.dataset.unicodeSource) {
+        tc.innerText = unicodeToLegacyDevanagari(tc.dataset.unicodeSource, lType);
+      } else if (!lType && tc.dataset.unicodeSource) {
+        tc.innerText = tc.dataset.unicodeSource;
+      }
     }
     checkTextOverflow(selectedEl);
   }
@@ -412,6 +421,7 @@ function printAllPages() {
 window.addEventListener('DOMContentLoaded', () => {
   const selectEl = document.getElementById('font-family');
   if (selectEl) selectEl.style.fontFamily = selectEl.value;
+  selectTool('pointer');
   buildRulers();
   initRulerDrag();
   renderGuides();
