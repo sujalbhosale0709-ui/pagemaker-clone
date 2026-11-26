@@ -4,9 +4,41 @@ let pendingThreadSource = null;
 let zoomLevel = 1;
 let activePageId = 1;
 let totalPages = 1;
+let currentPageW = 816;  // 8.5 inch @ 96px/inch (Letter)
+let currentPageH = 1056; // 11.0 inch @ 96px/inch (Letter)
 let pagesData = { 'M': '', 1: '' };
 let pageGuides = { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
 let pageColumns = { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
+
+// Reference ratio from भाडे-पत्र layout (Letter 8.5" x 11"):
+// Left = 1.00" (96px/816px), Right = 0.75" (72px/816px), Top = 0.75" (72px/1056px), Bottom = 0.75" (72px/1056px)
+function getPageMargins(w = currentPageW, h = currentPageH) {
+  const isCard = (w <= 420 && h <= 300);
+  if (isCard) {
+    return {
+      left: Math.round(w * 0.08),
+      right: Math.round(w * 0.06),
+      top: Math.round(h * 0.08),
+      bottom: Math.round(h * 0.08)
+    };
+  }
+  return {
+    left: Math.round(w * (96 / 816)),
+    right: Math.round(w * (72 / 816)),
+    top: Math.round(h * (72 / 1056)),
+    bottom: Math.round(h * (72 / 1056))
+  };
+}
+
+function updateMarginGuide() {
+  const mg = document.getElementById('margin-guide');
+  if (!mg) return;
+  const m = getPageMargins(currentPageW, currentPageH);
+  mg.style.left = m.left + 'px';
+  mg.style.right = m.right + 'px';
+  mg.style.top = m.top + 'px';
+  mg.style.bottom = m.bottom + 'px';
+}
 
 function ensurePageState(id) {
   if (!pageGuides[id]) pageGuides[id] = { h: [], v: [] };
@@ -145,17 +177,17 @@ function renderGuides() {
   layer.innerHTML = '';
 
   const pageEl = document.getElementById('page');
-  const pageW = parseInt(pageEl.style.width) || 595;
-  const margin = 40;
+  const pageW = parseInt(pageEl.style.width) || currentPageW;
+  const m = getPageMargins(pageW, currentPageH);
   const colCfg = pageColumns[activePageId];
 
   if (colCfg && colCfg.count > 1) {
-    const usableW = pageW - margin * 2;
+    const usableW = Math.max(40, pageW - m.left - m.right);
     const totalGutter = colCfg.gutter * (colCfg.count - 1);
     const colW = (usableW - totalGutter) / colCfg.count;
 
     for (let c = 0; c < colCfg.count; c++) {
-      const leftEdge = Math.round(margin + c * (colW + colCfg.gutter));
+      const leftEdge = Math.round(m.left + c * (colW + colCfg.gutter));
       const rightEdge = Math.round(leftEdge + colW);
 
       const lGuide = document.createElement('div');
@@ -325,6 +357,11 @@ function switchPage(targetId) {
   selectedEl = null;
 
   const page = document.getElementById('page');
+  page.style.width = currentPageW + 'px';
+  page.style.height = currentPageH + 'px';
+  page.style.minWidth = currentPageW + 'px';
+  page.style.minHeight = currentPageH + 'px';
+
   const masterHTML = (targetId === 'M') ? '' : cleanMasterHTML(pagesData['M'] || '');
   page.innerHTML =
     `<div class="margin-guide" id="margin-guide"></div>` +
@@ -332,21 +369,33 @@ function switchPage(targetId) {
     `<div class="guides-layer" id="guides-layer"></div>` +
     `${pagesData[targetId] || ''}`;
 
+  updateMarginGuide();
   page.querySelectorAll(':scope > .pm-element').forEach(el => {
     attachElementEvents(el);
     checkTextOverflow(el);
   });
   renderGuides();
+  buildRulers();
 
   document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
   const tab = document.getElementById('tab-' + targetId);
   if (tab) tab.classList.add('active');
   document.getElementById('page-indicator').innerText =
-    (targetId === 'M') ? '[Master Page]' : `[Page ${targetId} of${totalPages}]`;
+    (targetId === 'M') ? '[Master Page]' : `[Page ${targetId} of ${totalPages}]`;
 }
 
 function goToPagePrompt() {
-  const val = prompt(`कोणत्या पानावर जायचे आहे? (1 ते ${totalPages} किंवा M):`, activePageId); if (val === null) return; if (val.trim().toUpperCase() === 'M') { switchPage('M'); return; } const num = parseInt(val); if (num >= 1 && num <= totalPages) { switchPage(num); } else { alert(`कृपया 1 ते ${totalPages} मधील वैध पान क्रमांक टाका.`);
+  const val = prompt(`कोणत्या पानावर जायचे आहे? (1 ते ${totalPages} किंवा M):`, activePageId);
+  if (val === null) return;
+  if (val.trim().toUpperCase() === 'M') {
+    switchPage('M');
+    return;
+  }
+  const num = parseInt(val);
+  if (num >= 1 && num <= totalPages) {
+    switchPage(num);
+  } else {
+    alert(`कृपया 1 ते ${totalPages} मधील वैध पान क्रमांक टाका.`);
   }
 }
 
@@ -388,7 +437,24 @@ function insertMultiplePages() {
 
 function removeCurrentPage() {
   if (activePageId === 'M' || totalPages <= 1) return;
-  if (!confirm(`Page ${activePageId} डिलीट करायचे का?`)) return; saveState(); for (let i = activePageId; i < totalPages; i++) { pagesData[i] = pagesData[i + 1]; pageGuides[i] = pageGuides[i + 1]; pageColumns[i] = pageColumns[i + 1]; } delete pagesData[totalPages]; delete pageGuides[totalPages]; delete pageColumns[totalPages]; totalPages--; renderPageTabs(); switchPage(Math.min(activePageId, totalPages)); }  function removePageRangePrompt() { if (totalPages <= 1) return; const fromStr = prompt(`कोणत्या पानापासून काढायचे आहे? (1 ते ${totalPages}):`, '1');
+  if (!confirm(`Page ${activePageId} डिलीट करायचे का?`)) return;
+  saveState();
+  for (let i = activePageId; i < totalPages; i++) {
+    pagesData[i] = pagesData[i + 1];
+    pageGuides[i] = pageGuides[i + 1];
+    pageColumns[i] = pageColumns[i + 1];
+  }
+  delete pagesData[totalPages];
+  delete pageGuides[totalPages];
+  delete pageColumns[totalPages];
+  totalPages--;
+  renderPageTabs();
+  switchPage(Math.min(activePageId, totalPages));
+}
+
+function removePageRangePrompt() {
+  if (totalPages <= 1) return;
+  const fromStr = prompt(`कोणत्या पानापासून काढायचे आहे? (1 ते ${totalPages}):`, '1');
   if (fromStr === null) return;
   const toStr = prompt(`कोणत्या पानापर्यंत काढायचे आहे? (${fromStr} ते ${totalPages}):`, fromStr);
   if (toStr === null) return;
@@ -426,15 +492,12 @@ function removeCurrentPage() {
 }
 
 function openDocumentSetup() {
-  const pageEl = document.getElementById('page');
-  const curW = parseInt(pageEl.style.width) || 595;
-  const curH = parseInt(pageEl.style.height) || 842;
-  const wInStr = prompt('रुंदी (इंच मध्ये, उदा. 8.5 किंवा 3.5):', (curW / 96).toFixed(2));
+  const wInStr = prompt('रुंदी (इंच मध्ये, उदा. 8.5):', (currentPageW / 96).toFixed(2));
   if (wInStr === null) return;
-  const hInStr = prompt('उंची (इंच मध्ये, उदा. 11 किंवा 2.5):', (curH / 96).toFixed(2));
+  const hInStr = prompt('उंची (इंच मध्ये, उदा. 11 किंवा 14):', (currentPageH / 96).toFixed(2));
   if (hInStr === null) return;
-  const wPx = Math.max(120, Math.round((parseFloat(wInStr) || 8.27) * 96));
-  const hPx = Math.max(120, Math.round((parseFloat(hInStr) || 11.69) * 96));
+  const wPx = Math.max(120, Math.round((parseFloat(wInStr) || 8.5) * 96));
+  const hPx = Math.max(120, Math.round((parseFloat(hInStr) || 11) * 96));
   setPageSize(wPx, hPx);
 }
 
@@ -449,11 +512,14 @@ function renderPageTabs() {
 
 function setPageSize(w, h) {
   saveState();
+  currentPageW = w;
+  currentPageH = h;
   const p = document.getElementById('page');
   p.style.width = w + 'px';
   p.style.height = h + 'px';
   p.style.minWidth = w + 'px';
   p.style.minHeight = h + 'px';
+  updateMarginGuide();
   buildRulers();
   renderGuides();
 }
@@ -470,8 +536,8 @@ function printAllPages() {
   saveCurrentPageContent();
   const container = document.getElementById('print-all-container');
   container.innerHTML = '';
-  const pageW = document.getElementById('page').style.width || '595px';
-  const pageH = document.getElementById('page').style.height || '842px';
+  const pageW = currentPageW + 'px';
+  const pageH = currentPageH + 'px';
   const masterClean = cleanMasterHTML(pagesData['M'] || '');
   for (let i = 1; i <= totalPages; i++) {
     const pDiv = document.createElement('div');
@@ -487,6 +553,7 @@ function printAllPages() {
 window.addEventListener('DOMContentLoaded', () => {
   const selectEl = document.getElementById('font-family');
   if (selectEl) selectEl.style.fontFamily = selectEl.value;
+  setPageSize(currentPageW, currentPageH);
   selectTool('pointer');
   buildRulers();
   initRulerDrag();
