@@ -196,7 +196,7 @@ body {
   border-color: #808080 #ffffff #ffffff #808080;
 }
 
-/* Workspace & Authentic PageMaker Rulers */
+/* Workspace & PageMaker Rulers */
 .workspace-container {
   display: flex;
   flex: 1;
@@ -332,6 +332,14 @@ body {
   transform-origin: top left;
 }
 
+/* Page-only Zoom / Touch Lock */
+.page.page-touch-locked .pm-element,
+.page.page-touch-locked .text-content {
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
 .margin-guide {
   position: absolute;
   top: 72px;
@@ -383,7 +391,7 @@ body {
   cursor: ew-resize;
 }
 
-/* Original PageMaker 7.0 Toolbox */
+/* Toolbox */
 .toolbox {
   position: fixed;
   top: 68px;
@@ -489,7 +497,7 @@ body {
   flex-shrink: 0;
 }
 
-/* Compact Control Palette */
+/* Control Palette */
 .control-palette {
   position: fixed;
   bottom: 26px;
