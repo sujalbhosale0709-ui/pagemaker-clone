@@ -39,32 +39,44 @@ function buildRulers() {
   const rhRect = rh.getBoundingClientRect();
   const rvRect = rv.getBoundingClientRect();
 
-  // फोटोप्रमाणे प्रत्येक मोठ्या भागाचे १० बारीक विभाग (1 Major unit = 10 subdivisions)
-  const majorPx = 72 * zoomLevel; // 1 inch (72pt in PageMaker)
-  const subStep = majorPx / 10;
+  // 0 ते 1 दरम्यान 16 विभाग (1/16 inch ticks) आणि पॅटर्नप्रमाणे उंची
+  const majorPx = 96 * zoomLevel;
+  const subStep = majorPx / 16;
 
-  // पानाच्या डाव्या आणि वरच्या कडेपासून बरोबर 0 सुरू होईल
   const originX = pageRect.left - rhRect.left;
   const originY = pageRect.top - rvRect.top;
+
+  function tickSizeH(stepIdx) {
+    if (stepIdx === 0) return 14;
+    if (stepIdx === 8) return 11;
+    if (stepIdx === 4 || stepIdx === 12) return 8;
+    if (stepIdx % 2 === 0) return 6;
+    return 3.5;
+  }
+
+  function tickSizeV(stepIdx) {
+    if (stepIdx === 0) return 14;
+    if (stepIdx === 8) return 11;
+    if (stepIdx === 4 || stepIdx === 12) return 8;
+    if (stepIdx % 2 === 0) return 6;
+    return 3.5;
+  }
 
   const startUnitH = Math.floor(-originX / majorPx) - 1;
   const endUnitH = Math.ceil((rh.clientWidth - originX) / majorPx) + 1;
 
   for (let u = startUnitH; u <= endUnitH; u++) {
-    for (let s = 0; s < 10; s++) {
-      const pos = Math.round(originX + (u * 10 + s) * subStep);
+    for (let s = 0; s < 16; s++) {
+      const pos = Math.round(originX + (u * 16 + s) * subStep);
       if (pos < 0 || pos > rh.clientWidth) continue;
-
-      const isMajor = (s === 0);
-      const isMid = (s === 5);
 
       const tick = document.createElement('div');
       tick.className = 'ruler-tick-h';
       tick.style.left = pos + 'px';
-      tick.style.height = isMajor ? '14px' : (isMid ? '9px' : '5px');
+      tick.style.height = tickSizeH(s) + 'px';
       rh.appendChild(tick);
 
-      if (isMajor) {
+      if (s === 0) {
         const lbl = document.createElement('div');
         lbl.className = 'ruler-label-h';
         lbl.style.left = (pos + 2) + 'px';
@@ -78,20 +90,17 @@ function buildRulers() {
   const endUnitV = Math.ceil((rv.clientHeight - originY) / majorPx) + 1;
 
   for (let u = startUnitV; u <= endUnitV; u++) {
-    for (let s = 0; s < 10; s++) {
-      const pos = Math.round(originY + (u * 10 + s) * subStep);
+    for (let s = 0; s < 16; s++) {
+      const pos = Math.round(originY + (u * 16 + s) * subStep);
       if (pos < 0 || pos > rv.clientHeight) continue;
-
-      const isMajor = (s === 0);
-      const isMid = (s === 5);
 
       const tick = document.createElement('div');
       tick.className = 'ruler-tick-v';
       tick.style.top = pos + 'px';
-      tick.style.width = isMajor ? '14px' : (isMid ? '9px' : '5px');
+      tick.style.width = tickSizeV(s) + 'px';
       rv.appendChild(tick);
 
-      if (isMajor) {
+      if (s === 0) {
         const lbl = document.createElement('div');
         lbl.className = 'ruler-label-v';
         lbl.style.top = (pos + 2) + 'px';
