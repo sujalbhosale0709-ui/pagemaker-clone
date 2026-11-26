@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<title>PageMaker 7.0 Clone - [Untitled-1]</title>
+<style>
+  /* Classic Windows 98 / PageMaker 7.0 UI Styling */
+  * { box-sizing: border-box; user-select: none; font-family: 'Tahoma', 'Arial', sans-serif; font-size: 12px; }
+  body { margin: 0; padding: 0; background-color: #808080; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+  
+  /* Menu Bar */
+  .menu-bar { background: #d4d0c8; border-bottom: 1px solid #808080; display: flex; padding: 2px 5px; }
+  .menu-item { padding: 3px 8px; cursor: pointer; }
+  .menu-item:hover { background: #0a246a; color: white; }
+
+  /* Top Standard Toolbar */
+  .toolbar { background: #d4d0c8; border-top: 1px solid #ffffff; border-bottom: 1px solid #808080; padding: 3px 6px; display: flex; gap: 4px; align-items: center; }
+  .btn { background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; padding: 2px 6px; cursor: pointer; }
+  .btn:active { border-color: #808080 #ffffff #ffffff #808080; }
+
+  /* Workspace & Rulers */
+  .workspace-container { display: flex; flex: 1; position: relative; overflow: hidden; }
+  .ruler-corner { width: 20px; height: 20px; background: #d4d0c8; border-right: 1px solid #000; border-bottom: 1px solid #000; position: absolute; top: 0; left: 0; z-index: 10; }
+  .ruler-h { height: 20px; background: #ffffff; border-bottom: 1px solid #000; position: absolute; top: 0; left: 20px; right: 0; display: flex; align-items: flex-end; font-size: 9px; padding-left: 100px; }
+  .ruler-v { width: 20px; background: #ffffff; border-right: 1px solid #000; position: absolute; top: 20px; left: 0; bottom: 0; display: flex; flex-direction: column; font-size: 9px; padding-top: 50px; }
+
+  /* Pasteboard & A4 Page */
+  .pasteboard { flex: 1; background: #808080; overflow: auto; padding: 50px; display: flex; justify-content: center; align-items: flex-start; margin-top: 20px; margin-left: 20px; }
+  .page { width: 595px; height: 842px; background: #ffffff; box-shadow: 4px 4px 0px #404040; position: relative; border: 1px solid #000; }
+  .margin-guide { position: absolute; top: 40px; left: 40px; right: 40px; bottom: 40px; border: 1px solid #ff69b4; pointer-events: none; }
+
+  /* Floating Tool Box (Classic PageMaker Palette) */
+  .toolbox { position: absolute; top: 40px; left: 30px; width: 62px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 100; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
+  .palette-header { background: linear-gradient(90deg, #0a246a, #a6caf0); color: white; font-size: 10px; padding: 2px 4px; font-weight: bold; cursor: move; }
+  .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; }
+  .tool-btn { height: 26px; background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; display: flex; justify-content: center; align-items: center; cursor: pointer; font-weight: bold; }
+  .tool-btn.active { background: #b5b5b5; border-color: #808080 #ffffff #ffffff #808080; }
+
+  /* Floating Control Palette (Bottom) */
+  .control-palette { position: absolute; bottom: 15px; left: 110px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 100; display: flex; align-items: center; padding: 4px 8px; gap: 10px; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
+  select, input[type="number"] { border: 1px solid #808080; background: #ffffff; padding: 2px; font-size: 12px; }
+
+  /* Text Frame on Page */
+  .text-frame { position: absolute; border: 1px dashed #008080; min-width: 100px; min-height: 30px; padding: 4px; cursor: text; user-select: text; outline: none; line-height: 1.4; }
+  .text-frame:focus { border: 1px solid #0000ff; }
+</style>
+</head>
+<body>
+
+  <!-- Menu Bar -->
+  <div class="menu-bar">
+    <div class="menu-item" onclick="newPage()"><u>F</u>ile</div>
+    <div class="menu-item"><u>E</u>dit</div>
+    <div class="menu-item"><u>L</u>ayout</div>
+    <div class="menu-item"><u>T</u>ype</div>
+    <div class="menu-item"><u>E</u>lement</div>
+    <div class="menu-item"><u>U</u>tilities</div>
+    <div class="menu-item"><u>V</u>iew</div>
+    <div class="menu-item"><u>W</u>indow</div>
+    <div class="menu-item"><u>H</u>elp</div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="btn" onclick="newPage()">New (Ctrl+N)</button>
+    <button class="btn" onclick="window.print()">Print / Save PDF (Ctrl+P)</button>
+    <span style="margin-left:10px; color:#333;">सूचना: पेजवर क्लिक करून टेक्स्ट बॉक्स टाका (T टूल निवडून)</span>
+  </div>
+
+  <!-- Main Workspace -->
+  <div class="workspace-container">
+    <div class="ruler-corner"></div>
+    <div class="ruler-h">0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8 in</div>
+    <div class="ruler-v">0<br><br><br>1<br><br><br>2<br><br><br>3<br><br><br>4<br><br><br>5<br><br><br>6<br><br><br>7<br><br><br>8<br><br><br>9<br><br><br>10</div>
+
+    <!-- Floating Tool Box -->
+    <div class="toolbox" id="toolbox">
+      <div class="palette-header">Tools</div>
+      <div class="tool-grid">
+        <div class="tool-btn" id="tool-pointer" title="Pointer Tool" onclick="selectTool('pointer')">↖</div>
+        <div class="tool-btn active" id="tool-text" title="Text Tool (T)" onclick="selectTool('text')">T</div>
+        <div class="tool-btn" title="Rotate Tool">↻</div>
+        <div class="tool-btn" title="Crop Tool">◰</div>
+        <div class="tool-btn" title="Line Tool">╲</div>
+        <div class="tool-btn" title="Constrained Line">│</div>
+        <div class="tool-btn" title="Rectangle Tool">▭</div>
+        <div class="tool-btn" title="Rectangle Frame">☒</div>
+        <div class="tool-btn" title="Ellipse Tool">○</div>
+        <div class="tool-btn" title="Ellipse Frame">⊗</div>
+        <div class="tool-btn" title="Polygon Tool">⬠</div>
+        <div class="tool-btn" title="Hand Tool">✋</div>
+      </div>
+    </div>
+
+    <!-- Pasteboard & A4 Page -->
+    <div class="pasteboard">
+      <div class="page" id="page" onclick="handlePageClick(event)">
+        <div class="margin-guide"></div>
+      </div>
+    </div>
+
+    <!-- Floating Control Palette -->
+    <div class="control-palette">
+      <div class="palette-header" style="writing-mode: vertical-rl; height: 35px;">Control</div>
+      <div>
+        <label>Font:</label>
+        <select id="font-family" onchange="applyStyle('fontName', this.value)">
+          <option value="Mangal">Mangal (Unicode Marathi)</option>
+          <option value="Kokila">Kokila (Unicode Marathi)</option>
+          <option value="Shree-Dev-0708">Shree-Dev-0708 (DTP Legacy)</option>
+          <option value="Kruti Dev 010">Kruti Dev 010 (Legacy)</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Arial">Arial</option>
+        </select>
+      </div>
+      <div>
+        <label>Size:</label>
+        <input type="number" id="font-size" value="14" min="6" max="120" style="width: 50px;" onchange="changeFontSize(this.value)">
+      </div>
+      <div>
+        <button class="btn" onclick="applyStyle('bold')"><b>B</b></button>
+        <button class="btn" onclick="applyStyle('italic')"><i>I</i></button>
+        <button class="btn" onclick="applyStyle('underline')"><u>U</u></button>
+      </div>
+      <div>
+        <button class="btn" onclick="applyStyle('justifyLeft')">Left</button>
+        <button class="btn" onclick="applyStyle('justifyCenter')">Center</button>
+        <button class="btn" onclick="applyStyle('justifyRight')">Right</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let currentTool = 'text';
+  let activeFrame = null;
+
+  function selectTool(tool) {
+    currentTool = tool;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tool-' + tool).classList.add('active');
+  }
+
+  function handlePageClick(e) {
+    if (e.target.id === 'page' && currentTool === 'text') {
+      const rect = e.target.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const frame = document.createElement('div');
+      frame.className = 'text-frame';
+      frame.contentEditable = true;
+      frame.style.left = x + 'px';
+      frame.style.top = y + 'px';
+      frame.style.fontFamily = document.getElementById('font-family').value;
+      frame.style.fontSize = document.getElementById('font-size').value + 'px';
+      frame.innerText = 'येथे मराठी टाइप करा...';
+
+      frame.onfocus = () => { activeFrame = frame; };
+      e.target.appendChild(frame);
+      frame.focus();
+      activeFrame = frame;
+    }
+  }
+
+  function applyStyle(command, value = null) {
+    document.execCommand(command, false, value);
+    if (activeFrame && command === 'fontName') {
+      activeFrame.style.fontFamily = value;
+    }
+  }
+
+  function changeFontSize(size) {
+    if (activeFrame) {
+      activeFrame.style.fontSize = size + 'px';
+    }
+  }
+
+  function newPage() {
+    if (confirm('नवीन पेज उघडायचे का? सध्याचे काम पुसले जाईल.')) {
+      document.getElementById('page').innerHTML = '<div class="margin-guide"></div>';
+    }
+  }
+</script>
+</body>
+          </html>
+          
