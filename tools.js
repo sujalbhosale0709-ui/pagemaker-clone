@@ -284,19 +284,17 @@ function attachElementEvents(el) {
   const tc = el.querySelector('.text-content');
   if (tc) {
     tc.contentEditable = 'true';
+    tc.style.touchAction = 'manipulation';
     tc.addEventListener('pointerdown', (ev) => {
       selectElement(el);
-      if (currentTool === 'text') {
-        // कीबोर्ड उघडण्यासाठी डिफॉल्ट टच/फोकस सुरू ठेवा
-        ev.stopPropagation();
-        return;
-      }
-      // Pointer किंवा इतर टूलवर बॉक्स सहज ड्रॅग होण्यासाठी
-      ev.preventDefault();
+      // टेक्स्ट कंटेंटवर टच केल्यावर कीबोर्ड उघडण्यासाठी e.preventDefault() करू नका
       ev.stopPropagation();
-      saveState();
-      if (currentTool === 'rotate') initRotate(ev, el);
-      else initDrag(ev, el);
+    });
+    tc.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      selectElement(el);
+      tc.contentEditable = 'true';
+      tc.focus();
     });
     tc.addEventListener('input', () => {
       if (/[\u0900-\u097F]/.test(tc.innerText)) {
@@ -309,7 +307,7 @@ function attachElementEvents(el) {
   el.onpointerdown = (e) => {
     if (currentTool === 'hand' || currentTool === 'zoom') return;
     if (e.target.classList.contains('handle') || e.target.classList.contains('overflow-badge')) return;
-    if (currentTool === 'text' && e.target.classList.contains('text-content')) {
+    if (e.target.classList.contains('text-content')) {
       selectElement(el);
       return;
     }
@@ -455,6 +453,7 @@ function handlePagePointerDown(e) {
           const content = document.createElement('div');
           content.className = 'text-content';
           content.contentEditable = true;
+          content.style.touchAction = 'manipulation';
           const chosenFont = document.getElementById('font-family').value;
           content.style.fontFamily = chosenFont;
           content.style.fontSize = document.getElementById('font-size').value + 'px';
@@ -481,8 +480,8 @@ function handlePagePointerDown(e) {
           el.appendChild(content);
           attachElementEvents(el);
           checkTextOverflow(el);
-          selectTool('pointer');
           selectElement(el);
+          content.focus();
         }
       }
     }
@@ -1029,6 +1028,7 @@ function exportPageAsPNG() {
     clone.querySelectorAll('.pm-element').forEach(el => {
       el.classList.remove('selected', 'crop-mode');
       el.style.outline = 'none';
+      el.style.boxShadow = 'none';
     });
     clone.style.transform = 'none';
 
