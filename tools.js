@@ -307,7 +307,7 @@ function checkTextOverflow(el) {
         if (isPageTouchBlocked()) return;
         pendingThreadSource = el;
         selectTool('text');
-        alert('आता पानावर जिथे उरलेला मजकूर हवा आहे तिथे बोटाने बॉक्स ओढा.');
+        alert('आता पानावर जिथे उरलेला मजकूर हवा आहे तिथे बोटाने टच करा.');
       };
       el.appendChild(badge);
     }
@@ -340,6 +340,7 @@ function attachElementEvents(el) {
     tc.style.touchAction = 'manipulation';
     tc.style.webkitUserSelect = 'text';
     tc.style.userSelect = 'text';
+    tc.style.pointerEvents = 'auto';
 
     tc.addEventListener('pointerdown', (ev) => {
       if (isPageTouchBlocked()) {
@@ -349,7 +350,6 @@ function attachElementEvents(el) {
       }
       selectElement(el);
       tc.contentEditable = 'true';
-      // टेक्स्ट आत टच केल्यावर कीबोर्ड लगेच उघडण्यासाठी stopPropagation व focus
       ev.stopPropagation();
       setTimeout(() => {
         if (!isPageTouchBlocked()) tc.focus();
@@ -364,7 +364,6 @@ function attachElementEvents(el) {
     });
   }
 
-  // बॉक्सच्या कडेवरून किंवा Pointer टूलवर बोटाने सहज ड्रॅग करणे
   el.onpointerdown = (e) => {
     if (isPageTouchBlocked()) {
       e.preventDefault();
@@ -466,6 +465,7 @@ function populateShapeInner(el, type, w, h) {
   }
 }
 
+/* Text टूलवर पानावर टच केल्यावर थेट ४ ओळींचा मराठी टेक्स्ट बॉक्स तयार करणे */
 function handlePagePointerDown(e) {
   if (isPageTouchBlocked()) {
     e.preventDefault();
@@ -481,112 +481,67 @@ function handlePagePointerDown(e) {
 
   e.stopPropagation();
   const rect = document.getElementById('page').getBoundingClientRect();
-  const startX = snapValue(Math.round((e.clientX - rect.left) / zoomLevel), 'v');
-  const startY = snapValue(Math.round((e.clientY - rect.top) / zoomLevel), 'h');
+  const tapX = snapValue(Math.round((e.clientX - rect.left) / zoomLevel), 'v');
+  const tapY = snapValue(Math.round((e.clientY - rect.top) / zoomLevel), 'h');
 
   if (currentTool === 'text') {
-    let previewBox = null;
-    let moved = false;
+    const boxW = 360;
+    const boxH = 120;
+    const snapped = snapBoxPosition(tapX, tapY, boxW, boxH);
 
-    function onTextDragMove(ev) {
-      const curX = Math.round((ev.clientX - rect.left) / zoomLevel);
-      const curY = Math.round((ev.clientY - rect.top) / zoomLevel);
-      const w = Math.abs(curX - startX);
-      const h = Math.abs(curY - startY);
-      if (w < 20 && h < 16) return;
-      moved = true;
-      if (!previewBox) {
-        previewBox = document.createElement('div');
-        previewBox.style.cssText = 'position:absolute;border:1px dashed #0a246a;background:rgba(10,36,106,0.06);pointer-events:none;z-index:200;';
-        document.getElementById('page').appendChild(previewBox);
-      }
-      const rawLeft = Math.min(startX, curX);
-      const rawTop = Math.min(startY, curY);
-      const rawW = Math.max(90, w);
-      const rawH = Math.max(40, h);
-      const snapped = snapBoxPosition(rawLeft, rawTop, rawW, rawH);
+    const el = createPMElement(snapped.x, snapped.y, boxW, boxH);
+    const content = document.createElement('div');
+    content.className = 'text-content';
+    content.contentEditable = 'true';
+    content.style.touchAction = 'manipulation';
+    content.style.webkitUserSelect = 'text';
+    content.style.userSelect = 'text';
+    content.style.pointerEvents = 'auto';
 
-      previewBox.style.left = snapped.x + 'px';
-      previewBox.style.top = snapped.y + 'px';
-      previewBox.style.width = rawW + 'px';
-      previewBox.style.height = rawH + 'px';
-    }
+    const chosenFont = document.getElementById('font-family').value;
+    const chosenSize = parseInt(document.getElementById('font-size').value) || 16;
+    const chosenLeading = parseFloat(document.getElementById('line-leading').value) || 1.4;
+    const chosenColor = document.getElementById('picker-color').value || '#000000';
 
-    function cleanupTextDrag() {
-      window.removeEventListener('pointermove', onTextDragMove);
-      window.removeEventListener('pointerup', onTextDragUp);
-      window.removeEventListener('pointercancel', cleanupTextDrag);
-    }
+    content.style.fontFamily = chosenFont;
+    content.style.fontSize = chosenSize + 'px';
+    content.style.lineHeight = chosenLeading;
+    content.style.color = chosenColor;
 
-    function onTextDragUp() {
-      cleanupTextDrag();
-      if (previewBox) {
-        const bx = parseInt(previewBox.style.left);
-        const by = parseInt(previewBox.style.top);
-        const bw = parseInt(previewBox.style.width);
-        const bh = parseInt(previewBox.style.height);
-        previewBox.remove();
+    const fourLinesMarathi =
+      'ही पहिली ओळ मराठी मजकुरासाठी आहे.\n' +
+      'ही दुसरी ओळ येथे लिहिली आहे.\n' +
+      'ही तिसरी ओळ आपण बदलू शकता.\n' +
+      'ही चौथी ओळ टेक्स्ट बॉक्समध्ये आहे.';
 
-        if (moved) {
-          const el = createPMElement(bx, by, bw, bh);
-          const content = document.createElement('div');
-          content.className = 'text-content';
-          content.contentEditable = 'true';
-          content.style.touchAction = 'manipulation';
-          content.style.webkitUserSelect = 'text';
-          content.style.userSelect = 'text';
-          const chosenFont = document.getElementById('font-family').value;
-          content.style.fontFamily = chosenFont;
-          content.style.fontSize = document.getElementById('font-size').value + 'px';
-          content.style.lineHeight = document.getElementById('line-leading').value || '1.4';
-          content.style.color = document.getElementById('picker-color').value || '#000000';
+    content.dataset.unicodeSource = fourLinesMarathi;
+    const lType = getLegacyFontType(chosenFont);
+    content.innerText = lType ? unicodeToLegacyDevanagari(fourLinesMarathi, lType) : fourLinesMarathi;
 
-          if (pendingThreadSource) {
-            const srcTc = pendingThreadSource.querySelector('.text-content');
-            if (srcTc) {
-              const words = srcTc.innerText.split(/\s+/).filter(Boolean);
-              const half = Math.ceil(words.length / 2);
-              srcTc.innerText = words.slice(0, half).join(' ');
-              content.innerText = words.slice(half).join(' ') || 'पुढील मजकूर...';
-              checkTextOverflow(pendingThreadSource);
-            }
-            pendingThreadSource = null;
-          } else {
-            const defaultUnicode = 'येथे मराठी टाइप करा...';
-            content.dataset.unicodeSource = defaultUnicode;
-            const lType = getLegacyFontType(chosenFont);
-            content.innerText = lType ? unicodeToLegacyDevanagari(defaultUnicode, lType) : defaultUnicode;
-          }
-
-          el.appendChild(content);
-          attachElementEvents(el);
-          checkTextOverflow(el);
-          selectElement(el);
-          content.focus();
-        }
-      }
-    }
-
-    window.addEventListener('pointermove', onTextDragMove);
-    window.addEventListener('pointerup', onTextDragUp);
-    window.addEventListener('pointercancel', cleanupTextDrag);
+    el.appendChild(content);
+    attachElementEvents(el);
+    checkTextOverflow(el);
+    selectElement(el);
+    setTimeout(() => {
+      if (!isPageTouchBlocked()) content.focus();
+    }, 0);
     return;
   }
 
   const shapeType = currentTool;
-  const el = createPMElement(startX, startY, 40, 40);
+  const el = createPMElement(tapX, tapY, 40, 40);
   populateShapeInner(el, shapeType, 40, 40);
 
   function onMove(ev) {
     let curX = Math.round((ev.clientX - rect.left) / zoomLevel);
     let curY = Math.round((ev.clientY - rect.top) / zoomLevel);
     if (shapeType === 'cline') {
-      curY = startY;
+      curY = tapY;
     }
-    const left = Math.min(startX, curX);
-    const top = Math.min(startY, curY);
-    const w = Math.max(12, Math.abs(curX - startX));
-    const h = (shapeType === 'cline') ? 12 : Math.max(12, Math.abs(curY - startY));
+    const left = Math.min(tapX, curX);
+    const top = Math.min(tapY, curY);
+    const w = Math.max(12, Math.abs(curX - tapX));
+    const h = (shapeType === 'cline') ? 12 : Math.max(12, Math.abs(curY - tapY));
     const snapped = snapBoxPosition(left, top, w, h);
     el.style.left = snapped.x + 'px';
     el.style.top = snapped.y + 'px';
