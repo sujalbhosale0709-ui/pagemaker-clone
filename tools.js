@@ -16,6 +16,10 @@ function togglePageZoomLock() {
     pageEl.classList.toggle('page-touch-locked', pageZoomTouchLocked);
   }
 
+  document.querySelectorAll('#page > .pm-element .text-content').forEach(tc => {
+    tc.contentEditable = pageZoomTouchLocked ? 'false' : 'true';
+  });
+
   if (pageZoomTouchLocked) {
     if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('text-content')) {
       document.activeElement.blur();
@@ -334,6 +338,9 @@ function attachElementEvents(el) {
   if (tc) {
     tc.contentEditable = isPageTouchBlocked() ? 'false' : 'true';
     tc.style.touchAction = 'manipulation';
+    tc.style.webkitUserSelect = 'text';
+    tc.style.userSelect = 'text';
+
     tc.addEventListener('pointerdown', (ev) => {
       if (isPageTouchBlocked()) {
         ev.preventDefault();
@@ -341,19 +348,14 @@ function attachElementEvents(el) {
         return;
       }
       selectElement(el);
-      ev.stopPropagation();
-    });
-    tc.addEventListener('click', (ev) => {
-      if (isPageTouchBlocked()) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-      }
-      ev.stopPropagation();
-      selectElement(el);
       tc.contentEditable = 'true';
-      tc.focus();
+      // टेक्स्ट आत टच केल्यावर कीबोर्ड लगेच उघडण्यासाठी stopPropagation व focus
+      ev.stopPropagation();
+      setTimeout(() => {
+        if (!isPageTouchBlocked()) tc.focus();
+      }, 0);
     });
+
     tc.addEventListener('input', () => {
       if (/[\u0900-\u097F]/.test(tc.innerText)) {
         tc.dataset.unicodeSource = tc.innerText;
@@ -362,6 +364,7 @@ function attachElementEvents(el) {
     });
   }
 
+  // बॉक्सच्या कडेवरून किंवा Pointer टूलवर बोटाने सहज ड्रॅग करणे
   el.onpointerdown = (e) => {
     if (isPageTouchBlocked()) {
       e.preventDefault();
@@ -370,15 +373,23 @@ function attachElementEvents(el) {
     }
     if (currentTool === 'hand' || currentTool === 'zoom') return;
     if (e.target.classList.contains('handle') || e.target.classList.contains('overflow-badge')) return;
-    if (e.target.classList.contains('text-content')) {
+
+    const clickedText = e.target.classList && e.target.classList.contains('text-content');
+    if (clickedText && currentTool === 'text') {
       selectElement(el);
       return;
     }
+
     e.preventDefault();
     e.stopPropagation();
     selectElement(el);
-    if (currentTool === 'rotate') { saveState(); initRotate(e, el); }
-    else { saveState(); initDrag(e, el); }
+    if (currentTool === 'rotate') {
+      saveState();
+      initRotate(e, el);
+    } else {
+      saveState();
+      initDrag(e, el);
+    }
   };
 
   checkTextOverflow(el);
@@ -482,7 +493,7 @@ function handlePagePointerDown(e) {
       const curY = Math.round((ev.clientY - rect.top) / zoomLevel);
       const w = Math.abs(curX - startX);
       const h = Math.abs(curY - startY);
-      if (w < 24 && h < 20) return;
+      if (w < 20 && h < 16) return;
       moved = true;
       if (!previewBox) {
         previewBox = document.createElement('div');
@@ -491,8 +502,8 @@ function handlePagePointerDown(e) {
       }
       const rawLeft = Math.min(startX, curX);
       const rawTop = Math.min(startY, curY);
-      const rawW = Math.max(80, w);
-      const rawH = Math.max(36, h);
+      const rawW = Math.max(90, w);
+      const rawH = Math.max(40, h);
       const snapped = snapBoxPosition(rawLeft, rawTop, rawW, rawH);
 
       previewBox.style.left = snapped.x + 'px';
@@ -522,6 +533,8 @@ function handlePagePointerDown(e) {
           content.className = 'text-content';
           content.contentEditable = 'true';
           content.style.touchAction = 'manipulation';
+          content.style.webkitUserSelect = 'text';
+          content.style.userSelect = 'text';
           const chosenFont = document.getElementById('font-family').value;
           content.style.fontFamily = chosenFont;
           content.style.fontSize = document.getElementById('font-size').value + 'px';
@@ -1098,6 +1111,7 @@ function exportPageAsPNG() {
     clone.querySelectorAll('.pm-element').forEach(el => {
       el.classList.remove('selected', 'crop-mode');
       el.style.outline = 'none';
+      el.style.border = 'none';
       el.style.boxShadow = 'none';
     });
     clone.style.transform = 'none';
