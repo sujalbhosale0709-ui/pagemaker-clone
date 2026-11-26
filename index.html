@@ -6,7 +6,7 @@
 <title>Adobe PageMaker 7.0 - DTP Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Khand:wght@500;700&family=Mukta:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Serif+Devanagari:wght@400;700&family=Tiro+Devanagari+Marathi:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaina+2:wght@400;600;700&family=Hind:wght@400;600;700&family=Karma:wght@400;600;700&family=Khand:wght@500;700&family=Martel:wght@400;700&family=Modak&family=Mukta:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Serif+Devanagari:wght@400;700&family=Teko:wght@500;700&family=Tiro+Devanagari+Marathi:ital@0;1&family=Yatra+One&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body onclick="closeMenus()">
@@ -160,13 +160,28 @@
       <div class="control-body">
         <div class="ctrl-row">
           <select id="font-family" onchange="applyFontFamily(this.value)">
-            <option value="'Tiro Devanagari Marathi', serif" style="font-family:'Tiro Devanagari Marathi',serif;">Tiro Marathi (छापखाना)</option>
-            <option value="'Noto Serif Devanagari', serif" style="font-family:'Noto Serif Devanagari',serif;">Noto Serif Marathi</option>
-            <option value="'Noto Sans Devanagari', sans-serif" style="font-family:'Noto Sans Devanagari',sans-serif;">Noto Sans Marathi</option>
-            <option value="'Mukta', sans-serif" style="font-family:'Mukta',sans-serif;">Mukta Marathi</option>
-            <option value="'Khand', sans-serif" style="font-family:'Khand',sans-serif;">Khand Bold Marathi</option>
-            <option value="'Times New Roman', serif" style="font-family:'Times New Roman',serif;">Times New Roman</option>
-            <option value="'Arial', sans-serif" style="font-family:'Arial',sans-serif;">Arial</option>
+            <optgroup label="Court / Bond / Formal">
+              <option value="'Noto Serif Devanagari', serif" style="font-family:'Noto Serif Devanagari',serif;">Noto Serif Devanagari (Bond/Court)</option>
+              <option value="'Karma', serif" style="font-family:'Karma',serif;">Karma (Legal/Formal)</option>
+              <option value="'Martel', serif" style="font-family:'Martel',serif;">Martel (Document/Book)</option>
+              <option value="'Tiro Devanagari Marathi', serif" style="font-family:'Tiro Devanagari Marathi',serif;">Tiro Devanagari Marathi</option>
+            </optgroup>
+            <optgroup label="General Marathi Typing">
+              <option value="'Hind', sans-serif" style="font-family:'Hind',sans-serif;">Hind</option>
+              <option value="'Mukta', sans-serif" style="font-family:'Mukta',sans-serif;">Mukta</option>
+              <option value="'Noto Sans Devanagari', sans-serif" style="font-family:'Noto Sans Devanagari',sans-serif;">Noto Sans Devanagari</option>
+            </optgroup>
+            <optgroup label="Headings / Display">
+              <option value="'Teko', sans-serif" style="font-family:'Teko',sans-serif;">Teko</option>
+              <option value="'Khand', sans-serif" style="font-family:'Khand',sans-serif;">Khand</option>
+              <option value="'Yatra One', cursive" style="font-family:'Yatra One',cursive;">Yatra One</option>
+              <option value="'Baloo Bhaina 2', cursive" style="font-family:'Baloo Bhaina 2',cursive;">Baloo Bhaina 2</option>
+              <option value="'Modak', cursive" style="font-family:'Modak',cursive;">Modak</option>
+            </optgroup>
+            <optgroup label="English Fonts">
+              <option value="'Times New Roman', serif" style="font-family:'Times New Roman',serif;">Times New Roman</option>
+              <option value="'Arial', sans-serif" style="font-family:'Arial',sans-serif;">Arial</option>
+            </optgroup>
           </select>
           <input type="number" id="font-size" value="16" min="6" max="150" style="width:38px;" title="Font Size" onchange="changeFontSize(this.value)">
           <input type="number" id="line-leading" value="1.4" step="0.1" min="0.8" max="3" style="width:38px;" title="Leading" onchange="setLineHeight(this.value)">
