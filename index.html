@@ -2,160 +2,140 @@
 <html lang="mr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>PageMaker 7.0 Clone - [Untitled-1]</title>
 <style>
   /* Classic Windows 98 / PageMaker 7.0 UI Styling */
   * { box-sizing: border-box; user-select: none; font-family: 'Tahoma', 'Arial', sans-serif; font-size: 12px; }
-  body { margin: 0; padding: 0; background-color: #808080; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+  body { margin: 0; padding: 0; background-color: #808080; overflow: hidden; display: flex; flex-direction: column; height: 100vh; width: 100vw; }
   
-  /* Menu Bar */
-  .menu-bar { background: #d4d0c8; border-bottom: 1px solid #808080; display: flex; padding: 2px 5px; z-index: 200; }
-  .menu-item { padding: 3px 8px; cursor: pointer; position: relative; }
-  .menu-item:hover { background: #0a246a; color: white; }
+  /* Menu Bar & Dropdowns */
+  .menu-bar { background: #d4d0c8; border-bottom: 1px solid #808080; display: flex; padding: 2px 4px; z-index: 300; overflow-x: auto; }
+  .menu-item { padding: 3px 7px; cursor: pointer; position: relative; white-space: nowrap; }
+  .menu-item:hover, .menu-item.open { background: #0a246a; color: white; }
+  .dropdown { display: none; position: fixed; top: 24px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; min-width: 160px; z-index: 400; box-shadow: 2px 2px 4px rgba(0,0,0,0.4); color: black; }
+  .dropdown.show { display: block; }
+  .dropdown-item { padding: 5px 12px; cursor: pointer; display: flex; justify-content: space-between; }
+  .dropdown-item:hover { background: #0a246a; color: white; }
+  .dropdown-divider { border-top: 1px solid #808080; border-bottom: 1px solid #ffffff; margin: 2px 0; }
 
   /* Top Standard Toolbar */
-  .toolbar { background: #d4d0c8; border-top: 1px solid #ffffff; border-bottom: 1px solid #808080; padding: 3px 6px; display: flex; gap: 6px; align-items: center; z-index: 200; }
-  .btn { background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; padding: 2px 6px; cursor: pointer; }
+  .toolbar { background: #d4d0c8; border-top: 1px solid #ffffff; border-bottom: 1px solid #808080; padding: 3px 6px; display: flex; gap: 5px; align-items: center; z-index: 200; overflow-x: auto; white-space: nowrap; }
+  .btn { background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; padding: 3px 7px; cursor: pointer; }
   .btn:active { border-color: #808080 #ffffff #ffffff #808080; }
 
   /* Workspace & Rulers */
   .workspace-container { display: flex; flex: 1; position: relative; overflow: hidden; }
-  .ruler-corner { width: 20px; height: 20px; background: #d4d0c8; border-right: 1px solid #000; border-bottom: 1px solid #000; position: absolute; top: 0; left: 0; z-index: 10; }
-  .ruler-h { height: 20px; background: #ffffff; border-bottom: 1px solid #000; position: absolute; top: 0; left: 20px; right: 0; display: flex; align-items: flex-end; font-size: 9px; padding-left: 100px; }
-  .ruler-v { width: 20px; background: #ffffff; border-right: 1px solid #000; position: absolute; top: 20px; left: 0; bottom: 0; display: flex; flex-direction: column; font-size: 9px; padding-top: 50px; }
+  .ruler-corner { width: 18px; height: 18px; background: #d4d0c8; border-right: 1px solid #000; border-bottom: 1px solid #000; position: absolute; top: 0; left: 0; z-index: 10; }
+  .ruler-h { height: 18px; background: #ffffff; border-bottom: 1px solid #000; position: absolute; top: 0; left: 18px; right: 0; display: flex; align-items: flex-end; font-size: 9px; padding-left: 40px; overflow: hidden; }
+  .ruler-v { width: 18px; background: #ffffff; border-right: 1px solid #000; position: absolute; top: 18px; left: 0; bottom: 0; display: flex; flex-direction: column; font-size: 9px; padding-top: 20px; overflow: hidden; }
 
   /* Pasteboard & A4 Page */
-  .pasteboard { flex: 1; background: #808080; overflow: auto; padding: 50px; display: flex; justify-content: center; align-items: flex-start; margin-top: 20px; margin-left: 20px; }
-  .page { width: 595px; height: 842px; background: #ffffff; box-shadow: 4px 4px 0px #404040; position: relative; border: 1px solid #000; overflow: hidden; }
+  .pasteboard { flex: 1; background: #808080; overflow: auto; padding: 30px 20px 80px 75px; display: flex; justify-content: flex-start; align-items: flex-start; margin-top: 18px; margin-left: 18px; }
+  @media (min-width: 800px) { .pasteboard { justify-content: center; padding: 40px; } }
+  .page { width: 595px; height: 842px; min-width: 595px; min-height: 842px; background: #ffffff; box-shadow: 4px 4px 0px #404040; position: relative; border: 1px solid #000; overflow: hidden; }
   .margin-guide { position: absolute; top: 40px; left: 40px; right: 40px; bottom: 40px; border: 1px solid #ff69b4; pointer-events: none; z-index: 1; }
 
   /* Floating Tool Box */
-  .toolbox { position: absolute; top: 40px; left: 30px; width: 62px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
+  .toolbox { position: absolute; top: 28px; left: 22px; width: 58px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
   .palette-header { background: linear-gradient(90deg, #0a246a, #a6caf0); color: white; font-size: 10px; padding: 2px 4px; font-weight: bold; cursor: move; }
-  .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; }
-  .tool-btn { height: 26px; background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; display: flex; justify-content: center; align-items: center; cursor: pointer; font-weight: bold; }
+  .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; }
+  .tool-btn { height: 25px; background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; display: flex; justify-content: center; align-items: center; cursor: pointer; font-weight: bold; }
   .tool-btn.active { background: #b5b5b5; border-color: #808080 #ffffff #ffffff #808080; }
 
-  /* Floating Control Palette */
-  .control-palette { position: absolute; bottom: 15px; left: 110px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; display: flex; align-items: center; padding: 4px 8px; gap: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
-  select, input[type="number"] { border: 1px solid #808080; background: #ffffff; padding: 2px; font-size: 12px; }
+  /* Responsive Floating Control Palette (Bottom - Works on Mobile & PC) */
+  .control-palette { position: fixed; bottom: 0; left: 0; right: 0; background: #d4d0c8; border-top: 2px solid #ffffff; z-index: 250; display: flex; align-items: center; padding: 5px 8px; gap: 8px; overflow-x: auto; white-space: nowrap; box-shadow: 0 -2px 5px rgba(0,0,0,0.3); }
+  @media (min-width: 800px) {
+    .control-palette { left: 100px; right: auto; bottom: 12px; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; }
+  }
+  select, input[type="number"], input[type="color"] { border: 1px solid #808080; background: #ffffff; padding: 2px; font-size: 12px; height: 24px; }
 
-  /* Page Elements (Text, Images, Shapes) */
-  .pm-element { position: absolute; z-index: 10; }
+  /* Page Elements */
+  .pm-element { position: absolute; z-index: 10; touch-action: none; }
   .pm-element.selected { outline: 1px dashed #0000ff; }
   
-  /* PageMaker Handles (8 square handles when selected with Pointer Tool) */
-  .handle { width: 6px; height: 6px; background: #000; position: absolute; display: none; }
+  /* 4 Corner Handles */
+  .handle { width: 10px; height: 10px; background: #000; position: absolute; display: none; z-index: 20; }
   .pm-element.selected .handle { display: block; }
-  .handle.nw { top: -3px; left: -3px; cursor: nw-resize; }
-  .handle.ne { top: -3px; right: -3px; cursor: ne-resize; }
-  .handle.sw { bottom: -3px; left: -3px; cursor: sw-resize; }
-  .handle.se { bottom: -3px; right: -3px; cursor: se-resize; }
+  .handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
+  .handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+  .handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+  .handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
 
   .text-content { width: 100%; height: 100%; outline: none; user-select: text; padding: 4px; line-height: 1.4; overflow: hidden; }
   .pm-image { width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
-  .pm-rect { width: 100%; height: 100%; border: 1px solid #000; background: transparent; }
+  .pm-rect { width: 100%; height: 100%; border: 2px solid #000; background: transparent; }
+  .pm-ellipse { width: 100%; height: 100%; border: 2px solid #000; border-radius: 50%; background: transparent; }
   .pm-line { width: 100%; height: 2px; background: #000; }
 
-  /* Hide UI during Print/PDF Export */
+  /* Print / PDF Styling */
   @media print {
     .menu-bar, .toolbar, .ruler-corner, .ruler-h, .ruler-v, .toolbox, .control-palette, .margin-guide, .handle { display: none !important; }
-    .pasteboard { margin: 0; padding: 0; background: white; }
+    .pasteboard { margin: 0; padding: 0; background: white; overflow: visible; }
     .page { box-shadow: none; border: none; }
     .pm-element.selected { outline: none; }
   }
 </style>
 </head>
-<body>
+<body onclick="closeMenus(event)">
 
   <!-- Menu Bar -->
   <div class="menu-bar">
-    <div class="menu-item" onclick="newPage()"><u>F</u>ile</div>
-    <div class="menu-item" onclick="deleteSelected()"><u>E</u>dit (Delete)</div>
-    <div class="menu-item"><u>L</u>ayout</div>
-    <div class="menu-item"><u>T</u>ype</div>
-    <div class="menu-item"><u>E</u>lement</div>
-    <div class="menu-item"><u>U</u>tilities</div>
-    <div class="menu-item"><u>V</u>iew</div>
-    <div class="menu-item"><u>W</u>indow</div>
-    <div class="menu-item"><u>H</u>elp</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-file')"><u>F</u>ile</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-edit')"><u>E</u>dit</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-layout')"><u>L</u>ayout</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-element')"><u>E</u>lement</div>
+    <div class="menu-item" onclick="alert('PageMaker 7.0 Web Clone - Marathi DTP Edition')"><u>H</u>elp</div>
   </div>
+
+  <!-- Dropdown Menus -->
+  <div id="menu-file" class="dropdown" style="left: 4px;">
+    <div class="dropdown-item" onclick="newPage()"><span>New</span><span>Ctrl+N</span></div>
+    <div class="dropdown-item" onclick="document.getElementById('project-input').click()"><span>Open Project...</span><span>Ctrl+O</span></div>
+    <div class="dropdown-item" onclick="saveProject()"><span>Save Project</span><span>Ctrl+S</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place Image...</span><span>Ctrl+D</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="window.print()"><span>Print / Export PDF</span><span>Ctrl+P</span></div>
+  </div>
+
+  <div id="menu-edit" class="dropdown" style="left: 40px;">
+    <div class="dropdown-item" onclick="duplicateSelected()"><span>Duplicate Box</span><span>Ctrl+C/V</span></div>
+    <div class="dropdown-item" onclick="deleteSelected()"><span>Clear / Delete</span><span>Del</span></div>
+  </div>
+
+  <div id="menu-layout" class="dropdown" style="left: 78px;">
+    <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Size (Portrait)</span></div>
+    <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Size (Landscape)</span></div>
+    <div class="dropdown-item" onclick="setPageSize(420, 595)"><span>A5 (Wedding Card)</span></div>
+  </div>
+
+  <div id="menu-element" class="dropdown" style="left: 125px;">
+    <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span><span>Ctrl+]</span></div>
+    <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span><span>Ctrl+[</span></div>
+  </div>
+
+  <!-- Hidden File Inputs -->
+  <input type="file" id="image-input" accept="image/*" style="display:none" onchange="placeImage(event)">
+  <input type="file" id="project-input" accept=".json" style="display:none" onchange="loadProject(event)">
 
   <!-- Toolbar -->
   <div class="toolbar">
-    <button class="btn" onclick="newPage()">New (Ctrl+N)</button>
-    <button class="btn" onclick="triggerPlaceImage()">Place Image (Ctrl+D)</button>
-    <input type="file" id="image-input" accept="image/*" style="display:none" onchange="placeImage(event)">
-    <button class="btn" onclick="deleteSelected()">Delete Box (Del)</button>
-    <button class="btn" onclick="window.print()">Print / Save PDF (Ctrl+P)</button>
+    <button class="btn" onclick="newPage()">New</button>
+    <button class="btn" onclick="saveProject()">Save</button>
+    <button class="btn" onclick="triggerPlaceImage()">Place Photo (Ctrl+D)</button>
+    <button class="btn" onclick="deleteSelected()">Delete</button>
+    <button class="btn" onclick="window.print()">PDF / Print</button>
   </div>
 
   <!-- Main Workspace -->
   <div class="workspace-container">
     <div class="ruler-corner"></div>
-    <div class="ruler-h">0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8 in</div>
+    <div class="ruler-h">0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8 in</div>
     <div class="ruler-v">0<br><br><br>1<br><br><br>2<br><br><br>3<br><br><br>4<br><br><br>5<br><br><br>6<br><br><br>7<br><br><br>8<br><br><br>9<br><br><br>10</div>
 
     <!-- Floating Tool Box -->
     <div class="toolbox" id="toolbox">
-      <div class="palette-header" id="toolbox-header">Tools</div>
+      <div class="palette-header">Tools</div>
       <div class="tool-grid">
-        <div class="tool-btn" id="tool-pointer" title="Pointer Tool (Move & Resize)" onclick="selectTool('pointer')">↖</div>
-        <div class="tool-btn active" id="tool-text" title="Text Tool (T)" onclick="selectTool('text')">T</div>
-        <div class="tool-btn" title="Rotate Tool">↻</div>
-        <div class="tool-btn" title="Crop Tool">◰</div>
-        <div class="tool-btn" id="tool-line" title="Line Tool" onclick="selectTool('line')">╲</div>
-        <div class="tool-btn" title="Constrained Line">│</div>
-        <div class="tool-btn" id="tool-rect" title="Rectangle Tool" onclick="selectTool('rect')">▭</div>
-        <div class="tool-btn" title="Rectangle Frame">☒</div>
-        <div class="tool-btn" title="Ellipse Tool">○</div>
-        <div class="tool-btn" title="Ellipse Frame">⊗</div>
-        <div class="tool-btn" title="Polygon Tool">⬠</div>
-        <div class="tool-btn" title="Hand Tool">✋</div>
-      </div>
-    </div>
-
-    <!-- Pasteboard & A4 Page -->
-    <div class="pasteboard" onclick="deselectAll(event)">
-      <div class="page" id="page" onclick="handlePageClick(event)">
-        <div class="margin-guide"></div>
-      </div>
-    </div>
-
-    <!-- Floating Control Palette -->
-    <div class="control-palette">
-      <div class="palette-header" style="writing-mode: vertical-rl; height: 35px;">Control</div>
-      <div>
-        <label>X:</label><input type="number" id="pos-x" style="width:45px;" onchange="updateBoxGeometry()">
-        <label>Y:</label><input type="number" id="pos-y" style="width:45px;" onchange="updateBoxGeometry()">
-        <label>W:</label><input type="number" id="box-w" style="width:45px;" onchange="updateBoxGeometry()">
-        <label>H:</label><input type="number" id="box-h" style="width:45px;" onchange="updateBoxGeometry()">
-      </div>
-      <div style="border-left: 1px solid #808080; padding-left: 6px;">
-        <select id="font-family" onchange="applyStyle('fontName', this.value)">
-          <option value="Mangal">Mangal (Unicode Marathi)</option>
-          <option value="Kokila">Kokila (Unicode Marathi)</option>
-          <option value="Shree-Dev-0708">Shree-Dev-0708 (DTP)</option>
-          <option value="Kruti Dev 010">Kruti Dev 010 (Legacy)</option>
-          <option value="Times New Roman">Times New Roman</option>
-          <option value="Arial">Arial</option>
-        </select>
-        <input type="number" id="font-size" value="14" min="6" max="120" style="width: 45px;" onchange="changeFontSize(this.value)">
-      </div>
-      <div>
-        <button class="btn" onclick="applyStyle('bold')"><b>B</b></button>
-        <button class="btn" onclick="applyStyle('italic')"><i>I</i></button>
-        <button class="btn" onclick="applyStyle('underline')"><u>U</u></button>
-        <button class="btn" onclick="applyStyle('justifyLeft')">L</button>
-        <button class="btn" onclick="applyStyle('justifyCenter')">C</button>
-        <button class="btn" onclick="applyStyle('justifyRight')">R</button>
-      </div>
-    </div>
-  </div>
-
-<script>
-  let currentTool = 'text';
-  let selectedEl = null;
-
-  // Keyboard Shortcuts (Ctrl+D for Place, Delete for remove)
-  
+        <div class="tool-btn" id="tool-pointer" title="Pointer Tool" onclick="selectTool('pointer')">↖</div>
