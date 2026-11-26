@@ -72,12 +72,11 @@ function selectTool(tool) {
     el.classList.toggle('crop-mode', tool === 'crop' && el === selectedEl);
   });
   document.querySelectorAll('#page > .pm-element .text-content').forEach(tc => {
-    tc.contentEditable = (tool === 'text');
+    tc.contentEditable = 'true';
     tc.style.cursor = (tool === 'text') ? 'text' : 'move';
   });
 }
 
-/* Magnet Snap: गुलाबी मार्जिन लाईन आणि गाईड्सला चिकटवणे */
 function getMagnetTargets(axis) {
   ensurePageState(activePageId);
   const pageEl = document.getElementById('page');
@@ -112,7 +111,6 @@ function snapBoxPosition(x, y, w, h, threshold = 7) {
   let snappedX = x;
   let snappedY = y;
 
-  // डावी कडा किंवा उजवी कडा गुलाबी मार्जिन/गाईड लाईनच्या जवळ आल्यास मॅग्नेटसारखे चिकटेल
   for (const t of vTargets) {
     if (Math.abs(x - t) <= threshold) {
       snappedX = t;
@@ -124,7 +122,6 @@ function snapBoxPosition(x, y, w, h, threshold = 7) {
     }
   }
 
-  // वरची कडा किंवा खालची कडा गुलाबी मार्जिन/गाईड लाईनच्या जवळ आल्यास मॅग्नेटसारखे चिकटेल
   for (const t of hTargets) {
     if (Math.abs(y - t) <= threshold) {
       snappedY = t;
@@ -286,6 +283,21 @@ function attachElementEvents(el) {
 
   const tc = el.querySelector('.text-content');
   if (tc) {
+    tc.contentEditable = 'true';
+    tc.addEventListener('pointerdown', (ev) => {
+      selectElement(el);
+      if (currentTool === 'text') {
+        // कीबोर्ड उघडण्यासाठी डिफॉल्ट टच/फोकस सुरू ठेवा
+        ev.stopPropagation();
+        return;
+      }
+      // Pointer किंवा इतर टूलवर बॉक्स सहज ड्रॅग होण्यासाठी
+      ev.preventDefault();
+      ev.stopPropagation();
+      saveState();
+      if (currentTool === 'rotate') initRotate(ev, el);
+      else initDrag(ev, el);
+    });
     tc.addEventListener('input', () => {
       if (/[\u0900-\u097F]/.test(tc.innerText)) {
         tc.dataset.unicodeSource = tc.innerText;
@@ -404,7 +416,7 @@ function handlePagePointerDown(e) {
       const curY = Math.round((ev.clientY - rect.top) / zoomLevel);
       const w = Math.abs(curX - startX);
       const h = Math.abs(curY - startY);
-      if (w < 20 && h < 15) return;
+      if (w < 24 && h < 20) return;
       moved = true;
       if (!previewBox) {
         previewBox = document.createElement('div');
@@ -413,8 +425,8 @@ function handlePagePointerDown(e) {
       }
       const rawLeft = Math.min(startX, curX);
       const rawTop = Math.min(startY, curY);
-      const rawW = Math.max(60, w);
-      const rawH = Math.max(30, h);
+      const rawW = Math.max(80, w);
+      const rawH = Math.max(36, h);
       const snapped = snapBoxPosition(rawLeft, rawTop, rawW, rawH);
 
       previewBox.style.left = snapped.x + 'px';
@@ -467,14 +479,10 @@ function handlePagePointerDown(e) {
           }
 
           el.appendChild(content);
-          content.addEventListener('input', () => {
-            if (/[\u0900-\u097F]/.test(content.innerText)) {
-              content.dataset.unicodeSource = content.innerText;
-            }
-            checkTextOverflow(el);
-          });
+          attachElementEvents(el);
           checkTextOverflow(el);
-          content.focus();
+          selectTool('pointer');
+          selectElement(el);
         }
       }
     }
@@ -817,7 +825,6 @@ function toggleReverseText() {
   }
 }
 
-/* १. एकाच शब्दातील अक्षरांमधील अंतर (Letter Spacing / Tracking) */
 function setLetterTrackingPrompt() {
   if (!selectedEl) {
     alert('प्रथम टेक्स्ट बॉक्स निवडा.');
@@ -833,7 +840,6 @@ function setLetterTrackingPrompt() {
   checkTextOverflow(selectedEl);
 }
 
-/* २. दोन शब्दांमधील अंतर (Word Spacing) */
 function setWordSpacingPrompt() {
   if (!selectedEl) {
     alert('प्रथम टेक्स्ट बॉक्स निवडा.');
@@ -849,7 +855,6 @@ function setWordSpacingPrompt() {
   checkTextOverflow(selectedEl);
 }
 
-/* ३. दोन उभ्या रेषांमधील / ओळींमधील अंतर (Line Spacing / Leading) */
 function setLineSpacingPrompt() {
   if (!selectedEl) {
     alert('प्रथम टेक्स्ट बॉक्स निवडा.');
