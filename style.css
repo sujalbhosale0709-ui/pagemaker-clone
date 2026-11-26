@@ -721,6 +721,7 @@ input[type="color"] {
   }
   .print-page .margin-guide,
   .print-page .guides-layer,
-  .print-page .handle { display: none !important; }
-  .print-page .pm-element { outline: none !important; }
+  .print-page .handle,
+  .print-page .overflow-badge { display: none !important; }
+  .print-page .pm-element { outline: none !important; box-shadow: none !important; }
 }
