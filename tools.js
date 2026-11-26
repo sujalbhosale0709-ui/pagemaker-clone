@@ -73,12 +73,41 @@ function selectTool(tool) {
 }
 
 function snapValue(val, axis) {
-  ensureGuideBucket(activePageId);
+  ensurePageState(activePageId);
   const guides = pageGuides[activePageId][axis] || [];
   for (let g of guides) {
     if (Math.abs(val - g) <= 5) return g;
   }
   return val;
+}
+
+function checkTextOverflow(el) {
+  if (!el) return;
+  const tc = el.querySelector('.text-content');
+  let badge = el.querySelector('.overflow-badge');
+  if (!tc) {
+    if (badge) badge.remove();
+    return;
+  }
+  const hasOverflow = tc.scrollHeight > tc.clientHeight + 2;
+  if (hasOverflow) {
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'overflow-badge';
+      badge.title = 'Text Overflow — Click to flow into new box';
+      badge.textContent = '▼';
+      badge.style.cssText = 'position:absolute;right:2px;bottom:2px;width:14px;height:14px;background:#d00;color:#fff;font-size:9px;line-height:14px;text-align:center;cursor:pointer;z-index:30;';
+      badge.onpointerdown = (ev) => {
+        ev.stopPropagation();
+        pendingThreadSource = el;
+        selectTool('text');
+        alert('आता पानावर जिथे उरलेला मजकूर हवा आहे तिथे क्लिक किंवा ओढा.');
+      };
+      el.appendChild(badge);
+    }
+  } else if (badge) {
+    badge.remove();
+  }
 }
 
 function attachElementEvents(el) {
@@ -92,9 +121,14 @@ function attachElementEvents(el) {
     };
   });
 
+  const tc = el.querySelector('.text-content');
+  if (tc) {
+    tc.addEventListener('input', () => checkTextOverflow(el));
+  }
+
   el.onpointerdown = (e) => {
     if (currentTool === 'hand' || currentTool === 'zoom') return;
-    if (e.target.classList.contains('handle')) return;
+    if (e.target.classList.contains('handle') || e.target.classList.contains('overflow-badge')) return;
     if (currentTool === 'text' && e.target.classList.contains('text-content')) {
       selectElement(el);
       return;
@@ -104,6 +138,8 @@ function attachElementEvents(el) {
     if (currentTool === 'rotate') { saveState(); initRotate(e, el); }
     else { saveState(); initDrag(e, el); }
   };
+
+  checkTextOverflow(el);
 }
 
 function createPMElement(x, y, w, h) {
@@ -190,7 +226,7 @@ function handlePagePointerDown(e) {
   const startY = snapValue(Math.round((e.clientY - rect.top) / zoomLevel), 'h');
 
   if (currentTool === 'text') {
-    const el = createPMElement(startX, startY, 220, 60);
+    const el = createPMElement(startX, startY, 220, 70);
     const content = document.createElement('div');
     content.className = 'text-content';
     content.contentEditable = true;
@@ -198,8 +234,24 @@ function handlePagePointerDown(e) {
     content.style.fontSize = document.getElementById('font-size').value + 'px';
     content.style.lineHeight = document.getElementById('line-leading').value || '1.4';
     content.style.color = document.getElementById('picker-color').value || '#000000';
-    content.innerText = 'येथे मराठी टाइप करा...';
+
+    if (pendingThreadSource) {
+      const srcTc = pendingThreadSource.querySelector('.text-content');
+      if (srcTc) {
+        const words = srcTc.innerText.split(/\s+/).filter(Boolean);
+        const half = Math.ceil(words.length / 2);
+        srcTc.innerText = words.slice(0, half).join(' ');
+        content.innerText = words.slice(half).join(' ') || 'पुढील मजकूर...';
+        checkTextOverflow(pendingThreadSource);
+      }
+      pendingThreadSource = null;
+    } else {
+      content.innerText = 'येथे मराठी टाइप करा...';
+    }
+
     el.appendChild(content);
+    content.addEventListener('input', () => checkTextOverflow(el));
+    checkTextOverflow(el);
     content.focus();
     return;
   }
@@ -357,6 +409,7 @@ function initResize(e, el, dir) {
       el.style.height = Math.max(10, Math.round(oh - dy)) + 'px';
       el.style.top = Math.round(oy + dy) + 'px';
     }
+    checkTextOverflow(el);
     updateControlPaletteInputs();
   }
   function onUp() {
@@ -404,6 +457,7 @@ function updateBoxGeometry() {
   selectedEl.style.top = (parseInt(document.getElementById('pos-y').value) || 0) + 'px';
   selectedEl.style.width = (parseInt(document.getElementById('box-w').value) || 10) + 'px';
   selectedEl.style.height = (parseInt(document.getElementById('box-h').value) || 10) + 'px';
+  checkTextOverflow(selectedEl);
 }
 
 function updateBoxRotation() {
@@ -417,15 +471,19 @@ function updateBoxRotation() {
 function applyStyle(cmd, val = null) {
   document.execCommand(cmd, false, val);
   if (selectedEl && cmd === 'fontName') {
-    const tc = selectedEl.querySelector('.text-content');
-    if (tc) tc.style.fontFamily = val;
+    applyFontFamily(val);
   }
+  if (selectedEl) checkTextOverflow(selectedEl);
 }
 
 function changeFontSize(s) {
   if (selectedEl) {
+    saveState();
     const tc = selectedEl.querySelector('.text-content');
-    if (tc) tc.style.fontSize = (parseInt(s) || 16) + 'px';
+    if (tc) {
+      tc.style.fontSize = (parseInt(s) || 16) + 'px';
+      checkTextOverflow(selectedEl);
+    }
   }
 }
 
@@ -433,8 +491,12 @@ function setLineHeight(lh) {
   const val = parseFloat(lh) || 1.4;
   document.getElementById('line-leading').value = val;
   if (selectedEl) {
+    saveState();
     const tc = selectedEl.querySelector('.text-content');
-    if (tc) tc.style.lineHeight = val;
+    if (tc) {
+      tc.style.lineHeight = val;
+      checkTextOverflow(selectedEl);
+    }
   }
 }
 
@@ -458,6 +520,37 @@ function changeStrokeWidth(w) {
   if (!selectedEl) return;
   saveState();
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke-width', w));
+}
+
+function toggleTextWrap() {
+  if (!selectedEl) return;
+  saveState();
+  const wrapped = selectedEl.dataset.textWrap === '1';
+  if (wrapped) {
+    selectedEl.dataset.textWrap = '0';
+    selectedEl.style.boxShadow = 'none';
+  } else {
+    selectedEl.dataset.textWrap = '1';
+    selectedEl.style.boxShadow = '0 0 0 6px rgba(0,168,232,0.18)';
+  }
+}
+
+function openStoryEditor() {
+  if (!selectedEl) {
+    alert('प्रथम कोणताही टेक्स्ट बॉक्स निवडा.');
+    return;
+  }
+  const tc = selectedEl.querySelector('.text-content');
+  if (!tc) {
+    alert('निवडलेल्या बॉक्समध्ये मजकूर नाही.');
+    return;
+  }
+  const updated = prompt('Story Editor — मजकूर बदला:', tc.innerText);
+  if (updated !== null) {
+    saveState();
+    tc.innerText = updated;
+    checkTextOverflow(selectedEl);
+  }
 }
 
 function duplicateSelected() {
