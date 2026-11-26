@@ -35,63 +35,69 @@ function buildRulers() {
   rv.innerHTML = '';
 
   const pageEl = document.getElementById('page');
-  const pbEl = document.getElementById('pasteboard');
   const pageRect = pageEl.getBoundingClientRect();
   const rhRect = rh.getBoundingClientRect();
   const rvRect = rv.getBoundingClientRect();
 
-  // पानाच्या 0 (डावी/वरची कड) पासून मोजणी सुरू होईल आणि 1 इंच = 96px * zoomLevel
-  const pxPerInch = 96 * zoomLevel;
-  const stepQuarter = pxPerInch / 4; // प्रत्येक पाव इंचावर १ रेष (एकूण 4 divisions per inch)
+  // फोटोप्रमाणे प्रत्येक मोठ्या भागाचे १० बारीक विभाग (1 Major unit = 10 subdivisions)
+  const majorPx = 72 * zoomLevel; // 1 inch (72pt in PageMaker)
+  const subStep = majorPx / 10;
 
-  const originX = (pageRect.left - rhRect.left) + (pbEl ? pbEl.scrollLeft : 0);
-  const originY = (pageRect.top - rvRect.top) + (pbEl ? pbEl.scrollTop : 0);
+  // पानाच्या डाव्या आणि वरच्या कडेपासून बरोबर 0 सुरू होईल
+  const originX = pageRect.left - rhRect.left;
+  const originY = pageRect.top - rvRect.top;
 
-  const maxInchesH = 12;
-  const totalStepsH = maxInchesH * 4;
-  for (let i = 0; i <= totalStepsH; i++) {
-    const pos = Math.round(originX + i * stepQuarter);
-    if (pos < -20 || pos > rh.clientWidth + 40) continue;
+  const startUnitH = Math.floor(-originX / majorPx) - 1;
+  const endUnitH = Math.ceil((rh.clientWidth - originX) / majorPx) + 1;
 
-    const isInch = (i % 4 === 0);
-    const isHalf = (i % 2 === 0) && !isInch;
+  for (let u = startUnitH; u <= endUnitH; u++) {
+    for (let s = 0; s < 10; s++) {
+      const pos = Math.round(originX + (u * 10 + s) * subStep);
+      if (pos < 0 || pos > rh.clientWidth) continue;
 
-    const tick = document.createElement('div');
-    tick.className = 'ruler-tick-h';
-    tick.style.left = pos + 'px';
-    tick.style.height = isInch ? '12px' : (isHalf ? '8px' : '5px');
-    rh.appendChild(tick);
+      const isMajor = (s === 0);
+      const isMid = (s === 5);
 
-    if (isInch) {
-      const lbl = document.createElement('div');
-      lbl.className = 'ruler-label-h';
-      lbl.style.left = pos + 'px';
-      lbl.textContent = (i / 4);
-      rh.appendChild(lbl);
+      const tick = document.createElement('div');
+      tick.className = 'ruler-tick-h';
+      tick.style.left = pos + 'px';
+      tick.style.height = isMajor ? '14px' : (isMid ? '9px' : '5px');
+      rh.appendChild(tick);
+
+      if (isMajor) {
+        const lbl = document.createElement('div');
+        lbl.className = 'ruler-label-h';
+        lbl.style.left = (pos + 2) + 'px';
+        lbl.textContent = u;
+        rh.appendChild(lbl);
+      }
     }
   }
 
-  const maxInchesV = 15;
-  const totalStepsV = maxInchesV * 4;
-  for (let j = 0; j <= totalStepsV; j++) {
-    const pos = Math.round(originY + j * stepQuarter);
-    if (pos < -20 || pos > rv.clientHeight + 40) continue;
+  const startUnitV = Math.floor(-originY / majorPx) - 1;
+  const endUnitV = Math.ceil((rv.clientHeight - originY) / majorPx) + 1;
 
-    const isInch = (j % 4 === 0);
-    const isHalf = (j % 2 === 0) && !isInch;
+  for (let u = startUnitV; u <= endUnitV; u++) {
+    for (let s = 0; s < 10; s++) {
+      const pos = Math.round(originY + (u * 10 + s) * subStep);
+      if (pos < 0 || pos > rv.clientHeight) continue;
 
-    const tick = document.createElement('div');
-    tick.className = 'ruler-tick-v';
-    tick.style.top = pos + 'px';
-    tick.style.width = isInch ? '12px' : (isHalf ? '8px' : '5px');
-    rv.appendChild(tick);
+      const isMajor = (s === 0);
+      const isMid = (s === 5);
 
-    if (isInch) {
-      const lbl = document.createElement('div');
-      lbl.className = 'ruler-label-v';
-      lbl.style.top = pos + 'px';
-      lbl.textContent = (j / 4);
-      rv.appendChild(lbl);
+      const tick = document.createElement('div');
+      tick.className = 'ruler-tick-v';
+      tick.style.top = pos + 'px';
+      tick.style.width = isMajor ? '14px' : (isMid ? '9px' : '5px');
+      rv.appendChild(tick);
+
+      if (isMajor) {
+        const lbl = document.createElement('div');
+        lbl.className = 'ruler-label-v';
+        lbl.style.top = (pos + 2) + 'px';
+        lbl.textContent = u;
+        rv.appendChild(lbl);
+      }
     }
   }
 }
