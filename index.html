@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Adobe PageMaker 7.0 - DTP Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Khand:wght@500;700&family=Mukta:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Serif+Devanagari:wght@400;700&family=Tiro+Devanagari+Marathi:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body onclick="closeMenus()">
@@ -102,7 +105,7 @@
   </div>
 
   <div class="workspace-container">
-    <div class="ruler-corner" title="Reset Zoom / Add Guide" onclick="setZoom(1)"></div>
+    <div class="ruler-corner" title="Reset Zoom (100%)" onclick="setZoom(1)"></div>
     <div class="ruler-h" id="ruler-h" title="Drag down to pull Horizontal Guide"></div>
     <div class="ruler-v" id="ruler-v" title="Drag right to pull Vertical Guide"></div>
 
@@ -156,13 +159,14 @@
       <div class="control-strip-bar" id="control-drag">Control</div>
       <div class="control-body">
         <div class="ctrl-row">
-          <select id="font-family" onchange="applyStyle('fontName', this.value)">
-            <option value="Mangal">Mangal</option>
-            <option value="Kokila">Kokila</option>
-            <option value="Shree-Dev-0708">Shree-Dev-0708</option>
-            <option value="Kruti Dev 010">Kruti Dev 010</option>
-            <option value="Times New Roman">Times New Roman</option>
-            <option value="Arial">Arial</option>
+          <select id="font-family" onchange="applyFontFamily(this.value)">
+            <option value="'Tiro Devanagari Marathi', serif" style="font-family:'Tiro Devanagari Marathi',serif;">Tiro Marathi (छापखाना)</option>
+            <option value="'Noto Serif Devanagari', serif" style="font-family:'Noto Serif Devanagari',serif;">Noto Serif Marathi</option>
+            <option value="'Noto Sans Devanagari', sans-serif" style="font-family:'Noto Sans Devanagari',sans-serif;">Noto Sans Marathi</option>
+            <option value="'Mukta', sans-serif" style="font-family:'Mukta',sans-serif;">Mukta Marathi</option>
+            <option value="'Khand', sans-serif" style="font-family:'Khand',sans-serif;">Khand Bold Marathi</option>
+            <option value="'Times New Roman', serif" style="font-family:'Times New Roman',serif;">Times New Roman</option>
+            <option value="'Arial', sans-serif" style="font-family:'Arial',sans-serif;">Arial</option>
           </select>
           <input type="number" id="font-size" value="16" min="6" max="150" style="width:38px;" title="Font Size" onchange="changeFontSize(this.value)">
           <input type="number" id="line-leading" value="1.4" step="0.1" min="0.8" max="3" style="width:38px;" title="Leading" onchange="setLineHeight(this.value)">
