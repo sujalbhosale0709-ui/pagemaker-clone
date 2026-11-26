@@ -1,13 +1,16 @@
 let currentTool = 'text';
 let selectedEl = null;
+let pendingThreadSource = null;
 let zoomLevel = 1;
 let activePageId = 1;
 let totalPages = 1;
 let pagesData = { 'M': '', 1: '' };
 let pageGuides = { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
+let pageColumns = { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
 
-function ensureGuideBucket(id) {
+function ensurePageState(id) {
   if (!pageGuides[id]) pageGuides[id] = { h: [], v: [] };
+  if (!pageColumns[id]) pageColumns[id] = { count: 1, gutter: 12 };
 }
 
 function applyFontFamily(fontVal) {
@@ -24,6 +27,7 @@ function applyFontFamily(fontVal) {
         child.style.fontFamily = fontVal;
       });
     }
+    checkTextOverflow(selectedEl);
   }
 }
 
@@ -39,7 +43,6 @@ function buildRulers() {
   const rhRect = rh.getBoundingClientRect();
   const rvRect = rv.getBoundingClientRect();
 
-  // 0 ते 1 दरम्यान 16 विभाग (1/16 inch ticks) आणि पॅटर्नप्रमाणे उंची
   const majorPx = 96 * zoomLevel;
   const subStep = majorPx / 16;
 
@@ -112,10 +115,42 @@ function buildRulers() {
 }
 
 function renderGuides() {
-  ensureGuideBucket(activePageId);
+  ensurePageState(activePageId);
   const layer = document.getElementById('guides-layer');
   if (!layer) return;
   layer.innerHTML = '';
+
+  const pageEl = document.getElementById('page');
+  const pageW = parseInt(pageEl.style.width) || 595;
+  const pageH = parseInt(pageEl.style.height) || 842;
+  const margin = 40;
+  const colCfg = pageColumns[activePageId];
+
+  // Column Guides (PageMaker Style)
+  if (colCfg && colCfg.count > 1) {
+    const usableW = pageW - margin * 2;
+    const totalGutter = colCfg.gutter * (colCfg.count - 1);
+    const colW = (usableW - totalGutter) / colCfg.count;
+
+    for (let c = 0; c < colCfg.count; c++) {
+      const leftEdge = Math.round(margin + c * (colW + colCfg.gutter));
+      const rightEdge = Math.round(leftEdge + colW);
+
+      const lGuide = document.createElement('div');
+      lGuide.className = 'guide-line-v';
+      lGuide.style.left = leftEdge + 'px';
+      lGuide.style.borderLeftColor = '#ff69b4';
+      lGuide.style.pointerEvents = 'none';
+      layer.appendChild(lGuide);
+
+      const rGuide = document.createElement('div');
+      rGuide.className = 'guide-line-v';
+      rGuide.style.left = rightEdge + 'px';
+      rGuide.style.borderLeftColor = '#ff69b4';
+      rGuide.style.pointerEvents = 'none';
+      layer.appendChild(rGuide);
+    }
+  }
 
   const bucket = pageGuides[activePageId];
   bucket.h.forEach((pos, idx) => {
@@ -124,7 +159,7 @@ function renderGuides() {
     line.style.top = pos + 'px';
     line.onpointerdown = (e) => {
       e.stopPropagation();
-      const pageRect = document.getElementById('page').getBoundingClientRect();
+      const pageRect = pageEl.getBoundingClientRect();
       function onMove(ev) {
         const y = Math.round((ev.clientY - pageRect.top) / zoomLevel);
         bucket.h[idx] = y;
@@ -148,7 +183,7 @@ function renderGuides() {
     line.style.left = pos + 'px';
     line.onpointerdown = (e) => {
       e.stopPropagation();
-      const pageRect = document.getElementById('page').getBoundingClientRect();
+      const pageRect = pageEl.getBoundingClientRect();
       function onMove(ev) {
         const x = Math.round((ev.clientX - pageRect.left) / zoomLevel);
         bucket.v[idx] = x;
@@ -167,9 +202,24 @@ function renderGuides() {
   });
 }
 
+function setColumnGuides() {
+  ensurePageState(activePageId);
+  const current = pageColumns[activePageId];
+  const countStr = prompt('कॉलम संख्या टाका (1 ते 4):', current.count);
+  if (countStr === null) return;
+  const count = Math.max(1, Math.min(4, parseInt(countStr) || 1));
+  const gutterStr = prompt('कॉलममधील अंतर (Gutter px मध्ये):', current.gutter);
+  if (gutterStr === null) return;
+  const gutter = Math.max(4, Math.min(80, parseInt(gutterStr) || 12));
+  saveState();
+  pageColumns[activePageId] = { count, gutter };
+  renderGuides();
+}
+
 function clearGuides() {
-  ensureGuideBucket(activePageId);
+  ensurePageState(activePageId);
   pageGuides[activePageId] = { h: [], v: [] };
+  pageColumns[activePageId] = { count: 1, gutter: 12 };
   renderGuides();
 }
 
@@ -187,7 +237,7 @@ function initRulerDrag() {
   if (rh) {
     rh.onpointerdown = (e) => {
       e.preventDefault();
-      ensureGuideBucket(activePageId);
+      ensurePageState(activePageId);
       const pageRect = document.getElementById('page').getBoundingClientRect();
       const y0 = Math.max(0, Math.round((e.clientY - pageRect.top) / zoomLevel));
       pageGuides[activePageId].h.push(y0);
@@ -210,7 +260,7 @@ function initRulerDrag() {
   if (rv) {
     rv.onpointerdown = (e) => {
       e.preventDefault();
-      ensureGuideBucket(activePageId);
+      ensurePageState(activePageId);
       const pageRect = document.getElementById('page').getBoundingClientRect();
       const x0 = Math.max(0, Math.round((e.clientX - pageRect.left) / zoomLevel));
       pageGuides[activePageId].v.push(x0);
@@ -246,18 +296,21 @@ function saveCurrentPageContent() {
 function switchPage(targetId) {
   saveCurrentPageContent();
   activePageId = targetId;
-  ensureGuideBucket(activePageId);
+  ensurePageState(activePageId);
   selectedEl = null;
 
   const page = document.getElementById('page');
   const masterHTML = (targetId === 'M') ? '' : (pagesData['M'] || '');
   page.innerHTML =
-    `<div class="margin-guide"></div>` +
+    `<div class="margin-guide" id="margin-guide"></div>` +
     `<div class="master-layer" id="master-layer">${masterHTML}</div>` +
     `<div class="guides-layer" id="guides-layer"></div>` +
     `${pagesData[targetId] || ''}`;
 
-  page.querySelectorAll(':scope > .pm-element').forEach(el => attachElementEvents(el));
+  page.querySelectorAll(':scope > .pm-element').forEach(el => {
+    attachElementEvents(el);
+    checkTextOverflow(el);
+  });
   renderGuides();
 
   document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
@@ -272,7 +325,7 @@ function insertNewPage() {
   saveCurrentPageContent();
   totalPages++;
   pagesData[totalPages] = '';
-  ensureGuideBucket(totalPages);
+  ensurePageState(totalPages);
   renderPageTabs();
   switchPage(totalPages);
 }
@@ -284,9 +337,11 @@ function removeCurrentPage() {
   for (let i = activePageId; i < totalPages; i++) {
     pagesData[i] = pagesData[i + 1];
     pageGuides[i] = pageGuides[i + 1];
+    pageColumns[i] = pageColumns[i + 1];
   }
   delete pagesData[totalPages];
   delete pageGuides[totalPages];
+  delete pageColumns[totalPages];
   totalPages--;
   renderPageTabs();
   switchPage(Math.min(activePageId, totalPages));
@@ -309,6 +364,7 @@ function setPageSize(w, h) {
   p.style.minWidth = w + 'px';
   p.style.minHeight = h + 'px';
   buildRulers();
+  renderGuides();
 }
 
 function setZoom(l) {
