@@ -34,6 +34,7 @@
 
   <div id="menu-edit" class="dropdown" style="left: 34px;">
     <div class="dropdown-item" onclick="undo()"><span>Undo</span><span>Ctrl+Z</span></div>
+    <div class="dropdown-item" onclick="openStoryEditor()"><span>Edit Story</span><span>Ctrl+E</span></div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item" onclick="duplicateSelected()"><span>Duplicate</span><span>Ctrl+D / V</span></div>
     <div class="dropdown-item" onclick="deleteSelected()"><span>Clear</span><span>Del</span></div>
@@ -43,6 +44,7 @@
   <div id="menu-layout" class="dropdown" style="left: 66px;">
     <div class="dropdown-item" onclick="insertNewPage()"><span>Insert Page</span></div>
     <div class="dropdown-item" onclick="removeCurrentPage()"><span>Remove Page</span></div>
+    <div class="dropdown-item" onclick="setColumnGuides()"><span>Column Guides...</span></div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Portrait</span></div>
     <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Landscape</span></div>
@@ -64,6 +66,7 @@
   <div id="menu-element" class="dropdown" style="left: 142px;">
     <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span></div>
     <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span></div>
+    <div class="dropdown-item" onclick="toggleTextWrap()"><span>Text Wrap Toggle</span></div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item" onclick="changeStrokeWidth(1)"><span>Line: 1pt</span></div>
     <div class="dropdown-item" onclick="changeStrokeWidth(2)"><span>Line: 2pt</span></div>
@@ -76,9 +79,10 @@
   </div>
 
   <div id="menu-view" class="dropdown" style="left: 242px;">
-    <div class="dropdown-item" onclick="setZoom(0.6)"><span>Fit in Window (60%)</span></div>
+    <div class="dropdown-item" onclick="setZoom(0.5)"><span>50%</span></div>
+    <div class="dropdown-item" onclick="setZoom(0.75)"><span>75%</span></div>
     <div class="dropdown-item" onclick="setZoom(1)"><span>Actual Size (100%)</span></div>
-    <div class="dropdown-item" onclick="setZoom(1.5)"><span>200% / Zoom In (150%)</span></div>
+    <div class="dropdown-item" onclick="setZoom(2)"><span>200%</span></div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item" onclick="toggleMargins()"><span>Show/Hide Guides</span></div>
   </div>
@@ -94,13 +98,13 @@
 
   <!-- Quick Top Bar -->
   <div class="toolbar">
-    <button class="btn" onclick="newDocument()">New</button>
-    <button class="btn" onclick="saveProject()">Save</button>
-    <button class="btn" onclick="undo()">Undo</button>
-    <button class="btn" onclick="triggerPlaceImage()">Place</button>
-    <button class="btn" onclick="duplicateSelected()">Copy</button>
-    <button class="btn" onclick="deleteSelected()">Del</button>
-    <button class="btn" onclick="printAllPages()">Print/PDF</button>
+    <button type="button" class="btn" onclick="newDocument()">New</button>
+    <button type="button" class="btn" onclick="saveProject()">Save</button>
+    <button type="button" class="btn" onclick="undo()">Undo</button>
+    <button type="button" class="btn" onclick="triggerPlaceImage()">Place</button>
+    <button type="button" class="btn" onclick="duplicateSelected()">Copy</button>
+    <button type="button" class="btn" onclick="deleteSelected()">Del</button>
+    <button type="button" class="btn" onclick="printAllPages()">Print/PDF</button>
     <span id="page-indicator" style="font-weight:bold; color:#8b0000; margin-left:4px;">[Page 1 of 1]</span>
   </div>
 
