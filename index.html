@@ -2,106 +2,559 @@
 <html lang="mr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, 
+user-scalable=no">
 <title>Adobe PageMaker 7.0 - Multi-Page DTP Edition</title>
 <style>
-  * { box-sizing: border-box; user-select: none; font-family: 'Tahoma', 'Arial', sans-serif; font-size: 12px; }
-  body { margin: 0; padding: 0; background-color: #808080; overflow: hidden; display: flex; flex-direction: column; height: 100vh; width: 100vw; }
-  .menu-bar { background: #d4d0c8; border-bottom: 1px solid #808080; display: flex; padding: 2px 4px; z-index: 300; overflow-x: auto; }
-  .menu-item { padding: 3px 7px; cursor: pointer; white-space: nowrap; }
-  .menu-item:hover { background: #0a246a; color: white; }
-  .dropdown { display: none; position: fixed; top: 24px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; min-width: 180px; z-index: 400; box-shadow: 2px 2px 4px rgba(0,0,0,0.4); color: black; }
-  .dropdown.show { display: block; }
-  .dropdown-item { padding: 5px 12px; cursor: pointer; display: flex; justify-content: space-between; }
-  .dropdown-item:hover { background: #0a246a; color: white; }
-  .dropdown-divider { border-top: 1px solid #808080; border-bottom: 1px solid #ffffff; margin: 2px 0; }
-  .toolbar { background: #d4d0c8; border-top: 1px solid #ffffff; border-bottom: 1px solid #808080; padding: 3px 6px; display: flex; gap: 5px; align-items: center; z-index: 200; overflow-x: auto; white-space: nowrap; }
-  .btn { background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; padding: 2px 7px; cursor: pointer; }
-  .btn:active { border-color: #808080 #ffffff #ffffff #808080; }
-  .workspace-container { display: flex; flex: 1; position: relative; overflow: hidden; }
-  .ruler-corner { width: 18px; height: 18px; background: #d4d0c8; border-right: 1px solid #000; border-bottom: 1px solid #000; position: absolute; top: 0; left: 0; z-index: 10; }
-  .ruler-h { height: 18px; background: #ffffff; border-bottom: 1px solid #000; position: absolute; top: 0; left: 18px; right: 0; display: flex; align-items: flex-end; font-size: 9px; padding-left: 40px; }
-  .ruler-v { width: 18px; background: #ffffff; border-right: 1px solid #000; position: absolute; top: 18px; left: 0; bottom: 0; display: flex; flex-direction: column; font-size: 9px; padding-top: 20px; }
-  .pasteboard { flex: 1; background: #808080; overflow: auto; padding: 30px 30px 110px 80px; display: flex; justify-content: flex-start; align-items: flex-start; margin-top: 18px; margin-left: 18px; }
-  @media (min-width: 850px) { .pasteboard { justify-content: center; padding: 40px 40px 100px 40px; } }
-  .page { width: 595px; height: 842px; min-width: 595px; min-height: 842px; background: #ffffff; box-shadow: 4px 4px 0px #404040; position: relative; border: 1px solid #000; overflow: hidden; transform-origin: top left; }
-  .margin-guide { position: absolute; top: 40px; left: 40px; right: 40px; bottom: 40px; border: 1px solid #ff69b4; pointer-events: none; z-index: 1; }
-  .master-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-  .toolbox { position: absolute; top: 24px; left: 22px; width: 60px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
-  .palette-header { background: linear-gradient(90deg, #0a246a, #a6caf0); color: white; font-size: 10px; padding: 2px 4px; font-weight: bold; }
-  .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; }
-  .tool-btn { height: 25px; background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 13px; font-weight: bold; }
-  .tool-btn.active { background: #a8a8a8; border-color: #808080 #ffffff #ffffff #808080; color: #0a246a; }
-  .color-palette { position: absolute; top: 24px; right: 12px; width: 110px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; display: none; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
-  @media (min-width: 850px) { .color-palette { display: block; } }
-  .swatch-list { padding: 3px; display: flex; flex-direction: column; gap: 2px; }
-  .swatch { display: flex; align-items: center; gap: 5px; padding: 2px 4px; cursor: pointer; font-size: 11px; }
-  .swatch:hover { background: #0a246a; color: white; }
-  .swatch-box { width: 12px; height: 12px; border: 1px solid #000; }
-  .control-palette { position: fixed; bottom: 26px; left: 0; right: 0; background: #d4d0c8; border-top: 2px solid #ffffff; z-index: 250; display: flex; align-items: center; padding: 4px 8px; gap: 7px; overflow-x: auto; white-space: nowrap; box-shadow: 0 -2px 5px rgba(0,0,0,0.3); }
-  @media (min-width: 850px) { .control-palette { left: 95px; right: auto; bottom: 32px; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; } }
-  select, input[type="number"], input[type="color"] { border: 1px solid #808080; background: #ffffff; padding: 2px; font-size: 12px; height: 24px; }
-  .page-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 26px; background: #d4d0c8; border-top: 1px solid #808080; z-index: 300; display: flex; align-items: center; padding: 0 6px; gap: 3px; overflow-x: auto; }
-  .page-tab { background: #e0ded8; border: 1px solid #000; padding: 1px 7px; cursor: pointer; font-size: 11px; font-weight: bold; }
-  .page-tab.master { background: #ffe4b5; color: #8b0000; }
-  .page-tab.active { background: #000000; color: #ffffff; }
-  .add-page-btn { background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; padding: 1px 6px; cursor: pointer; font-size: 11px; margin-left: 5px; }
-  .pm-element { position: absolute; z-index: 10; touch-action: none; }
-  .pm-element.selected { outline: 1px dashed #0000ff; }
-  .pm-element.crop-mode { outline: 2px solid #ff0000; }
-  .handle { width: 8px; height: 8px; background: #000; position: absolute; display: none; z-index: 20; }
-  .pm-element.selected .handle { display: block; }
-  .pm-element.crop-mode .handle { background: #ff0000; }
-  .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
-  .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
-  .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
-  .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
-  .handle.n { top: -4px; left: calc(50% - 4px); cursor: n-resize; }
-  .handle.s { bottom: -4px; left: calc(50% - 4px); cursor: s-resize; }
-  .handle.w { top: calc(50% - 4px); left: -4px; cursor: w-resize; }
-  .handle.e { top: calc(50% - 4px); right: -4px; cursor: e-resize; }
-  .text-content { width: 100%; height: 100%; outline: none; user-select: text; padding: 4px; line-height: 1.4; overflow: hidden; }
-  .img-wrapper { width: 100%; height: 100%; overflow: hidden; position: relative; pointer-events: none; }
-  .pm-image { width: 100%; height: 100%; object-fit: fill; }
-  .shape-svg { width: 100%; height: 100%; display: block; pointer-events: none; }
-  #print-all-container { display: none; }
-  @media print {
-    body > *:not(#print-all-container) { display: none !important; }
-    #print-all-container { display: block !important; background: white; }
-    .print-page { width: 595px; height: 842px; position: relative; page-break-after: always; overflow: hidden; }
-    .print-page .margin-guide, .print-page .handle { display: none !important; }
-    .print-page .pm-element { outline: none !important; }
-  }
+ * { box-sizing: border-box; user-select: none; font-family: 'Tahoma', 'Arial', sans-serif; 
+font-size: 12px; }
+ body { margin: 0; padding: 0; background-color: #808080; overflow: hidden; display: flex; 
+flex-direction: column; height: 100vh; width: 100vw; }
+ .menu-bar { background: #d4d0c8; border-bottom: 1px solid #808080; display: flex; padding: 
+2px 4px; z-index: 300; overflow-x: auto; }
+ .menu-item { padding: 3px 7px; cursor: pointer; white-space: nowrap; }
+ .menu-item:hover { background: #0a246a; color: white; }
+ .dropdown { display: none; position: fixed; top: 24px; background: #d4d0c8; border: 2px 
+solid; border-color: #ffffff #808080 #808080 #ffffff; min-width: 180px; z-index: 400; box-
+shadow: 2px 2px 4px rgba(0,0,0,0.4); color: black; }
+ .dropdown.show { display: block; }
+ .dropdown-item { padding: 5px 12px; cursor: pointer; display: flex; justify-content: 
+space-between; }
+ .dropdown-item:hover { background: #0a246a; color: white; }
+ .dropdown-divider { border-top: 1px solid #808080; border-bottom: 1px solid #ffffff; 
+margin: 2px 0; }
+ .toolbar { background: #d4d0c8; border-top: 1px solid #ffffff; border-bottom: 1px solid 
+#808080; padding: 3px 6px; display: flex; gap: 5px; align-items: center; z-index: 200; 
+overflow-x: auto; white-space: nowrap; }
+ .btn { background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 
+#ffffff; padding: 2px 7px; cursor: pointer; }
+ .btn:active { border-color: #808080 #ffffff #ffffff #808080; }
+ .workspace-container { display: flex; flex: 1; position: relative; overflow: hidden; }
+ .ruler-corner { width: 18px; height: 18px; background: #d4d0c8; border-right: 1px solid 
+#000; border-bottom: 1px solid #000; position: absolute; top: 0; left: 0; z-index: 10; }
+ .ruler-h { height: 18px; background: #ffffff; border-bottom: 1px solid #000; position: 
+absolute; top: 0; left: 18px; right: 0; display: flex; align-items: flex-end; font-size: 
+9px; padding-left: 40px; }
+ .ruler-v { width: 18px; background: #ffffff; border-right: 1px solid #000; position: 
+absolute; top: 18px; left: 0; bottom: 0; display: flex; flex-direction: column; font-size: 
+9px; padding-top: 20px; }
+ .pasteboard { flex: 1; background: #808080; overflow: auto; padding: 30px 30px 110px 80px; 
+display: flex; justify-content: flex-start; align-items: flex-start; margin-top: 18px; 
+margin-left: 18px; }
+ @media (min-width: 850px) { .pasteboard { justify-content: center; padding: 40px 40px 
+100px 40px; } }
+ .page { width: 595px; height: 842px; min-width: 595px; min-height: 842px; background: 
+#ffffff; box-shadow: 4px 4px 0px #404040; position: relative; border: 1px solid #000; 
+overflow: hidden; transform-origin: top left; }
+ .margin-guide { position: absolute; top: 40px; left: 40px; right: 40px; bottom: 40px; 
+border: 1px solid #ff69b4; pointer-events: none; z-index: 1; }
+ .master-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-
+events: none; z-index: 2; }
+ .toolbox { position: absolute; top: 24px; left: 22px; width: 60px; background: #d4d0c8; 
+border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; box-shadow: 
+2px 2px 5px rgba(0,0,0,0.4); }
+ .palette-header { background: linear-gradient(90deg, #0a246a, #a6caf0); color: white; 
+font-size: 10px; padding: 2px 4px; font-weight: bold; }
+ .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; }
+ .tool-btn { height: 25px; background: #d4d0c8; border: 1px solid; border-color: #ffffff 
+#808080 #808080 #ffffff; display: flex; justify-content: center; align-items: center; 
+cursor: pointer; font-size: 13px; font-weight: bold; } .tool-btn.active { background: #a8a8a8; border-color: #808080 #ffffff #ffffff #808080; 
+color: #0a246a; }
+ .color-palette { position: absolute; top: 24px; right: 12px; width: 110px; background: 
+#d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; 
+display: none; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
+ @media (min-width: 850px) { .color-palette { display: block; } }
+ .swatch-list { padding: 3px; display: flex; flex-direction: column; gap: 2px; }
+ .swatch { display: flex; align-items: center; gap: 5px; padding: 2px 4px; cursor: pointer; 
+font-size: 11px; }
+ .swatch:hover { background: #0a246a; color: white; }
+ .swatch-box { width: 12px; height: 12px; border: 1px solid #000; }
+ .control-palette { position: fixed; bottom: 26px; left: 0; right: 0; background: #d4d0c8; 
+border-top: 2px solid #ffffff; z-index: 250; display: flex; align-items: center; padding: 
+4px 8px; gap: 7px; overflow-x: auto; white-space: nowrap; box-shadow: 0 -2px 5px 
+rgba(0,0,0,0.3); }
+ @media (min-width: 850px) { .control-palette { left: 95px; right: auto; bottom: 32px; 
+border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; } }
+ select, input[type="number"], input[type="color"] { border: 1px solid #808080; background: 
+#ffffff; padding: 2px; font-size: 12px; height: 24px; }
+ .page-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 26px; background: 
+#d4d0c8; border-top: 1px solid #808080; z-index: 300; display: flex; align-items: center; 
+padding: 0 6px; gap: 3px; overflow-x: auto; }
+ .page-tab { background: #e0ded8; border: 1px solid #000; padding: 1px 7px; cursor: 
+pointer; font-size: 11px; font-weight: bold; }
+ .page-tab.master { background: #ffe4b5; color: #8b0000; }
+ .page-tab.active { background: #000000; color: #ffffff; }
+ .add-page-btn { background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 
+#808080 #ffffff; padding: 1px 6px; cursor: pointer; font-size: 11px; margin-left: 5px; }
+ .pm-element { position: absolute; z-index: 10; touch-action: none; }
+ .pm-element.selected { outline: 1px dashed #0000ff; }
+ .pm-element.crop-mode { outline: 2px solid #ff0000; }
+ .handle { width: 8px; height: 8px; background: #000; position: absolute; display: none; z-
+index: 20; }
+ .pm-element.selected .handle { display: block; }
+ .pm-element.crop-mode .handle { background: #ff0000; }
+ .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
+ .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
+ .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+ .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
+ .handle.n { top: -4px; left: calc(50% - 4px); cursor: n-resize; }
+ .handle.s { bottom: -4px; left: calc(50% - 4px); cursor: s-resize; }
+ .handle.w { top: calc(50% - 4px); left: -4px; cursor: w-resize; }
+ .handle.e { top: calc(50% - 4px); right: -4px; cursor: e-resize; }
+ .text-content { width: 100%; height: 100%; outline: none; user-select: text; padding: 4px; 
+line-height: 1.4; overflow: hidden; }
+ .img-wrapper { width: 100%; height: 100%; overflow: hidden; position: relative; pointer-
+events: none; }
+ .pm-image { width: 100%; height: 100%; object-fit: fill; }
+ .shape-svg { width: 100%; height: 100%; display: block; pointer-events: none; }
+ #print-all-container { display: none; }
+ @media print {
+ body > *:not(#print-all-container) { display: none !important; }
+ #print-all-container { display: block !important; background: white; }
+ .print-page { width: 595px; height: 842px; position: relative; page-break-after: always; 
+overflow: hidden; }
+ .print-page .margin-guide, .print-page .handle { display: none !important; }
+ .print-page .pm-element { outline: none !important; }
+ }
 </style>
 </head>
 <body onclick="closeMenus()">
-  <div class="menu-bar">
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-file')"><u>F</u>ile</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-edit')"><u>E</u>dit</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-layout')"><u>L</u>ayout</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-element')"><u>E</u>lement</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-view')"><u>V</u>iew</div>
-    <div class="menu-item" onclick="toggleColorPalette()"><u>W</u>indow (Colors)</div>
-  </div>
-  <div id="menu-file" class="dropdown" style="left: 4px;">
-    <div class="dropdown-item" onclick="newDocument()"><span>New Publication</span><span>Ctrl+N</span></div>
-    <div class="dropdown-item" onclick="document.getElementById('project-input').click()"><span>Open...</span><span>Ctrl+O</span></div>
-    <div class="dropdown-item" onclick="saveProject()"><span>Save Project</span><span>Ctrl+S</span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place Image...</span><span>Ctrl+D</span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="printAllPages()"><span>Print All Pages / PDF</span><span>Ctrl+P</span></div>
-  </div>
-  <div id="menu-edit" class="dropdown" style="left: 38px;">
-    <div class="dropdown-item" onclick="duplicateSelected()"><span>Duplicate Box</span><span>Ctrl+V</span></div>
-    <div class="dropdown-item" onclick="deleteSelected()"><span>Clear Box</span><span>Del</span></div>
-  </div>
-  <div id="menu-layout" class="dropdown" style="left: 75px;">
-    <div class="dropdown-item" onclick="insertNewPage()"><span>Insert Pages...</span></div>
-    <div class="dropdown-item" onclick="removeCurrentPage()"><span>Remove Current Page</span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Portrait</span></div>
-    <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Landscape</span></div>
-    <div class="dropdown-item" onclick="setPageSize(420, 595)"><span>A5 Wedding Card</span></div>
-  </div>
-  <div id="menu-element" class="dropdown" style="left: 122px;">
+ <div class="menu-bar">
+ <div class="menu-item" onclick="toggleMenu(event, 'menu-file')"><u>F</u>ile</div>
+ <div class="menu-item" onclick="toggleMenu(event, 'menu-edit')"><u>E</u>dit</div>
+ <div class="menu-item" onclick="toggleMenu(event, 'menu-layout')"><u>L</u>ayout</div>
+ <div class="menu-item" onclick="toggleMenu(event, 'menu-element')"><u>E</u>lement</div> <div class="menu-item" onclick="toggleMenu(event, 'menu-view')"><u>V</u>iew</div>
+ <div class="menu-item" onclick="toggleColorPalette()"><u>W</u>indow (Colors)</div>
+ </div>
+ <div id="menu-file" class="dropdown" style="left: 4px;">
+ <div class="dropdown-item" onclick="newDocument()"><span>New Publication</
+span><span>Ctrl+N</span></div>
+ <div class="dropdown-item" onclick="document.getElementById('project-
+input').click()"><span>Open...</span><span>Ctrl+O</span></div>
+ <div class="dropdown-item" onclick="saveProject()"><span>Save Project</
+span><span>Ctrl+S</span></div>
+ <div class="dropdown-divider"></div>
+ <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place Image...</
+span><span>Ctrl+D</span></div>
+ <div class="dropdown-divider"></div>
+ <div class="dropdown-item" onclick="printAllPages()"><span>Print All Pages / PDF</
+span><span>Ctrl+P</span></div>
+ </div>
+ <div id="menu-edit" class="dropdown" style="left: 38px;">
+ <div class="dropdown-item" onclick="duplicateSelected()"><span>Duplicate Box</
+span><span>Ctrl+V</span></div>
+ <div class="dropdown-item" onclick="deleteSelected()"><span>Clear Box</span><span>Del</
+span></div>
+ </div>
+ <div id="menu-layout" class="dropdown" style="left: 75px;">
+ <div class="dropdown-item" onclick="insertNewPage()"><span>Insert Pages...</span></div>
+ <div class="dropdown-item" onclick="removeCurrentPage()"><span>Remove Current Page</
+span></div>
+ <div class="dropdown-divider"></div>
+ <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Portrait</span></
+div>
+ <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Landscape</span></
+div>
+ <div class="dropdown-item" onclick="setPageSize(420, 595)"><span>A5 Wedding Card</
+span></div>
+ </div>
+ <div id="menu-element" class="dropdown" style="left: 122px;">
+ <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span></div>
+ <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span></div>
+ <div class="dropdown-divider"></div>
+ <div class="dropdown-item" onclick="changeStrokeWidth(1)"><span>Stroke: 1pt</span></div>
+ <div class="dropdown-item" onclick="changeStrokeWidth(3)"><span>Stroke: 3pt</span></div>
+ <div class="dropdown-item" onclick="changeStrokeWidth(6)"><span>Stroke: 6pt</span></div>
+ </div>
+ <div id="menu-view" class="dropdown" style="left: 175px;">
+ <div class="dropdown-item" onclick="setZoom(1)"><span>Actual Size (100%)</span></div>
+ <div class="dropdown-item" onclick="setZoom(0.6)"><span>Fit in Window (60%)</span></div>
+ <div class="dropdown-item" onclick="setZoom(1.5)"><span>Zoom In (150%)</span></div>
+ </div>
+ <input type="file" id="image-input" accept="image/*" style="display:none" 
+onchange="placeImage(event)">
+ <input type="file" id="project-input" accept=".json" style="display:none" 
+onchange="loadProject(event)">
+ <div class="toolbar">
+ <button class="btn" onclick="newDocument()">New</button>
+ <button class="btn" onclick="saveProject()">Save</button>
+ <button class="btn" onclick="triggerPlaceImage()">Place (Ctrl+D)</button>
+ <button class="btn" onclick="duplicateSelected()">Copy</button>
+ <button class="btn" onclick="deleteSelected()">Delete</button>
+ <button class="btn" onclick="printAllPages()">PDF / Print</button>
+ <span id="page-indicator" style="font-weight:bold; color:#8b0000; margin-left:
+6px;">[Page 1]</span>
+ </div>
+ <div class="workspace-container">
+ <div class="ruler-corner"></div>
+ <div class="ruler-h">0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8 in</div>
+ <div class="ruler-
+v">0<br><br><br>1<br><br><br>2<br><br><br>3<br><br><br>4<br><br><br>5<br><br><br>6<br><br><b
+r>7<br><br><br>8<br><br><br>9<br><br><br>10</div>
+ <div class="toolbox" id="toolbox">
+ <div class="palette-header">Tools</div>
+ <div class="tool-grid">
+ <div class="tool-btn" id="tool-pointer" onclick="selectTool('pointer')">↖</div>
+ <div class="tool-btn active" id="tool-text" onclick="selectTool('text')">T</div>
+ <div class="tool-btn" id="tool-rotate" onclick="selectTool('rotate')">↻</div>
+ <div class="tool-btn" id="tool-crop" onclick="selectTool('crop')">◰</div>
+ <div class="tool-btn" id="tool-line" onclick="selectTool('line')">╲</div>
+ <div class="tool-btn" id="tool-cline" onclick="selectTool('cline')">│</div>
+ <div class="tool-btn" id="tool-rect" onclick="selectTool('rect')">▭</div>
+ <div class="tool-btn" id="tool-rectframe" onclick="selectTool('rectframe')">☒</div>
+ <div class="tool-btn" id="tool-ellipse" onclick="selectTool('ellipse')">○</div>
+ <div class="tool-btn" id="tool-ellipseframe" 
+onclick="selectTool('ellipseframe')">⊗</div>
+ <div class="tool-btn" id="tool-polygon" onclick="selectTool('polygon')">⬠</div>
+ <div class="tool-btn" id="tool-polygonframe" 
+onclick="selectTool('polygonframe')">⬡</div>
+ <div class="tool-btn" id="tool-hand" onclick="selectTool('hand')"> </div>
+ <div class="tool-btn" id="tool-zoom" onclick="selectTool('zoom')"> </div>
+ </div>
+ </div>
+ <div class="color-palette" id="color-palette">
+ <div class="palette-header">Colors</div>
+ <div class="swatch-list">
+ <div class="swatch" onclick="applyColor('#000000')"><div class="swatch-box" 
+style="background:#000000"></div>Black</div>
+ <div class="swatch" onclick="applyColor('#ff0000')"><div class="swatch-box" 
+style="background:#ff0000"></div>Red</div>
+ <div class="swatch" onclick="applyColor('#0000ff')"><div class="swatch-box" 
+style="background:#0000ff"></div>Blue</div>
+ <div class="swatch" onclick="applyColor('#008000')"><div class="swatch-box" 
+style="background:#008000"></div>Green</div>
+ <div class="swatch" onclick="applyColor('#ff00ff')"><div class="swatch-box" 
+style="background:#ff00ff"></div>Magenta</div>
+ <div class="swatch" onclick="applyColor('#00ffff')"><div class="swatch-box" 
+style="background:#00ffff"></div>Cyan</div>
+ <div class="swatch" onclick="applyColor('#ffff00')"><div class="swatch-box" 
+style="background:#ffff00"></div>Yellow</div>
+ <div class="swatch" onclick="applyFillColor()"><div class="swatch-box" 
+style="background:#ffe4b5"></div>Fill Box</div>
+ </div>
+ </div>
+ <div class="pasteboard" id="pasteboard" onpointerdown="handlePasteboardDown(event)" 
+onclick="deselectAll(event)">
+ <div class="page" id="page" onclick="handlePageClick(event)">
+ <div class="margin-guide"></div>
+ <div class="master-layer" id="master-layer"></div>
+ </div>
+ </div>
+ <div class="control-palette">
+ <div class="palette-header" style="writing-mode: vertical-rl; height: 28px;">Control</
+div>
+ <select id="font-family" onchange="applyStyle('fontName', this.value)">
+ <option value="Mangal">Mangal (मराठी)</option>
+ <option value="Kokila">Kokila (मराठी)</option>
+ <option value="Shree-Dev-0708">Shree-Dev-0708</option>
+ <option value="Kruti Dev 010">Kruti Dev 010</option>
+ <option value="Times New Roman">Times New Roman</option>
+ <option value="Arial">Arial</option>
+ </select> <input type="number" id="font-size" value="16" min="6" max="150" style="width: 45px;" 
+onchange="changeFontSize(this.value)">
+ <input type="color" id="picker-color" value="#000000" 
+onchange="applyColor(this.value)">
+ <button class="btn" onclick="applyStyle('bold')"><b>B</b></button>
+ <button class="btn" onclick="applyStyle('italic')"><i>I</i></button>
+ <button class="btn" onclick="applyStyle('underline')"><u>U</u></button>
+ <button class="btn" onclick="applyStyle('justifyLeft')">L</button>
+ <button class="btn" onclick="applyStyle('justifyCenter')">C</button>
+ <button class="btn" onclick="applyStyle('justifyRight')">R</button>
+ <span style="border-left:1px solid #808080; padding-left:5px;">
+ X:<input type="number" id="pos-x" style="width:42px;" 
+onchange="updateBoxGeometry()">
+ Y:<input type="number" id="pos-y" style="width:42px;" 
+onchange="updateBoxGeometry()">
+ W:<input type="number" id="box-w" style="width:42px;" 
+onchange="updateBoxGeometry()">
+ H:<input type="number" id="box-h" style="width:42px;" 
+onchange="updateBoxGeometry()">
+ Rot:<input type="number" id="box-rot" style="width:40px;" value="0" 
+onchange="updateBoxRotation()">°
+ </span>
+ </div>
+ <div class="page-bar" id="page-bar">
+ <div class="page-tab master" id="tab-M" onclick="switchPage('M')">M</div>
+ <div class="page-tab active" id="tab-1" onclick="switchPage(1)">1</div>
+ <button class="add-page-btn" onclick="insertNewPage()">+ Add Page</button>
+ </div>
+ </div>
+ <div id="print-all-container"></div>
+<script>
+ let currentTool = 'text', selectedEl = null, zoomLevel = 1, activePageId = 1, totalPages = 
+1;
+ let pagesData = { 'M': '', 1: '' };
+ function saveCurrentPageContent() {
+ const clone = document.getElementById('page').cloneNode(true);
+ const guide = clone.querySelector('.margin-guide'), master = 
+clone.querySelector('.master-layer');
+ if (guide) guide.remove(); if (master) master.remove();
+ clone.querySelectorAll('.pm-element').forEach(el => el.classList.remove('selected', 
+'crop-mode'));
+ pagesData[activePageId] = clone.innerHTML;
+ }
+ function switchPage(targetId) {
+ saveCurrentPageContent(); activePageId = targetId; selectedEl = null;
+ const page = document.getElementById('page');
+ const masterHTML = (targetId === 'M') ? '' : (pagesData['M'] || '');
+ page.innerHTML = `<div class="margin-guide"></div><div class="master-layer" id="master-
+layer">${masterHTML}</div>${pagesData[targetId] || ''}`;
+ page.querySelectorAll(':scope > .pm-element').forEach(el => attachElementEvents(el));
+ document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+ const tab = document.getElementById('tab-' + targetId);
+ if (tab) tab.classList.add('active');
+ document.getElementById('page-indicator').innerText = (targetId === 'M') ? '[Master 
+Page]' : `[Page ${targetId} of ${totalPages}]`;
+ }
+ function insertNewPage() { saveCurrentPageContent(); totalPages++; pagesData[totalPages] = 
+''; renderPageTabs(); switchPage(totalPages); }
+ function removeCurrentPage() {
+ if (activePageId === 'M' || totalPages <= 1) return;
+ if (!confirm(`Page ${activePageId} ɟडिलीट करायचे का?`)) return;
+ for (let i = activePageId; i < totalPages; i++) pagesData[i] = pagesData[i + 1];
+ delete pagesData[totalPages]; totalPages--; renderPageTabs(); switchPage(Math.min(activePageId, totalPages));
+ }
+ function renderPageTabs() {
+ const bar = document.getElementById('page-bar');
+ bar.innerHTML = `<div class="page-tab master ${activePageId === 'M' ? 'active' : ''}" 
+id="tab-M" onclick="switchPage('M')">M</div>`;
+ for (let i = 1; i <= totalPages; i++) bar.innerHTML += `<div class="page-tab $
+{activePageId === i ? 'active' : ''}" id="tab-${i}" onclick="switchPage(${i})">${i}</div>`;
+ bar.innerHTML += `<button class="add-page-btn" onclick="insertNewPage()">+ Add Page</
+button>`;
+ }
+ function printAllPages() {
+ saveCurrentPageContent();
+ const container = document.getElementById('print-all-container');
+ container.innerHTML = '';
+ const pageW = document.getElementById('page').style.width || '595px', pageH = 
+document.getElementById('page').style.height || '842px';
+ for (let i = 1; i <= totalPages; i++) {
+ const pDiv = document.createElement('div');
+ pDiv.className = 'print-page'; pDiv.style.width = pageW; pDiv.style.height = pageH;
+ pDiv.innerHTML = `<div class="master-layer">${pagesData['M'] || ''}</div>$
+{pagesData[i] || ''}`;
+ container.appendChild(pDiv);
+ }
+ window.print();
+ }
+ function toggleMenu(e, id) { e.stopPropagation(); const t = document.getElementById(id), s 
+= t.classList.contains('show'); closeMenus(); if (!s) t.classList.add('show'); }
+ function closeMenus() { document.querySelectorAll('.dropdown').forEach(d => 
+d.classList.remove('show')); }
+ function toggleColorPalette() { const cp = document.getElementById('color-palette'); 
+cp.style.display = (cp.style.display === 'block') ? 'none' : 'block'; }
+ function selectTool(tool) {
+ currentTool = tool;
+ document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+ const btn = document.getElementById('tool-' + tool);
+ if (btn) btn.classList.add('active');
+ document.getElementById('pasteboard').style.cursor = (tool === 'hand') ? 'grab' : (tool 
+=== 'zoom' ? 'zoom-in' : 'default');
+ document.querySelectorAll('#page > .pm-element').forEach(el => 
+el.classList.toggle('crop-mode', tool === 'crop' && el === selectedEl));
+ document.querySelectorAll('#page > .pm-element .text-content').forEach(tc => 
+{ tc.contentEditable = (tool === 'text'); tc.style.cursor = (tool === 'text') ? 'text' : 
+'move'; });
+ }
+ function attachElementEvents(el) {
+ el.querySelectorAll('.handle').forEach(h => {
+ const dir = h.className.split(' ');
+ h.onpointerdown = (e) => { if (currentTool === 'crop') initCrop(e, el, dir); else 
+initResize(e, el, dir); };
+ });
+ el.onpointerdown = (e) => {
+ if (currentTool === 'hand' || currentTool === 'zoom') return;
+ e.stopPropagation(); selectElement(el);
+ if (e.target.classList.contains('handle')) return;
+ if (currentTool === 'rotate') initRotate(e, el);
+ else if (currentTool === 'pointer' || currentTool === 'crop') initDrag(e, el);
+ };
+ }
+ function createPMElement(x, y, w, h) { const el = document.createElement('div');
+ el.className = 'pm-element selected'; el.style.left = x + 'px'; el.style.top = y + 'px'; 
+el.style.width = w + 'px'; el.style.height = h + 'px'; el.dataset.rotation = 0;
+ ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'].forEach(dir => { const hDiv = 
+document.createElement('div'); hDiv.className = 'handle ' + dir; el.appendChild(hDiv); });
+ attachElementEvents(el); document.getElementById('page').appendChild(el); 
+selectElement(el); return el;
+ }
+ function handlePageClick(e) {
+ if (currentTool === 'zoom') { setZoom(zoomLevel >= 1.5 ? 0.75 : zoomLevel + 0.25); 
+return; }
+ if (e.target.id !== 'page') return;
+ const rect = e.target.getBoundingClientRect(), x = Math.round((e.clientX - rect.left) / 
+zoomLevel), y = Math.round((e.clientY - rect.top) / zoomLevel);
+ if (currentTool === 'text') {
+ const el = createPMElement(x, y, 220, 60), content = document.createElement('div');
+ content.className = 'text-content'; content.contentEditable = true; 
+content.style.fontFamily = document.getElementById('font-family').value; 
+content.style.fontSize = document.getElementById('font-size').value + 'px'; 
+content.innerText = 'येथे मराठी टाइप करा...';
+ el.appendChild(content); content.focus();
+ } else if (currentTool === 'line') addSVGShape(x, y, 160, 80, `<line x1="0" y1="0" 
+x2="100%" y2="100%" stroke="#000" stroke-width="2"/>`);
+ else if (currentTool === 'cline') addSVGShape(x, y, 200, 10, `<line x1="0" y1="5" 
+x2="100%" y2="5" stroke="#000" stroke-width="2"/>`);
+ else if (currentTool === 'rect') addSVGShape(x, y, 150, 100, `<rect x="1" y="1" 
+width="98%" height="98%" fill="none" stroke="#000" stroke-width="2"/>`);
+ else if (currentTool === 'rectframe') addFrameShape(x, y, 160, 110, `<rect x="1" y="1" 
+width="98%" height="98%" fill="none" stroke="#000" stroke-width="1"/><line x1="0" y1="0" 
+x2="100%" y2="100%" stroke="#888" stroke-width="1"/><line x1="100%" y1="0" x2="0" y2="100%" 
+stroke="#888" stroke-width="1"/>`);
+ else if (currentTool === 'ellipse') addSVGShape(x, y, 120, 120, `<ellipse cx="50%" 
+cy="50%" rx="48%" ry="48%" fill="none" stroke="#000" stroke-width="2"/>`);
+ else if (currentTool === 'ellipseframe') addFrameShape(x, y, 130, 130, `<ellipse 
+cx="50%" cy="50%" rx="48%" ry="48%" fill="none" stroke="#000" stroke-width="1"/><line 
+x1="15%" y1="15%" x2="85%" y2="85%" stroke="#888" stroke-width="1"/><line x1="85%" y1="15%" 
+x2="15%" y2="85%" stroke="#888" stroke-width="1"/>`);
+ else if (currentTool === 'polygon') addSVGShape(x, y, 120, 120, `<polygon points="60,2 
+118,45 95,115 25,115 2,45" fill="none" stroke="#000" stroke-width="2"/>`);
+ else if (currentTool === 'polygonframe') addFrameShape(x, y, 130, 130, `<polygon 
+points="65,2 128,48 104,125 26,125 2,48" fill="none" stroke="#000" stroke-width="1"/><line 
+x1="20" y1="30" x2="110" y2="110" stroke="#888"/><line x1="110" y1="30" x2="20" y2="110" 
+stroke="#888"/>`);
+ }
+ function addSVGShape(x, y, w, h, svg) { const el = createPMElement(x, y, w, h); 
+el.innerHTML += `<svg class="shape-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">$
+{svg}</svg>`; attachElementEvents(el); selectTool('pointer'); }
+ function addFrameShape(x, y, w, h, svg) { const el = createPMElement(x, y, w, h); 
+el.innerHTML += `<svg class="shape-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">$
+{svg}</svg>`; const c = document.createElement('div'); c.className = 'text-content'; 
+c.style.position = 'absolute'; c.style.top = '0'; c.style.left = '0'; c.contentEditable = 
+true; el.appendChild(c); attachElementEvents(el); selectTool('pointer'); }
+ function triggerPlaceImage() { document.getElementById('image-input').click(); }
+ function placeImage(event) {
+ const file = event.target.files[0]; if (!file) return;
+ const reader = new FileReader();
+ reader.onload = function(e) { const el = createPMElement(60, 60, 180, 180), w = 
+document.createElement('div'); w.className = 'img-wrapper'; const img = 
+document.createElement('img'); img.src = e.target.result; img.className = 'pm-image'; 
+w.appendChild(img); el.appendChild(w); selectTool('pointer'); };
+ reader.readAsDataURL(file); event.target.value = '';
+ }
+ function handlePasteboardDown(e) { if (currentTool !== 'hand') return;
+ const pb = document.getElementById('pasteboard'); let sx = e.clientX, sy = e.clientY, sl 
+= pb.scrollLeft, st = pb.scrollTop; pb.style.cursor = 'grabbing';
+ function onMove(ev) { pb.scrollLeft = sl - (ev.clientX - sx); pb.scrollTop = st - 
+(ev.clientY - sy); }
+ function onUp() { pb.style.cursor = 'grab'; window.removeEventListener('pointermove', 
+onMove); window.removeEventListener('pointerup', onUp); }
+ window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', 
+onUp);
+ }
+ function initRotate(e, el) {
+ const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 
+2;
+ function onMove(ev) { const a = Math.round(Math.atan2(ev.clientY - cy, ev.clientX - cx) 
+* (180 / Math.PI)); el.dataset.rotation = a; el.style.transform = `rotate(${a}deg)`; 
+document.getElementById('box-rot').value = a; }
+ function onUp() { window.removeEventListener('pointermove', onMove); 
+window.removeEventListener('pointerup', onUp); }
+ window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', 
+onUp);
+ }
+ function initCrop(e, el, dir) {
+ e.stopPropagation(); const img = el.querySelector('.pm-image'); if (!img) 
+{ initResize(e, el, dir); return; }
+ let sx = e.clientX, sy = e.clientY, ow = parseInt(el.style.width), oh = 
+parseInt(el.style.height); img.style.width = ow + 'px'; img.style.height = oh + 'px';
+ function onMove(ev) { if (dir.includes('e')) el.style.width = Math.max(20, ow + 
+(ev.clientX - sx) / zoomLevel) + 'px'; if (dir.includes('s')) el.style.height = Math.max(20, 
+oh + (ev.clientY - sy) / zoomLevel) + 'px'; updateControlPaletteInputs(); }
+ function onUp() { window.removeEventListener('pointermove', onMove); 
+window.removeEventListener('pointerup', onUp); }
+ window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', 
+onUp);
+ }
+ function initDrag(e, el) {
+ let sx = e.clientX, sy = e.clientY, ox = parseInt(el.style.left), oy = 
+parseInt(el.style.top);
+ function onMove(ev) { el.style.left = Math.round(ox + (ev.clientX - sx) / zoomLevel) + 
+'px'; el.style.top = Math.round(oy + (ev.clientY - sy) / zoomLevel) + 'px'; 
+updateControlPaletteInputs(); }
+ function onUp() { window.removeEventListener('pointermove', onMove); 
+window.removeEventListener('pointerup', onUp); }
+ window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', 
+onUp);
+ }
+ function initResize(e, el, dir) {
+ e.stopPropagation(); let sx = e.clientX, sy = e.clientY, ow = parseInt(el.style.width), 
+oh = parseInt(el.style.height), ox = parseInt(el.style.left), oy = parseInt(el.style.top);
+ function onMove(ev) {
+ let dx = (ev.clientX - sx) / zoomLevel, dy = (ev.clientY - sy) / zoomLevel;
+ if (dir.includes('e')) el.style.width = Math.max(15, Math.round(ow + dx)) + 'px';
+ if (dir.includes('s')) el.style.height = Math.max(10, Math.round(oh + dy)) + 'px';
+ if (dir.includes('w')) { el.style.width = Math.max(15, Math.round(ow - dx)) + 'px'; 
+el.style.left = Math.round(ox + dx) + 'px'; }
+ if (dir.includes('n')) { el.style.height = Math.max(10, Math.round(oh - dy)) + 'px'; 
+el.style.top = Math.round(oy + dy) + 'px'; }
+ updateControlPaletteInputs();
+ }
+ function onUp() { window.removeEventListener('pointermove', onMove); 
+window.removeEventListener('pointerup', onUp); }
+ window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', 
+onUp); }
+ function selectElement(el) { document.querySelectorAll('#page > .pm-element').forEach(i => 
+i.classList.remove('selected', 'crop-mode')); el.classList.add('selected'); if (currentTool 
+=== 'crop') el.classList.add('crop-mode'); selectedEl = el; updateControlPaletteInputs(); }
+ function deselectAll(e) { if (e.target.classList.contains('pasteboard') || (e.target.id 
+=== 'page' && currentTool === 'pointer')) { document.querySelectorAll('#page > .pm-
+element').forEach(i => i.classList.remove('selected')); selectedEl = null; } }
+ function updateControlPaletteInputs() { if (!selectedEl) return; 
+document.getElementById('pos-x').value = parseInt(selectedEl.style.left); 
+document.getElementById('pos-y').value = parseInt(selectedEl.style.top); 
+document.getElementById('box-w').value = parseInt(selectedEl.style.width); 
+document.getElementById('box-h').value = parseInt(selectedEl.style.height); 
+document.getElementById('box-rot').value = selectedEl.dataset.rotation || 0; }
+ function updateBoxGeometry() { if (!selectedEl) return; selectedEl.style.left = 
+document.getElementById('pos-x').value + 'px'; selectedEl.style.top = 
+document.getElementById('pos-y').value + 'px'; selectedEl.style.width = 
+document.getElementById('box-w').value + 'px'; selectedEl.style.height = 
+document.getElementById('box-h').value + 'px'; }
+ function updateBoxRotation() { if (!selectedEl) return; const d = 
+document.getElementById('box-rot').value; selectedEl.dataset.rotation = d; 
+selectedEl.style.transform = `rotate(${d}deg)`; }
+ function applyStyle(cmd, val = null) { document.execCommand(cmd, false, val); if 
+(selectedEl && cmd === 'fontName') { const tc = selectedEl.querySelector('.text-content'); 
+if (tc) tc.style.fontFamily = val; } }
+ function changeFontSize(s) { if (selectedEl) { const tc = selectedEl.querySelector('.text-
+content'); if (tc) tc.style.fontSize = s + 'px'; } }
+ function applyColor(c) { if (!selectedEl) return; const tc = 
+selectedEl.querySelector('.text-content'); if (tc) tc.style.color = c; 
+selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => 
+s.setAttribute('stroke', c)); }
+ function applyFillColor() { if (!selectedEl) return; const c = 
+document.getElementById('picker-color').value; selectedEl.querySelectorAll('rect, ellipse, 
+polygon').forEach(s => s.setAttribute('fill', c)); }
+ function changeStrokeWidth(w) { if (!selectedEl) return; 
+selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => 
+s.setAttribute('stroke-width', w)); }
+ function setZoom(l) { zoomLevel = l; document.getElementById('page').style.transform = 
+`scale(${l})`; }
+ function duplicateSelected() { if (!selectedEl) return; const c = 
+selectedEl.cloneNode(true); c.style.left = (parseInt(selectedEl.style.left) + 20) + 'px'; 
+c.style.top = (parseInt(selectedEl.style.top) + 20) + 'px'; attachElementEvents(c); 
+document.getElementById('page').appendChild(c); selectElement(c); }
+ function bringToFront() { if (selectedEl) selectedEl.style.zIndex = 50; }
+ function sendToBack() { if (selectedEl) selectedEl.style.zIndex = 5; }
+ function deleteSelected() { if (selectedEl) { selectedEl.remove(); selectedEl = null; } }
+ function setPageSize(w, h) { const p = document.getElementById('page'); p.style.width = w 
++ 'px'; p.style.height = h + 'px'; p.style.minWidth = w + 'px'; p.style.minHeight = h + 
+'px'; }
+ function saveProject() { saveCurrentPageContent(); const blob = new 
+Blob([JSON.stringify({ pagesData, totalPages, activePageId })], { type: 'application/
+json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); 
+a.download = 'PageMaker7_MultiPage.json'; a.click(); }
+ function loadProject(e) { const f = e.target.files[0]; if (!f) return; const r = new 
+FileReader(); r.onload = function(ev) { const d = JSON.parse(ev.target.result); pagesData = 
+d.pagesData; totalPages = d.totalPages; renderPageTabs(); switchPage(d.activePageId || 
+1); }; r.readAsText(f); }
+ function newDocument() { if (confirm('नवीन पɜÍलके शन सुरू करायचे का?')) { pagesData = { 'M': '', 1: 
+'' }; totalPages = 1; renderPageTabs(); switchPage(1); } }
+</script>
+</body>
+</html>
