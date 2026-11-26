@@ -61,7 +61,7 @@ function selectTool(tool) {
   if (btn) btn.classList.add('active');
 
   document.getElementById('pasteboard').style.cursor =
-    (tool === 'hand') ? 'grab' : (tool === 'zoom' ? 'zoom-in' : 'crosshair');
+    (tool === 'hand') ? 'grab' : (tool === 'zoom' ? 'zoom-in' : (tool === 'pointer' ? 'default' : 'crosshair'));
 
   document.querySelectorAll('#page > .pm-element').forEach(el => {
     el.classList.toggle('crop-mode', tool === 'crop' && el === selectedEl);
@@ -79,6 +79,115 @@ function snapValue(val, axis) {
     if (Math.abs(val - g) <= 5) return g;
   }
   return val;
+}
+
+/* Unicode Marathi -> Legacy ASCII Converter for Kruti Dev / Shivaji / SHREE-DEV7 */
+function unicodeToLegacyDevanagari(str, familyType) {
+  if (!str) return str;
+  // जर मजकुरात आधीच देवनागरी युनिकोड नसेल तर तसेच ठेवा
+  if (!/[\u0900-\u097F]/.test(str)) return str;
+
+  if (familyType === 'kruti') {
+    const map = [
+      ['क्ष', '{k'], ['त्र', '='], ['ज्ञ', 'K'], ['श्र', 'J'],
+      ['क', 'd'], ['ख', '[k'], ['ग', 'x'], ['घ', '?k'], ['ङ', '³'],
+      ['च', 'p'], ['छ', 'N'], ['ज', 't'], ['झ', '>'], ['ञ', '¥'],
+      ['ट', 'V'], ['ठ', 'B'], ['ड', 'M'], ['ढ', '<'], ['ण', '.k'],
+      ['त', 'r'], ['थ', 'Fk'], ['द', 'n'], ['ध', '/k'], ['न', 'u'],
+      ['प', 'i'], ['फ', 'Q'], ['ब', 'c'], ['भ', 'Hk'], ['म', 'e'],
+      ['य', ';'], ['र', 'j'], ['ल', 'y'], ['व', 'o'], ['श', "'k"],
+      ['ष', '"k'], ['स', 'l'], ['ह', 'g'], ['ळ', 'G'],
+      ['अ', 'v'], ['आ', 'vk'], ['इ', 'b'], ['ई', 'bZ'], ['उ', 'm'],
+      ['ऊ', 'Å'], ['ए', ','], ['ऐ', ',s'], ['ओ', 'vks'], ['औ', 'vkS'],
+      ['ा', 'k'], ['ी', 'h'], ['ु', 'q'], ['ू', 'w'], ['े', 's'],
+      ['ै', 'S'], ['ो', 'ks'], ['ौ', 'kS'], ['ं', 'a'], ['ः', '%'],
+      ['ँ', '¡'], ['।', 'A'], ['्', '~']
+    ];
+    let out = str;
+    // 'ि' मात्रा अक्षराच्या आधी जाते
+    out = out.replace(/([\u0915-\u0939\u0958-\u095F])ि/g, 'f$1');
+    for (const [u, l] of map) {
+      out = out.split(u).join(l);
+    }
+    return out;
+  }
+
+  if (familyType === 'shivaji') {
+    const map = [
+      ['क्ष', 'xa'], ['त्र', 'Ha'], ['ज्ञ', 'Va'], ['श्र', 'Ea'],
+      ['क', 'k'], ['ख', 'Ka'], ['ग', 'ga'], ['घ', 'Ga'],
+      ['च', 'ca'], ['छ', 'Ca'], ['ज', 'ja'], ['झ', 'Ja'],
+      ['ट', 'T'], ['ठ', 'z'], ['ड', 'D'], ['ढ', 'Z'], ['ण', 'Na'],
+      ['त', 'ta'], ['थ', 'Ta'], ['द', 'd'], ['ध', 'Da'], ['न', 'na'],
+      ['प', 'pa'], ['फ', 'P'], ['ब', 'ba'], ['भ', 'Ba'], ['म', 'ma'],
+      ['य', 'ya'], ['र', 'r'], ['ल', 'la'], ['व', 'va'], ['श', 'Sa'],
+      ['ष', 'Ya'], ['स', 'sa'], ['ह', 'h'], ['ळ', 'L'],
+      ['अ', 'A'], ['आ', 'Aa'], ['इ', 'i'], ['ई', 'I'], ['उ', 'u'],
+      ['ऊ', 'U'], ['ए', 'e'], ['ऐ', 'eo'], ['ओ', 'Aao'], ['औ', 'AaO'],
+      ['ा', 'a'], ['ी', 'I'], ['ु', 'u'], ['ू', 'U'], ['े', 'o'],
+      ['ै', 'O'], ['ो', 'ao'], ['ौ', 'aO'], ['ं', 'M'], ['ः', ':']
+    ];
+    let out = str;
+    out = out.replace(/([\u0915-\u0939\u0958-\u095F])ि/g, 'i$1');
+    for (const [u, l] of map) {
+      out = out.split(u).join(l);
+    }
+    return out;
+  }
+
+  if (familyType === 'shree') {
+    const map = [
+      ['क्ष', 'j'], ['त्र', '~'], ['ज्ञ', 'k'], ['श्र', 'L'],
+      ['क', 'H$'], ['ख', 'I'], ['ग', 'J'], ['घ', 'K'],
+      ['च', 'M'], ['छ', 'N'], ['ज', 'O'], ['झ', 'P'],
+      ['ट', 'Q'], ['ठ', 'R'], ['ड', 'S'], ['ढ', 'T'], ['ण', 'U'],
+      ['त', 'V'], ['थ', 'W'], ['द', 'X'], ['ध', 'Y'], ['न', 'Z'],
+      ['प', 'n'], ['फ', '’$'], ['ब', '~'], ['भ', '^'], ['म', '_'],
+      ['य', '`'], ['र', 'a'], ['ल', 'b'], ['व', 'd'], ['श', 'e'],
+      ['ष', 'f'], ['स', 'g'], ['ह', 'h'], ['ळ', 'i'],
+      ['अ', 'A'], ['आ', 'Am'], ['इ', 'B'], ['ई', 'C'], ['उ', 'D'],
+      ['ऊ', 'E'], ['ए', 'F'], ['ऐ', 'Eo'], ['ओ', 'Amo'], ['औ', 'Am¡'],
+      ['ा', 'm'], ['ी', 'r'], ['ु', 'w'], ['ू', 'y'], ['े', 'o'],
+      ['ै', '¡'], ['ो', 'mo'], ['ौ', 'm¡'], ['ं', '§'], ['ः', '…']
+    ];
+    let out = str;
+    out = out.replace(/([\u0915-\u0939\u0958-\u095F])ि/g, 'p$1');
+    for (const [u, l] of map) {
+      out = out.split(u).join(l);
+    }
+    return out;
+  }
+
+  return str;
+}
+
+function getLegacyFontType(fontVal) {
+  const f = (fontVal || '').toLowerCase();
+  if (f.includes('kruti')) return 'kruti';
+  if (f.includes('shivaji')) return 'shivaji';
+  if (f.includes('shree')) return 'shree';
+  return null;
+}
+
+function convertSelectedToLegacyFont() {
+  if (!selectedEl) {
+    alert('प्रथम कोणताही टेक्स्ट बॉक्स निवडा.');
+    return;
+  }
+  const tc = selectedEl.querySelector('.text-content');
+  if (!tc) return;
+  const fontVal = tc.style.fontFamily || document.getElementById('font-family').value;
+  const legacyType = getLegacyFontType(fontVal);
+  if (!legacyType) {
+    alert('कृपया आधी SHREE-DEV7, Kruti Dev, किंवा Shivaji फॉन्ट निवडा.');
+    return;
+  }
+  saveState();
+  if (!tc.dataset.unicodeSource) {
+    tc.dataset.unicodeSource = tc.innerText;
+  }
+  tc.innerText = unicodeToLegacyDevanagari(tc.dataset.unicodeSource, legacyType);
+  checkTextOverflow(selectedEl);
 }
 
 function checkTextOverflow(el) {
@@ -101,7 +210,7 @@ function checkTextOverflow(el) {
         ev.stopPropagation();
         pendingThreadSource = el;
         selectTool('text');
-        alert('आता पानावर जिथे उरलेला मजकूर हवा आहे तिथे क्लिक किंवा ओढा.');
+        alert('आता पानावर जिथे उरलेला मजकूर हवा आहे तिथे बोटाने बॉक्स ओढा.');
       };
       el.appendChild(badge);
     }
@@ -123,7 +232,12 @@ function attachElementEvents(el) {
 
   const tc = el.querySelector('.text-content');
   if (tc) {
-    tc.addEventListener('input', () => checkTextOverflow(el));
+    tc.addEventListener('input', () => {
+      if (/[\u0900-\u097F]/.test(tc.innerText)) {
+        tc.dataset.unicodeSource = tc.innerText;
+      }
+      checkTextOverflow(el);
+    });
   }
 
   el.onpointerdown = (e) => {
@@ -218,6 +332,7 @@ function handlePagePointerDown(e) {
     setZoom(zoomLevel >= 1.5 ? 0.75 : zoomLevel + 0.25);
     return;
   }
+  // Pointer, Hand, Rotate, Crop निवडल्यावर पानावर टच केल्यास काहीही नवीन तयार होणार नाही
   if (currentTool === 'hand' || currentTool === 'pointer' || currentTool === 'rotate' || currentTool === 'crop') return;
 
   e.stopPropagation();
@@ -225,34 +340,82 @@ function handlePagePointerDown(e) {
   const startX = snapValue(Math.round((e.clientX - rect.left) / zoomLevel), 'v');
   const startY = snapValue(Math.round((e.clientY - rect.top) / zoomLevel), 'h');
 
+  // Text Tool साठी: फक्त ओढून (Drag करून) बॉक्स आखला तरच टेक्स्ट बॉक्स तयार होईल, चुकून टच केल्यास नाही!
   if (currentTool === 'text') {
-    const el = createPMElement(startX, startY, 220, 70);
-    const content = document.createElement('div');
-    content.className = 'text-content';
-    content.contentEditable = true;
-    content.style.fontFamily = document.getElementById('font-family').value;
-    content.style.fontSize = document.getElementById('font-size').value + 'px';
-    content.style.lineHeight = document.getElementById('line-leading').value || '1.4';
-    content.style.color = document.getElementById('picker-color').value || '#000000';
+    let previewBox = null;
+    let moved = false;
 
-    if (pendingThreadSource) {
-      const srcTc = pendingThreadSource.querySelector('.text-content');
-      if (srcTc) {
-        const words = srcTc.innerText.split(/\s+/).filter(Boolean);
-        const half = Math.ceil(words.length / 2);
-        srcTc.innerText = words.slice(0, half).join(' ');
-        content.innerText = words.slice(half).join(' ') || 'पुढील मजकूर...';
-        checkTextOverflow(pendingThreadSource);
+    function onTextDragMove(ev) {
+      const curX = Math.round((ev.clientX - rect.left) / zoomLevel);
+      const curY = Math.round((ev.clientY - rect.top) / zoomLevel);
+      const w = Math.abs(curX - startX);
+      const h = Math.abs(curY - startY);
+      if (w < 20 && h < 15) return;
+      moved = true;
+      if (!previewBox) {
+        previewBox = document.createElement('div');
+        previewBox.style.cssText = 'position:absolute;border:1px dashed #0a246a;background:rgba(10,36,106,0.06);pointer-events:none;z-index:200;';
+        document.getElementById('page').appendChild(previewBox);
       }
-      pendingThreadSource = null;
-    } else {
-      content.innerText = 'येथे मराठी टाइप करा...';
+      previewBox.style.left = Math.min(startX, curX) + 'px';
+      previewBox.style.top = Math.min(startY, curY) + 'px';
+      previewBox.style.width = Math.max(60, w) + 'px';
+      previewBox.style.height = Math.max(30, h) + 'px';
     }
 
-    el.appendChild(content);
-    content.addEventListener('input', () => checkTextOverflow(el));
-    checkTextOverflow(el);
-    content.focus();
+    function onTextDragUp(ev) {
+      window.removeEventListener('pointermove', onTextDragMove);
+      window.removeEventListener('pointerup', onTextDragUp);
+      if (previewBox) {
+        const bx = parseInt(previewBox.style.left);
+        const by = parseInt(previewBox.style.top);
+        const bw = parseInt(previewBox.style.width);
+        const bh = parseInt(previewBox.style.height);
+        previewBox.remove();
+
+        if (moved) {
+          const el = createPMElement(bx, by, bw, bh);
+          const content = document.createElement('div');
+          content.className = 'text-content';
+          content.contentEditable = true;
+          const chosenFont = document.getElementById('font-family').value;
+          content.style.fontFamily = chosenFont;
+          content.style.fontSize = document.getElementById('font-size').value + 'px';
+          content.style.lineHeight = document.getElementById('line-leading').value || '1.4';
+          content.style.color = document.getElementById('picker-color').value || '#000000';
+
+          if (pendingThreadSource) {
+            const srcTc = pendingThreadSource.querySelector('.text-content');
+            if (srcTc) {
+              const words = srcTc.innerText.split(/\s+/).filter(Boolean);
+              const half = Math.ceil(words.length / 2);
+              srcTc.innerText = words.slice(0, half).join(' ');
+              content.innerText = words.slice(half).join(' ') || 'पुढील मजकूर...';
+              checkTextOverflow(pendingThreadSource);
+            }
+            pendingThreadSource = null;
+          } else {
+            const defaultUnicode = 'येथे मराठी टाइप करा...';
+            content.dataset.unicodeSource = defaultUnicode;
+            const lType = getLegacyFontType(chosenFont);
+            content.innerText = lType ? unicodeToLegacyDevanagari(defaultUnicode, lType) : defaultUnicode;
+          }
+
+          el.appendChild(content);
+          content.addEventListener('input', () => {
+            if (/[\u0900-\u097F]/.test(content.innerText)) {
+              content.dataset.unicodeSource = content.innerText;
+            }
+            checkTextOverflow(el);
+          });
+          checkTextOverflow(el);
+          content.focus();
+        }
+      }
+    }
+
+    window.addEventListener('pointermove', onTextDragMove);
+    window.addEventListener('pointerup', onTextDragUp);
     return;
   }
 
@@ -551,10 +714,13 @@ function openStoryEditor() {
     alert('निवडलेल्या बॉक्समध्ये मजकूर नाही.');
     return;
   }
-  const updated = prompt('Story Editor — मजकूर बदला:', tc.innerText);
+  const baseText = tc.dataset.unicodeSource || tc.innerText;
+  const updated = prompt('Story Editor — मराठी मजकूर बदला:', baseText);
   if (updated !== null) {
     saveState();
-    tc.innerText = updated;
+    tc.dataset.unicodeSource = updated;
+    const lType = getLegacyFontType(tc.style.fontFamily || document.getElementById('font-family').value);
+    tc.innerText = lType ? unicodeToLegacyDevanagari(updated, lType) : updated;
     checkTextOverflow(selectedEl);
   }
 }
