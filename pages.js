@@ -227,9 +227,9 @@ function renderGuides() {
 function setColumnGuides() {
   ensurePageState(activePageId);
   const current = pageColumns[activePageId];
-  const countStr = prompt('कॉलम संख्या टाका (1 ते 4):', current.count);
+  const countStr = prompt('कॉलम संख्या टाका (1 ते 5):', current.count);
   if (countStr === null) return;
-  const count = Math.max(1, Math.min(4, parseInt(countStr) || 1));
+  const count = Math.max(1, Math.min(5, parseInt(countStr) || 1));
   const gutterStr = prompt('कॉलममधील अंतर (Gutter px मध्ये):', current.gutter);
   if (gutterStr === null) return;
   const gutter = Math.max(4, Math.min(80, parseInt(gutterStr) || 12));
@@ -342,7 +342,23 @@ function switchPage(targetId) {
   const tab = document.getElementById('tab-' + targetId);
   if (tab) tab.classList.add('active');
   document.getElementById('page-indicator').innerText =
-    (targetId === 'M') ? '[Master Page]' : `[Page ${targetId} of ${totalPages}]`;
+    (targetId === 'M') ? '[Master Page]' : `[Page ${targetId} of${totalPages}]`;
+}
+
+function goToPagePrompt() {
+  const val = prompt(`कोणत्या पानावर जायचे आहे? (1 ते ${totalPages} किंवा M):`, activePageId); if (val === null) return; if (val.trim().toUpperCase() === 'M') { switchPage('M'); return; } const num = parseInt(val); if (num >= 1 && num <= totalPages) { switchPage(num); } else { alert(`कृपया 1 ते ${totalPages} मधील वैध पान क्रमांक टाका.`);
+  }
+}
+
+function goPageStep(delta) {
+  if (activePageId === 'M') {
+    switchPage(1);
+    return;
+  }
+  const next = activePageId + delta;
+  if (next >= 1 && next <= totalPages) {
+    switchPage(next);
+  }
 }
 
 function insertNewPage() {
@@ -355,21 +371,71 @@ function insertNewPage() {
   switchPage(totalPages);
 }
 
+function insertMultiplePages() {
+  const countStr = prompt('किती नवीन पाने जोडायची आहेत?', '5');
+  if (countStr === null) return;
+  const addCount = Math.max(1, Math.min(100, parseInt(countStr) || 1));
+  saveState();
+  saveCurrentPageContent();
+  for (let c = 0; c < addCount; c++) {
+    totalPages++;
+    pagesData[totalPages] = '';
+    ensurePageState(totalPages);
+  }
+  renderPageTabs();
+  switchPage(totalPages);
+}
+
 function removeCurrentPage() {
   if (activePageId === 'M' || totalPages <= 1) return;
-  if (!confirm(`Page ${activePageId} डिलीट करायचे का?`)) return;
-  saveState();
-  for (let i = activePageId; i < totalPages; i++) {
-    pagesData[i] = pagesData[i + 1];
-    pageGuides[i] = pageGuides[i + 1];
-    pageColumns[i] = pageColumns[i + 1];
+  if (!confirm(`Page ${activePageId} डिलीट करायचे का?`)) return; saveState(); for (let i = activePageId; i < totalPages; i++) { pagesData[i] = pagesData[i + 1]; pageGuides[i] = pageGuides[i + 1]; pageColumns[i] = pageColumns[i + 1]; } delete pagesData[totalPages]; delete pageGuides[totalPages]; delete pageColumns[totalPages]; totalPages--; renderPageTabs(); switchPage(Math.min(activePageId, totalPages)); }  function removePageRangePrompt() { if (totalPages <= 1) return; const fromStr = prompt(`कोणत्या पानापासून काढायचे आहे? (1 ते ${totalPages}):`, '1');
+  if (fromStr === null) return;
+  const toStr = prompt(`कोणत्या पानापर्यंत काढायचे आहे? (${fromStr} ते ${totalPages}):`, fromStr);
+  if (toStr === null) return;
+
+  const startP = Math.max(1, Math.min(totalPages, parseInt(fromStr) || 1));
+  const endP = Math.max(startP, Math.min(totalPages, parseInt(toStr) || startP));
+  const removeCount = endP - startP + 1;
+
+  if (removeCount >= totalPages) {
+    alert('किमान 1 पान शिल्लक राहणे आवश्यक आहे.');
+    return;
   }
-  delete pagesData[totalPages];
-  delete pageGuides[totalPages];
-  delete pageColumns[totalPages];
-  totalPages--;
+  if (!confirm(`Page ${startP} ते Page ${endP} डिलीट करायचे का?`)) return;
+
+  saveState();
+  saveCurrentPageContent();
+  const newPages = {};
+  const newGuides = { 'M': pageGuides['M'] };
+  const newCols = { 'M': pageColumns['M'] };
+  let idx = 1;
+  for (let i = 1; i <= totalPages; i++) {
+    if (i < startP || i > endP) {
+      newPages[idx] = pagesData[i] || '';
+      newGuides[idx] = pageGuides[i] || { h: [], v: [] };
+      newCols[idx] = pageColumns[i] || { count: 1, gutter: 12 };
+      idx++;
+    }
+  }
+  pagesData = { 'M': pagesData['M'] || '', ...newPages };
+  pageGuides = newGuides;
+  pageColumns = newCols;
+  totalPages = idx - 1;
   renderPageTabs();
-  switchPage(Math.min(activePageId, totalPages));
+  switchPage(1);
+}
+
+function openDocumentSetup() {
+  const pageEl = document.getElementById('page');
+  const curW = parseInt(pageEl.style.width) || 595;
+  const curH = parseInt(pageEl.style.height) || 842;
+  const wInStr = prompt('रुंदी (इंच मध्ये, उदा. 8.5 किंवा 3.5):', (curW / 96).toFixed(2));
+  if (wInStr === null) return;
+  const hInStr = prompt('उंची (इंच मध्ये, उदा. 11 किंवा 2.5):', (curH / 96).toFixed(2));
+  if (hInStr === null) return;
+  const wPx = Math.max(120, Math.round((parseFloat(wInStr) || 8.27) * 96));
+  const hPx = Math.max(120, Math.round((parseFloat(hInStr) || 11.69) * 96));
+  setPageSize(wPx, hPx);
 }
 
 function renderPageTabs() {
