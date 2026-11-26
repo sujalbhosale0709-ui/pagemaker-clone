@@ -3,81 +3,92 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>PageMaker 7.0 Clone - [Untitled-1]</title>
+<title>Adobe PageMaker 7.0 - Full 14 Tools</title>
 <style>
-  /* Classic Windows 98 / PageMaker 7.0 UI Styling */
   * { box-sizing: border-box; user-select: none; font-family: 'Tahoma', 'Arial', sans-serif; font-size: 12px; }
   body { margin: 0; padding: 0; background-color: #808080; overflow: hidden; display: flex; flex-direction: column; height: 100vh; width: 100vw; }
   
-  /* Menu Bar & Dropdowns */
+  /* Menu Bar */
   .menu-bar { background: #d4d0c8; border-bottom: 1px solid #808080; display: flex; padding: 2px 4px; z-index: 300; overflow-x: auto; }
-  .menu-item { padding: 3px 7px; cursor: pointer; position: relative; white-space: nowrap; }
-  .menu-item:hover, .menu-item.open { background: #0a246a; color: white; }
-  .dropdown { display: none; position: fixed; top: 24px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; min-width: 160px; z-index: 400; box-shadow: 2px 2px 4px rgba(0,0,0,0.4); color: black; }
+  .menu-item { padding: 3px 7px; cursor: pointer; white-space: nowrap; }
+  .menu-item:hover { background: #0a246a; color: white; }
+  .dropdown { display: none; position: fixed; top: 24px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; min-width: 170px; z-index: 400; box-shadow: 2px 2px 4px rgba(0,0,0,0.4); color: black; }
   .dropdown.show { display: block; }
   .dropdown-item { padding: 5px 12px; cursor: pointer; display: flex; justify-content: space-between; }
   .dropdown-item:hover { background: #0a246a; color: white; }
   .dropdown-divider { border-top: 1px solid #808080; border-bottom: 1px solid #ffffff; margin: 2px 0; }
 
-  /* Top Standard Toolbar */
+  /* Toolbar */
   .toolbar { background: #d4d0c8; border-top: 1px solid #ffffff; border-bottom: 1px solid #808080; padding: 3px 6px; display: flex; gap: 5px; align-items: center; z-index: 200; overflow-x: auto; white-space: nowrap; }
-  .btn { background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; padding: 3px 7px; cursor: pointer; }
+  .btn { background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; padding: 2px 7px; cursor: pointer; }
   .btn:active { border-color: #808080 #ffffff #ffffff #808080; }
 
   /* Workspace & Rulers */
   .workspace-container { display: flex; flex: 1; position: relative; overflow: hidden; }
   .ruler-corner { width: 18px; height: 18px; background: #d4d0c8; border-right: 1px solid #000; border-bottom: 1px solid #000; position: absolute; top: 0; left: 0; z-index: 10; }
-  .ruler-h { height: 18px; background: #ffffff; border-bottom: 1px solid #000; position: absolute; top: 0; left: 18px; right: 0; display: flex; align-items: flex-end; font-size: 9px; padding-left: 40px; overflow: hidden; }
-  .ruler-v { width: 18px; background: #ffffff; border-right: 1px solid #000; position: absolute; top: 18px; left: 0; bottom: 0; display: flex; flex-direction: column; font-size: 9px; padding-top: 20px; overflow: hidden; }
+  .ruler-h { height: 18px; background: #ffffff; border-bottom: 1px solid #000; position: absolute; top: 0; left: 18px; right: 0; display: flex; align-items: flex-end; font-size: 9px; padding-left: 40px; }
+  .ruler-v { width: 18px; background: #ffffff; border-right: 1px solid #000; position: absolute; top: 18px; left: 0; bottom: 0; display: flex; flex-direction: column; font-size: 9px; padding-top: 20px; }
 
-  /* Pasteboard & A4 Page */
-  .pasteboard { flex: 1; background: #808080; overflow: auto; padding: 30px 20px 80px 75px; display: flex; justify-content: flex-start; align-items: flex-start; margin-top: 18px; margin-left: 18px; }
-  @media (min-width: 800px) { .pasteboard { justify-content: center; padding: 40px; } }
-  .page { width: 595px; height: 842px; min-width: 595px; min-height: 842px; background: #ffffff; box-shadow: 4px 4px 0px #404040; position: relative; border: 1px solid #000; overflow: hidden; }
+  /* Pasteboard & Page */
+  .pasteboard { flex: 1; background: #808080; overflow: auto; padding: 30px 30px 90px 80px; display: flex; justify-content: flex-start; align-items: flex-start; margin-top: 18px; margin-left: 18px; }
+  @media (min-width: 850px) { .pasteboard { justify-content: center; padding: 40px; } }
+  .page { width: 595px; height: 842px; min-width: 595px; min-height: 842px; background: #ffffff; box-shadow: 4px 4px 0px #404040; position: relative; border: 1px solid #000; overflow: hidden; transform-origin: top left; }
   .margin-guide { position: absolute; top: 40px; left: 40px; right: 40px; bottom: 40px; border: 1px solid #ff69b4; pointer-events: none; z-index: 1; }
 
-  /* Floating Tool Box */
-  .toolbox { position: absolute; top: 28px; left: 22px; width: 58px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
+  /* Classic PageMaker 14-Tool Floating Box */
+  .toolbox { position: absolute; top: 24px; left: 22px; width: 60px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
   .palette-header { background: linear-gradient(90deg, #0a246a, #a6caf0); color: white; font-size: 10px; padding: 2px 4px; font-weight: bold; cursor: move; }
   .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; }
-  .tool-btn { height: 25px; background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; display: flex; justify-content: center; align-items: center; cursor: pointer; font-weight: bold; }
-  .tool-btn.active { background: #b5b5b5; border-color: #808080 #ffffff #ffffff #808080; }
+  .tool-btn { height: 25px; background: #d4d0c8; border: 1px solid; border-color: #ffffff #808080 #808080 #ffffff; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 13px; font-weight: bold; }
+  .tool-btn.active { background: #a8a8a8; border-color: #808080 #ffffff #ffffff #808080; color: #0a246a; }
 
-  /* Responsive Floating Control Palette (Bottom - Works on Mobile & PC) */
-  .control-palette { position: fixed; bottom: 0; left: 0; right: 0; background: #d4d0c8; border-top: 2px solid #ffffff; z-index: 250; display: flex; align-items: center; padding: 5px 8px; gap: 8px; overflow-x: auto; white-space: nowrap; box-shadow: 0 -2px 5px rgba(0,0,0,0.3); }
-  @media (min-width: 800px) {
-    .control-palette { left: 100px; right: auto; bottom: 12px; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; }
+  /* Floating Colors Palette (Right side on PC, toggleable) */
+  .color-palette { position: absolute; top: 24px; right: 12px; width: 110px; background: #d4d0c8; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; z-index: 150; display: none; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); }
+  @media (min-width: 850px) { .color-palette { display: block; } }
+  .swatch-list { padding: 3px; display: flex; flex-direction: column; gap: 2px; }
+  .swatch { display: flex; align-items: center; gap: 5px; padding: 2px 4px; cursor: pointer; font-size: 11px; }
+  .swatch:hover { background: #0a246a; color: white; }
+  .swatch-box { width: 12px; height: 12px; border: 1px solid #000; }
+
+  /* Control Palette */
+  .control-palette { position: fixed; bottom: 0; left: 0; right: 0; background: #d4d0c8; border-top: 2px solid #ffffff; z-index: 250; display: flex; align-items: center; padding: 4px 8px; gap: 7px; overflow-x: auto; white-space: nowrap; box-shadow: 0 -2px 5px rgba(0,0,0,0.3); }
+  @media (min-width: 850px) {
+    .control-palette { left: 95px; right: auto; bottom: 10px; border: 2px solid; border-color: #ffffff #808080 #808080 #ffffff; }
   }
   select, input[type="number"], input[type="color"] { border: 1px solid #808080; background: #ffffff; padding: 2px; font-size: 12px; height: 24px; }
 
   /* Page Elements */
   .pm-element { position: absolute; z-index: 10; touch-action: none; }
   .pm-element.selected { outline: 1px dashed #0000ff; }
+  .pm-element.crop-mode { outline: 2px solid #ff0000; }
   
-  /* 4 Corner Handles */
-  .handle { width: 10px; height: 10px; background: #000; position: absolute; display: none; z-index: 20; }
+  /* 8 Handles (4 corners + 4 sides) */
+  .handle { width: 8px; height: 8px; background: #000; position: absolute; display: none; z-index: 20; }
   .pm-element.selected .handle { display: block; }
-  .handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
-  .handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
-  .handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
-  .handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+  .pm-element.crop-mode .handle { background: #ff0000; }
+  .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
+  .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
+  .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+  .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
+  .handle.n { top: -4px; left: calc(50% - 4px); cursor: n-resize; }
+  .handle.s { bottom: -4px; left: calc(50% - 4px); cursor: s-resize; }
+  .handle.w { top: calc(50% - 4px); left: -4px; cursor: w-resize; }
+  .handle.e { top: calc(50% - 4px); right: -4px; cursor: e-resize; }
 
   .text-content { width: 100%; height: 100%; outline: none; user-select: text; padding: 4px; line-height: 1.4; overflow: hidden; }
-  .pm-image { width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
-  .pm-rect { width: 100%; height: 100%; border: 2px solid #000; background: transparent; }
-  .pm-ellipse { width: 100%; height: 100%; border: 2px solid #000; border-radius: 50%; background: transparent; }
-  .pm-line { width: 100%; height: 2px; background: #000; }
+  .img-wrapper { width: 100%; height: 100%; overflow: hidden; position: relative; pointer-events: none; }
+  .pm-image { width: 100%; height: 100%; object-fit: fill; }
+  .shape-svg { width: 100%; height: 100%; display: block; pointer-events: none; }
 
-  /* Print / PDF Styling */
   @media print {
-    .menu-bar, .toolbar, .ruler-corner, .ruler-h, .ruler-v, .toolbox, .control-palette, .margin-guide, .handle { display: none !important; }
+    .menu-bar, .toolbar, .ruler-corner, .ruler-h, .ruler-v, .toolbox, .color-palette, .control-palette, .margin-guide, .handle { display: none !important; }
     .pasteboard { margin: 0; padding: 0; background: white; overflow: visible; }
-    .page { box-shadow: none; border: none; }
+    .page { box-shadow: none; border: none; transform: scale(1) !important; }
     .pm-element.selected { outline: none; }
   }
 </style>
 </head>
-<body onclick="closeMenus(event)">
+<body onclick="closeMenus()">
 
   <!-- Menu Bar -->
   <div class="menu-bar">
@@ -85,57 +96,45 @@
     <div class="menu-item" onclick="toggleMenu(event, 'menu-edit')"><u>E</u>dit</div>
     <div class="menu-item" onclick="toggleMenu(event, 'menu-layout')"><u>L</u>ayout</div>
     <div class="menu-item" onclick="toggleMenu(event, 'menu-element')"><u>E</u>lement</div>
-    <div class="menu-item" onclick="alert('PageMaker 7.0 Web Clone - Marathi DTP Edition')"><u>H</u>elp</div>
+    <div class="menu-item" onclick="toggleMenu(event, 'menu-view')"><u>V</u>iew</div>
+    <div class="menu-item" onclick="toggleColorPalette()"><u>W</u>indow (Colors)</div>
   </div>
 
-  <!-- Dropdown Menus -->
+  <!-- Dropdowns -->
   <div id="menu-file" class="dropdown" style="left: 4px;">
     <div class="dropdown-item" onclick="newPage()"><span>New</span><span>Ctrl+N</span></div>
-    <div class="dropdown-item" onclick="document.getElementById('project-input').click()"><span>Open Project...</span><span>Ctrl+O</span></div>
-    <div class="dropdown-item" onclick="saveProject()"><span>Save Project</span><span>Ctrl+S</span></div>
+    <div class="dropdown-item" onclick="document.getElementById('project-input').click()"><span>Open...</span><span>Ctrl+O</span></div>
+    <div class="dropdown-item" onclick="saveProject()"><span>Save</span><span>Ctrl+S</span></div>
     <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place Image...</span><span>Ctrl+D</span></div>
+    <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place...</span><span>Ctrl+D</span></div>
     <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="window.print()"><span>Print / Export PDF</span><span>Ctrl+P</span></div>
+    <div class="dropdown-item" onclick="window.print()"><span>Print / PDF</span><span>Ctrl+P</span></div>
   </div>
 
-  <div id="menu-edit" class="dropdown" style="left: 40px;">
-    <div class="dropdown-item" onclick="duplicateSelected()"><span>Duplicate Box</span><span>Ctrl+C/V</span></div>
-    <div class="dropdown-item" onclick="deleteSelected()"><span>Clear / Delete</span><span>Del</span></div>
+  <div id="menu-edit" class="dropdown" style="left: 38px;">
+    <div class="dropdown-item" onclick="duplicateSelected()"><span>Duplicate</span><span>Ctrl+V</span></div>
+    <div class="dropdown-item" onclick="deleteSelected()"><span>Clear</span><span>Del</span></div>
   </div>
 
-  <div id="menu-layout" class="dropdown" style="left: 78px;">
-    <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Size (Portrait)</span></div>
-    <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Size (Landscape)</span></div>
-    <div class="dropdown-item" onclick="setPageSize(420, 595)"><span>A5 (Wedding Card)</span></div>
+  <div id="menu-layout" class="dropdown" style="left: 75px;">
+    <div class="dropdown-item" onclick="setPageSize(595, 842)"><span>A4 Portrait</span></div>
+    <div class="dropdown-item" onclick="setPageSize(842, 595)"><span>A4 Landscape</span></div>
+    <div class="dropdown-item" onclick="setPageSize(420, 595)"><span>A5 Card</span></div>
   </div>
 
-  <div id="menu-element" class="dropdown" style="left: 125px;">
-    <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span><span>Ctrl+]</span></div>
-    <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span><span>Ctrl+[</span></div>
+  <div id="menu-element" class="dropdown" style="left: 122px;">
+    <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span></div>
+    <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span></div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item" onclick="changeStrokeWidth(1)"><span>Stroke: 1pt</span></div>
+    <div class="dropdown-item" onclick="changeStrokeWidth(3)"><span>Stroke: 3pt</span></div>
+    <div class="dropdown-item" onclick="changeStrokeWidth(6)"><span>Stroke: 6pt</span></div>
   </div>
 
-  <!-- Hidden File Inputs -->
-  <input type="file" id="image-input" accept="image/*" style="display:none" onchange="placeImage(event)">
-  <input type="file" id="project-input" accept=".json" style="display:none" onchange="loadProject(event)">
-
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <button class="btn" onclick="newPage()">New</button>
-    <button class="btn" onclick="saveProject()">Save</button>
-    <button class="btn" onclick="triggerPlaceImage()">Place Photo (Ctrl+D)</button>
-    <button class="btn" onclick="deleteSelected()">Delete</button>
-    <button class="btn" onclick="window.print()">PDF / Print</button>
+  <div id="menu-view" class="dropdown" style="left: 175px;">
+    <div class="dropdown-item" onclick="setZoom(1)"><span>Actual Size (100%)</span></div>
+    <div class="dropdown-item" onclick="setZoom(0.6)"><span>Fit in Window (60%)</span></div>
+    <div class="dropdown-item" onclick="setZoom(1.5)"><span>Zoom In (150%)</span></div>
   </div>
 
-  <!-- Main Workspace -->
-  <div class="workspace-container">
-    <div class="ruler-corner"></div>
-    <div class="ruler-h">0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8 in</div>
-    <div class="ruler-v">0<br><br><br>1<br><br><br>2<br><br><br>3<br><br><br>4<br><br><br>5<br><br><br>6<br><br><br>7<br><br><br>8<br><br><br>9<br><br><br>10</div>
-
-    <!-- Floating Tool Box -->
-    <div class="toolbox" id="toolbox">
-      <div class="palette-header">Tools</div>
-      <div class="tool-grid">
-        <div class="tool-btn" id="tool-pointer" title="Pointer Tool" onclick="selectTool('pointer')">↖</div>
+  
