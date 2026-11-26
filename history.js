@@ -1,113 +1,143 @@
 let historyStack = [];
+let redoStack = [];
+const MAX_HISTORY = 40;
+
+function captureSnapshot() {
+  saveCurrentPageContent();
+  return {
+    activePageId,
+    totalPages,
+    currentPageW,
+    currentPageH,
+    pagesData: { ...pagesData },
+    pageGuides: JSON.parse(JSON.stringify(pageGuides)),
+    pageColumns: JSON.parse(JSON.stringify(pageColumns))
+  };
+}
+
+function restoreSnapshot(snap) {
+  if (!snap) return;
+  totalPages = snap.totalPages;
+  currentPageW = snap.currentPageW;
+  currentPageH = snap.currentPageH;
+  pagesData = { ...snap.pagesData };
+  pageGuides = JSON.parse(JSON.stringify(snap.pageGuides));
+  pageColumns = JSON.parse(JSON.stringify(snap.pageColumns));
+
+  const p = document.getElementById('page');
+  p.style.width = currentPageW + 'px';
+  p.style.height = currentPageH + 'px';
+  p.style.minWidth = currentPageW + 'px';
+  p.style.minHeight = currentPageH + 'px';
+  updateMarginGuide();
+
+  renderPageTabs();
+  activePageId = snap.activePageId;
+  ensurePageState(activePageId);
+  selectedEl = null;
+
+  const masterHTML = (activePageId === 'M') ? '' : cleanMasterHTML(pagesData['M'] || '');
+  p.innerHTML =
+    `<div class="margin-guide" id="margin-guide"></div>` +
+    `<div class="master-layer" id="master-layer">${masterHTML}</div>` +
+    `<div class="guides-layer" id="guides-layer"></div>` +
+    `${pagesData[activePageId] || ''}`;
+
+  updateMarginGuide();
+  p.querySelectorAll(':scope > .pm-element').forEach(el => {
+    attachElementEvents(el);
+    checkTextOverflow(el);
+  });
+  renderGuides();
+  buildRulers();
+
+  document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('tab-' + activePageId);
+  if (tab) tab.classList.add('active');
+  document.getElementById('page-indicator').innerText =
+    (activePageId === 'M') ? '[Master Page]' : `[Page ${activePageId} of ${totalPages}]`;
+}
 
 function saveState() {
-  saveCurrentPageContent();
-  historyStack.push(JSON.stringify({
-    pagesData,
-    pageGuides,
-    pageColumns,
-    totalPages,
-    activePageId
-  }));
-  if (historyStack.length > 35) historyStack.shift();
+  historyStack.push(captureSnapshot());
+  if (historyStack.length > MAX_HISTORY) {
+    historyStack.shift();
+  }
+  redoStack = [];
 }
 
 function undo() {
   if (historyStack.length === 0) return;
-  const prev = JSON.parse(historyStack.pop());
-  pagesData = prev.pagesData || { 'M': '', 1: '' };
-  pageGuides = prev.pageGuides || { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
-  pageColumns = prev.pageColumns || { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
-  totalPages = prev.totalPages || 1;
+  redoStack.push(captureSnapshot());
+  const prev = historyStack.pop();
+  restoreSnapshot(prev);
+}
+
+function redo() {
+  if (redoStack.length === 0) return;
+  historyStack.push(captureSnapshot());
+  const next = redoStack.pop();
+  restoreSnapshot(next);
+}
+
+function newDocument() {
+  if (!confirm('नवीन पब्लिकेशन सुरू करायचे का? (सध्याचे सेव्ह नसलेले बदल जातील)')) return;
+  saveState();
+  activePageId = 1;
+  totalPages = 1;
+  currentPageW = 816;
+  currentPageH = 1056;
+  pagesData = { 'M': '', 1: '' };
+  pageGuides = { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
+  pageColumns = { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
+  selectedEl = null;
+  setPageSize(currentPageW, currentPageH);
   renderPageTabs();
-  switchPage(prev.activePageId || 1);
+  switchPage(1);
 }
 
 function saveProject() {
   saveCurrentPageContent();
-  const payload = JSON.stringify({ pagesData, pageGuides, pageColumns, totalPages, activePageId });
-  const blob = new Blob([payload], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'PageMaker7_Project.json';
-  a.click();
-}
-
-function loadProject(e) {
-  const f = e.target.files[0];
-  if (!f) return;
-  const r = new FileReader();
-  r.onload = function(ev) {
-    const d = JSON.parse(ev.target.result);
-    pagesData = d.pagesData || { 'M': '', 1: '' };
-    pageGuides = d.pageGuides || { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
-    pageColumns = d.pageColumns || { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
-    totalPages = d.totalPages || 1;
-    renderPageTabs();
-    switchPage(d.activePageId || 1);
+  const data = {
+    version: 'pagemaker-7.0-web',
+    activePageId,
+    totalPages,
+    currentPageW,
+    currentPageH,
+    pagesData,
+    pageGuides,
+    pageColumns
   };
-  r.readAsText(f);
-  e.target.value = '';
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'pagemaker_project.json';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-function newDocument() {
-  if (confirm('नवीन पब्लिकेशन सुरू करायचे का?')) {
-    historyStack = [];
-    pagesData = { 'M': '', 1: '' };
-    pageGuides = { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
-    pageColumns = { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
-    totalPages = 1;
-    renderPageTabs();
-    switchPage(1);
-  }
-}
-
-document.addEventListener('keydown', function(e) {
-  const isTyping = document.activeElement &&
-    (document.activeElement.classList.contains('text-content') ||
-     ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
-
-  if (e.ctrlKey || e.metaKey) {
-    const k = e.key.toLowerCase();
-    if (k === 'z') { e.preventDefault(); undo(); return; }
-    if (k === 's') { e.preventDefault(); saveProject(); return; }
-    if (k === 'p') { e.preventDefault(); printAllPages(); return; }
-    if (!isTyping && k === 'd') { e.preventDefault(); triggerPlaceImage(); return; }
-    if (!isTyping && k === 'a') { e.preventDefault(); selectAllOnPage(); return; }
-  }
-
-  if (isTyping) {
-    if (e.key === 'Escape') {
-      document.activeElement.blur();
-      selectTool('pointer');
+function loadProject(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      saveState();
+      totalPages = data.totalPages || 1;
+      currentPageW = data.currentPageW || 816;
+      currentPageH = data.currentPageH || 1056;
+      pagesData = data.pagesData || { 'M': '', 1: '' };
+      pageGuides = data.pageGuides || { 'M': { h: [], v: [] }, 1: { h: [], v: [] } };
+      pageColumns = data.pageColumns || { 'M': { count: 1, gutter: 12 }, 1: { count: 1, gutter: 12 } };
+      setPageSize(currentPageW, currentPageH);
+      renderPageTabs();
+      switchPage(data.activePageId || 1);
+    } catch (err) {
+      alert('वैध .json प्रोजेक्ट फाईल निवडा.');
     }
-    return;
-  }
-
-  const k = e.key.toLowerCase();
-  if (e.key === 'Escape') { selectTool('pointer'); return; }
-  if (k === 't') { selectTool('text'); return; }
-  if (k === 'v') { selectTool('pointer'); return; }
-  if (k === 'r') { selectTool('rotate'); return; }
-  if (k === 'c') { selectTool('crop'); return; }
-  if (k === 'h') { selectTool('hand'); return; }
-  if (k === 'z') { selectTool('zoom'); return; }
-
-  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEl) {
-    e.preventDefault();
-    deleteSelected();
-    return;
-  }
-
-  if (selectedEl && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-    e.preventDefault();
-    const step = e.shiftKey ? 10 : 1;
-    const x = parseInt(selectedEl.style.left) || 0;
-    const y = parseInt(selectedEl.style.top) || 0;
-    if (e.key === 'ArrowLeft') selectedEl.style.left = (x - step) + 'px';
-    if (e.key === 'ArrowRight') selectedEl.style.left = (x + step) + 'px';
-    if (e.key === 'ArrowUp') selectedEl.style.top = (y - step) + 'px';
-    if (e.key === 'ArrowDown') selectedEl.style.top = (y + step) + 'px';
-    updateControlPaletteInputs();
-  }
-});
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
