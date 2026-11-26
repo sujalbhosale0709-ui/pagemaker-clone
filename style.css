@@ -105,7 +105,7 @@ body {
   border-color: #808080 #ffffff #ffffff #808080;
 }
 
-/* Workspace & Rulers */
+/* Workspace & Authentic PageMaker Rulers */
 .workspace-container {
   display: flex;
   flex: 1;
@@ -115,9 +115,9 @@ body {
 }
 
 .ruler-corner {
-  width: 18px;
-  height: 18px;
-  background: #d4d0c8;
+  width: 20px;
+  height: 20px;
+  background: #ffffff;
   border-right: 1px solid #000;
   border-bottom: 1px solid #000;
   position: absolute;
@@ -128,13 +128,33 @@ body {
   user-select: none;
 }
 
+.ruler-corner::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  left: 3px;
+  right: 3px;
+  height: 1px;
+  background: #000;
+}
+
+.ruler-corner::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 3px;
+  bottom: 3px;
+  width: 1px;
+  background: #000;
+}
+
 .ruler-h {
-  height: 18px;
+  height: 20px;
   background: #ffffff;
   border-bottom: 1px solid #000;
   position: absolute;
   top: 0;
-  left: 18px;
+  left: 20px;
   right: 0;
   z-index: 110;
   overflow: hidden;
@@ -144,11 +164,11 @@ body {
 }
 
 .ruler-v {
-  width: 18px;
+  width: 20px;
   background: #ffffff;
   border-right: 1px solid #000;
   position: absolute;
-  top: 18px;
+  top: 20px;
   left: 0;
   bottom: 0;
   z-index: 110;
@@ -169,10 +189,11 @@ body {
 .ruler-label-h {
   position: absolute;
   top: 1px;
-  font-size: 8px;
+  font-size: 9px;
+  font-weight: normal;
   color: #000;
-  transform: translateX(2px);
   pointer-events: none;
+  line-height: 1;
 }
 
 .ruler-tick-v {
@@ -185,12 +206,12 @@ body {
 
 .ruler-label-v {
   position: absolute;
-  left: 1px;
-  font-size: 8px;
+  left: 2px;
+  font-size: 9px;
+  font-weight: normal;
   color: #000;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
   pointer-events: none;
+  line-height: 1;
 }
 
 /* Pasteboard & Page */
@@ -198,12 +219,12 @@ body {
   flex: 1;
   background: #808080;
   overflow: auto;
-  padding: 28px 40px 135px 86px;
+  padding: 24px 40px 135px 86px;
   display: flex;
   justify-content: flex-start;
   align-items: flex-start;
-  margin-top: 18px;
-  margin-left: 18px;
+  margin-top: 20px;
+  margin-left: 20px;
   position: relative;
 }
 
@@ -271,11 +292,11 @@ body {
   cursor: ew-resize;
 }
 
-/* Original PageMaker 7.0 Toolbox (Compact 2-column vertical) */
+/* Original PageMaker 7.0 Toolbox */
 .toolbox {
   position: fixed;
-  top: 66px;
-  left: 22px;
+  top: 68px;
+  left: 24px;
   width: 54px;
   background: #d4d0c8;
   border: 2px solid;
@@ -332,7 +353,7 @@ body {
 /* Colors Palette */
 .color-palette {
   position: fixed;
-  top: 66px;
+  top: 68px;
   right: 10px;
   width: 108px;
   background: #d4d0c8;
@@ -377,11 +398,11 @@ body {
   flex-shrink: 0;
 }
 
-/* Original PageMaker 7.0 Compact Control Palette */
+/* Compact Control Palette */
 .control-palette {
   position: fixed;
   bottom: 26px;
-  left: 22px;
+  left: 24px;
   max-width: calc(100vw - 32px);
   background: #d4d0c8;
   border: 2px solid;
