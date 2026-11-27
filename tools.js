@@ -4,6 +4,64 @@ const ACTIVE_DOC_STORAGE_KEY = 'pm_active_doc_v1';
 const IDB_NAME = 'PageMakerDTP_DB';
 const IDB_STORE = 'store';
 
+/* =========================================================
+   JSONBin.io Cloud Sync Credentials (Set)
+   ========================================================= */
+const JSONBIN_BIN_ID = '6b0907173957a11c13b5e85d';
+const JSONBIN_MASTER_KEY = '$2a$10$WS8gsXLYxq4YKMARH79PouG08rREafo9OlEyALVhnr3aBNAeEMsR.';
+
+function isCloudSyncConfigured() {
+  return typeof JSONBIN_BIN_ID === 'string'
+    && JSONBIN_BIN_ID.trim().length > 5
+    && typeof JSONBIN_MASTER_KEY === 'string'
+    && JSONBIN_MASTER_KEY.trim().length > 5;
+}
+
+function getCloudBinUrl() {
+  return `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID.trim()}`;
+}
+
+async function fetchFilesFromCloud() {
+  if (!isCloudSyncConfigured()) return [];
+  try {
+    const res = await fetch(`${getCloudBinUrl()}/latest`, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'X-Master-Key': JSONBIN_MASTER_KEY.trim()
+      }
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const rec = json && json.record ? json.record : null;
+    if (Array.isArray(rec)) return rec.filter(Boolean);
+    if (rec && Array.isArray(rec.files)) return rec.files.filter(Boolean);
+    return [];
+  } catch (err) {
+    return [];
+  }
+}
+
+async function syncAllFilesToCloud(list) {
+  if (!isCloudSyncConfigured()) return false;
+  try {
+    const cleanList = (Array.isArray(list) ? list : []).map((item, idx) =>
+      Object.assign({}, item, { no: idx + 1 })
+    );
+    const res = await fetch(getCloudBinUrl(), {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_MASTER_KEY.trim()
+      },
+      body: JSON.stringify({ files: cleanList })
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+}
+
 function openIDB() {
   return new Promise((resolve) => {
     try {
@@ -297,18 +355,19 @@ function parseFilesListSafe(raw) {
   }
 }
 
-function mergeFileLists(lsList, idbList) {
+function mergeFileLists(lsList, idbList, cloudList = []) {
   const map = new Map();
-  idbList.forEach((item, i) => {
-    if (item && item.id) map.set(item.id, Object.assign({ no: i + 1 }, item));
-  });
-  lsList.forEach((item, i) => {
+  [...cloudList, ...idbList, ...lsList].forEach((item, i) => {
     if (item && item.id) {
       const prev = map.get(item.id);
       map.set(item.id, Object.assign({ no: i + 1 }, prev || {}, item));
     }
   });
-  return Array.from(map.values());
+  return Array.from(map.values()).sort((a, b) => {
+    const ta = parseInt((a.id || '').split('_')[1] || 0);
+    const tb = parseInt((b.id || '').split('_')[1] || 0);
+    return ta - tb;
+  }).map((item, i) => Object.assign({}, item, { no: i + 1 }));
 }
 
 function getSavedFilesFromStorage() {
@@ -320,11 +379,14 @@ function getSavedFilesFromStorage() {
   }
 }
 
-async function saveSavedFilesList(list) {
+async function saveSavedFilesList(list, pushCloud = true) {
   try {
     const serialized = JSON.stringify(list);
     try { localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized); } catch (e) {}
     await writeToIDB(SAVED_FILES_STORAGE_KEY, serialized);
+    if (pushCloud && isCloudSyncConfigured()) {
+      await syncAllFilesToCloud(list);
+    }
   } catch (err) {}
 }
 
@@ -333,9 +395,11 @@ async function hydrateSavedFilesOnLoad() {
     const lsList = getSavedFilesFromStorage();
     const idbRaw = await readFromIDB(SAVED_FILES_STORAGE_KEY);
     const idbList = parseFilesListSafe(idbRaw);
-    const merged = mergeFileLists(lsList, idbList);
+    const cloudList = await fetchFilesFromCloud();
+
+    const merged = mergeFileLists(lsList, idbList, cloudList);
     if (merged.length) {
-      await saveSavedFilesList(merged);
+      await saveSavedFilesList(merged, false);
     }
     renderSavedFilesDrawerList();
   } catch (e) {
@@ -355,7 +419,9 @@ async function persistSnapshotToStorage() {
     clonedPages[pNo] = { html: d.html || '', width: d.width || w, height: d.height || h };
   });
 
-  const existing = getSavedFilesFromStorage();
+  const cloud = await fetchFilesFromCloud();
+  const existing = mergeFileLists(getSavedFilesFromStorage(), [], cloud);
+
   const fileNo = existing.length + 1;
   const nowStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
@@ -369,7 +435,7 @@ async function persistSnapshotToStorage() {
   };
 
   existing.push(record);
-  await saveSavedFilesList(existing);
+  await saveSavedFilesList(existing, true);
   renderSavedFilesDrawerList();
   return record;
 }
@@ -390,7 +456,7 @@ async function renameStoredFileById(fileId) {
   }
 
   found.title = trimmed;
-  await saveSavedFilesList(files);
+  await saveSavedFilesList(files, true);
   renderSavedFilesDrawerList();
   showQuickToast('फाईलचे नाव बदलले.');
 }
@@ -404,7 +470,7 @@ async function deleteStoredFileById(fileId) {
   if (!confirm(`"${label}" ही फाईल डिलिट करायची का?`)) return;
 
   const updated = files.filter(f => f.id !== fileId);
-  await saveSavedFilesList(updated);
+  await saveSavedFilesList(updated, true);
   renderSavedFilesDrawerList();
   showQuickToast('फाईल डिलिट झाली.');
 }
@@ -424,7 +490,7 @@ function renderSavedFilesDrawerList() {
 
   const files = getSavedFilesFromStorage();
   if (!files.length) {
-    container.innerHTML = '<div style="padding:8px;color:#000;">अजून कोणतीही फाईल सेव्ह झालेली नाही.</div>';
+    container.innerHTML = `<div style="padding:8px;color:#000;">अजून कोणतीही फाईल सेव्ह झालेली नाही.</div>`;
     return;
   }
 
