@@ -1,36 +1,4 @@
 let clipboardElementHTML = null;
-let pageZoomTouchLocked = false;
-
-function togglePageZoomLock() {
-  pageZoomTouchLocked = !pageZoomTouchLocked;
-  const btn = document.getElementById('page-zoom-lock-btn');
-  const pageEl = document.getElementById('page');
-
-  if (btn) {
-    btn.textContent = pageZoomTouchLocked ? '🔍 Page Lock: ON' : '🔍 Page Lock: OFF';
-    btn.style.background = pageZoomTouchLocked ? '#0a246a' : '#d4d0c8';
-    btn.style.color = pageZoomTouchLocked ? '#ffffff' : '#000000';
-  }
-
-  if (pageEl) {
-    pageEl.classList.toggle('page-touch-locked', pageZoomTouchLocked);
-  }
-
-  document.querySelectorAll('#page > .pm-element .text-content').forEach(tc => {
-    tc.contentEditable = pageZoomTouchLocked ? 'false' : 'true';
-  });
-
-  if (pageZoomTouchLocked) {
-    if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('text-content')) {
-      document.activeElement.blur();
-    }
-    setZoom(zoomLevel >= 1.5 ? 0.75 : +(zoomLevel + 0.25).toFixed(2));
-  }
-}
-
-function isPageTouchBlocked() {
-  return Boolean(pageZoomTouchLocked);
-}
 
 function toggleMenu(e, id) {
   e.stopPropagation();
@@ -104,7 +72,7 @@ function selectTool(tool) {
     el.classList.toggle('crop-mode', tool === 'crop' && el === selectedEl);
   });
   document.querySelectorAll('#page > .pm-element .text-content').forEach(tc => {
-    tc.contentEditable = isPageTouchBlocked() ? 'false' : 'true';
+    tc.contentEditable = 'true';
     tc.style.cursor = (tool === 'text') ? 'text' : 'move';
   });
 }
@@ -304,7 +272,6 @@ function checkTextOverflow(el) {
       badge.onpointerdown = (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        if (isPageTouchBlocked()) return;
         pendingThreadSource = el;
         selectTool('text');
         alert('आता पानावर जिथे उरलेला मजकूर हवा आहे तिथे बोटाने टच करा.');
@@ -320,11 +287,6 @@ function attachElementEvents(el) {
   el.querySelectorAll('.handle').forEach(h => {
     const dir = h.className.replace('handle', '').trim();
     h.onpointerdown = (e) => {
-      if (isPageTouchBlocked()) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
       e.preventDefault();
       e.stopPropagation();
       selectElement(el);
@@ -336,23 +298,18 @@ function attachElementEvents(el) {
 
   const tc = el.querySelector('.text-content');
   if (tc) {
-    tc.contentEditable = isPageTouchBlocked() ? 'false' : 'true';
+    tc.contentEditable = 'true';
     tc.style.touchAction = 'manipulation';
     tc.style.webkitUserSelect = 'text';
     tc.style.userSelect = 'text';
     tc.style.pointerEvents = 'auto';
 
     tc.addEventListener('pointerdown', (ev) => {
-      if (isPageTouchBlocked()) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-      }
       selectElement(el);
       tc.contentEditable = 'true';
       ev.stopPropagation();
       setTimeout(() => {
-        if (!isPageTouchBlocked()) tc.focus();
+        tc.focus();
       }, 0);
     });
 
@@ -365,11 +322,6 @@ function attachElementEvents(el) {
   }
 
   el.onpointerdown = (e) => {
-    if (isPageTouchBlocked()) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
     if (currentTool === 'hand' || currentTool === 'zoom') return;
     if (e.target.classList.contains('handle') || e.target.classList.contains('overflow-badge')) return;
 
@@ -460,18 +412,12 @@ function populateShapeInner(el, type, w, h) {
     c.style.position = 'absolute';
     c.style.top = '0';
     c.style.left = '0';
-    c.contentEditable = isPageTouchBlocked() ? 'false' : 'true';
+    c.contentEditable = 'true';
     el.appendChild(c);
   }
 }
 
-/* Text टूलवर पानावर टच केल्यावर थेट ४ ओळींचा मराठी टेक्स्ट बॉक्स तयार करणे */
 function handlePagePointerDown(e) {
-  if (isPageTouchBlocked()) {
-    e.preventDefault();
-    e.stopPropagation();
-    return;
-  }
   if (e.target.id !== 'page' && !e.target.classList.contains('guides-layer') && !e.target.classList.contains('margin-guide')) return;
   if (currentTool === 'zoom') {
     setZoom(zoomLevel >= 1.5 ? 0.75 : zoomLevel + 0.25);
@@ -523,7 +469,7 @@ function handlePagePointerDown(e) {
     checkTextOverflow(el);
     selectElement(el);
     setTimeout(() => {
-      if (!isPageTouchBlocked()) content.focus();
+      content.focus();
     }, 0);
     return;
   }
