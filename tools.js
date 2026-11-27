@@ -66,9 +66,7 @@ function saveCurrentActivePageIntoData() {
   const curId = window.activePageId;
   const { w, h } = getCurrentPageDims();
   const currentHtml = getPageElementsOnlyHtml();
-  if (currentHtml.trim() !== '' || !window.pagesData[curId] || !window.pagesData[curId].html) {
-    window.pagesData[curId] = { html: currentHtml, width: w, height: h };
-  }
+  window.pagesData[curId] = { html: currentHtml, width: w, height: h };
   persistActiveSession();
 }
 
@@ -84,16 +82,12 @@ function persistActiveSession() {
     };
     const serialized = JSON.stringify(sessionObj);
     localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, serialized);
-    window.name = 'PM_SESSION:' + serialized;
   } catch (err) {}
 }
 
 function restoreActiveSessionIfPresent() {
   try {
-    let raw = localStorage.getItem(ACTIVE_DOC_STORAGE_KEY);
-    if (!raw && window.name && window.name.startsWith('PM_SESSION:')) {
-      raw = window.name.slice('PM_SESSION:'.length);
-    }
+    const raw = localStorage.getItem(ACTIVE_DOC_STORAGE_KEY);
     if (!raw) return false;
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.pageOrder) || !parsed.pagesData) return false;
@@ -176,7 +170,6 @@ function pmSwitchToPage(targetId) {
   persistActiveSession();
 }
 
-/* १. + Page: सध्याचे पान सेव्ह करून पुढील नवे कोरे (पांढरे) पान त्याच जागी दाखवणे */
 function pmActionAddPage(e) {
   if (e) {
     e.preventDefault();
@@ -204,7 +197,6 @@ function pmActionAddPage(e) {
   showQuickToast(`Page ${nextPageNo} तयार (कोरे पान)`);
 }
 
-/* २. Save: सर्व पेजेस एकत्र PDF स्वरूपात सेव्ह करण्यासाठी प्रिंट/PDF */
 function pmActionSave(e) {
   if (e) {
     e.preventDefault();
@@ -233,14 +225,9 @@ function pmActionSave(e) {
   window.print();
 }
 
-/* ३. New व Saved Files: स्टोरेजमध्ये फाईल टिकवून ठेवणे आणि टच करताच उघडणे */
 function getSavedFilesFromStorage() {
   try {
-    let raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
-    if (!raw && window.name && window.name.includes('PM_FILES:')) {
-      const idx = window.name.indexOf('PM_FILES:');
-      raw = window.name.slice(idx + 'PM_FILES:'.length);
-    }
+    const raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
     const list = raw ? JSON.parse(raw) : [];
     return Array.isArray(list) ? list : [];
   } catch (err) {
@@ -250,8 +237,7 @@ function getSavedFilesFromStorage() {
 
 function saveSavedFilesList(list) {
   try {
-    const serialized = JSON.stringify(list);
-    localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized);
+    localStorage.setItem(SAVED_FILES_STORAGE_KEY, JSON.stringify(list));
   } catch (err) {}
 }
 
@@ -286,6 +272,41 @@ function persistSnapshotToStorage() {
   return record;
 }
 
+function renameStoredFileById(fileId) {
+  const files = getSavedFilesFromStorage();
+  const found = files.find(f => f.id === fileId);
+  if (!found) return;
+
+  const currentName = found.title || (`File ${found.no || ''}`);
+  const nextName = prompt('फाईलचे नवीन नाव लिहा:', currentName);
+  if (nextName === null) return;
+
+  const trimmed = nextName.trim();
+  if (!trimmed) {
+    alert('कृपया रिकामे नाव देऊ नका.');
+    return;
+  }
+
+  found.title = trimmed;
+  saveSavedFilesList(files);
+  renderSavedFilesDrawerList();
+  showQuickToast('फाईलचे नाव बदलले.');
+}
+
+function deleteStoredFileById(fileId) {
+  const files = getSavedFilesFromStorage();
+  const found = files.find(f => f.id === fileId);
+  if (!found) return;
+
+  const label = found.title || (`File ${found.no || ''}`);
+  if (!confirm(`"${label}" ही फाईल डिलिट करायची का?`)) return;
+
+  const updated = files.filter(f => f.id !== fileId);
+  saveSavedFilesList(updated);
+  renderSavedFilesDrawerList();
+  showQuickToast('फाईल डिलिट झाली.');
+}
+
 function renderSavedFilesDrawerList() {
   const container = document.getElementById('saved-files-list');
   if (!container) return;
@@ -299,22 +320,48 @@ function renderSavedFilesDrawerList() {
   files.forEach((f, idx) => {
     const num = f.no || (idx + 1);
     const pCount = Array.isArray(f.pageOrder) ? f.pageOrder.length : 1;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'page-tab';
-    btn.style.cssText = 'padding:6px 10px;font-size:11px;touch-action:manipulation;cursor:pointer;background:#ffffff;border:1px solid #000;';
-    btn.textContent = `${num}. ${f.title || ('File ' + num)} [${pCount} Page]`;
-    btn.addEventListener('pointerup', (ev) => {
+    const displayTitle = f.title || (`File ${num}`);
+
+    const itemRow = document.createElement('div');
+    itemRow.style.cssText = 'display:flex;align-items:center;gap:4px;background:#e0ded8;border:1px solid #808080;padding:3px 5px;';
+
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'page-tab';
+    openBtn.style.cssText = 'padding:5px 8px;font-size:11px;touch-action:manipulation;cursor:pointer;background:#ffffff;border:1px solid #000;';
+    openBtn.textContent = `${num}. ${displayTitle} [${pCount} Page]`;
+    openBtn.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
       openStoredFileById(f.id);
     });
-    btn.addEventListener('click', (ev) => {
+
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'btn';
+    renameBtn.style.cssText = 'padding:4px 7px;font-size:10px;touch-action:manipulation;cursor:pointer;';
+    renameBtn.textContent = 'Rename';
+    renameBtn.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      openStoredFileById(f.id);
+      renameStoredFileById(f.id);
     });
-    container.appendChild(btn);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn';
+    delBtn.style.cssText = 'padding:4px 7px;font-size:10px;touch-action:manipulation;cursor:pointer;color:#8b0000;font-weight:bold;';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      deleteStoredFileById(f.id);
+    });
+
+    itemRow.appendChild(openBtn);
+    itemRow.appendChild(renameBtn);
+    itemRow.appendChild(delBtn);
+    container.appendChild(itemRow);
   });
 }
 
