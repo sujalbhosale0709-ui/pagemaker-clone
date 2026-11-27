@@ -3,6 +3,22 @@ const MAX_BOND_PAGES = 10;
 const BOND_PAGE_GAP_PX = 144; // 1.5 inch = 144px
 const AUTO_SAVE_STORAGE_KEY = 'pm_dtp_autosave_v1';
 
+function showQuickToast(msg) {
+  let toast = document.getElementById('pm-quick-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'pm-quick-toast';
+    toast.style.cssText = 'position:fixed;top:54px;left:50%;transform:translateX(-50%);background:#0a246a;color:#fff;padding:6px 12px;border:1px solid #fff;z-index:9999;font-size:11px;box-shadow:2px 2px 6px rgba(0,0,0,0.4);';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.style.display = 'none';
+  }, 2400);
+}
+
 function getCurrentPageDims() {
   const pageEl = document.getElementById('page');
   const w = parseInt(pageEl && pageEl.style.width) || (typeof currentPageW !== 'undefined' ? currentPageW : 816);
@@ -30,7 +46,7 @@ function persistAllPagesAutoSave() {
     };
     localStorage.setItem(AUTO_SAVE_STORAGE_KEY, JSON.stringify(payload));
   } catch (err) {
-    // स्टोरेज मर्यादा आल्यास शांतपणे दुर्लक्ष
+    // स्टोरेज त्रुटी दुर्लक्षित करा
   }
 }
 
@@ -87,6 +103,7 @@ function updateStackedPagesLayout() {
         box-shadow:0 -${BOND_PAGE_GAP_PX}px 0 #808080;
         pointer-events:auto;
       ">
+        <div style="position:absolute;top:4px;right:8px;background:#e8eef8;color:#0a246a;padding:1px 6px;font-size:10px;font-weight:bold;border:1px solid #0a246a;z-index:5;">Page ${pNum}</div>
         <div class="margin-guide" style="
           position:absolute;
           top:${m.top}px;
@@ -144,6 +161,8 @@ function addBondPageBelow(e) {
     ind.textContent = `[Page ${nextPageNo} of ${normalPages.length + 1}]`;
   }
 
+  showQuickToast(`Page ${nextPageNo} खाली (1.5" गॅपसह) जोडले गेले.`);
+
   const pb = document.getElementById('pasteboard');
   if (pb) {
     const zoom = typeof zoomLevel !== 'undefined' ? zoomLevel : 1;
@@ -152,29 +171,194 @@ function addBondPageBelow(e) {
   }
 }
 
-function saveAllPagesProject() {
+function startFreshDocumentKeepSaved() {
+  persistAllPagesAutoSave();
+  if (typeof saveState === 'function') saveState();
+
+  const pageEl = document.getElementById('page');
+  if (pageEl) {
+    pageEl.querySelectorAll(':scope > .pm-element').forEach(el => el.remove());
+  }
+  if (typeof pageOrder !== 'undefined') {
+    pageOrder.length = 0;
+    pageOrder.push(1);
+  }
+  if (typeof pagesData !== 'undefined') {
+    const { w, h } = getCurrentPageDims();
+    pagesData[1] = { html: '', width: w, height: h };
+  }
+  selectedEl = null;
+  if (typeof renderPageTabs === 'function') renderPageTabs();
+  updateStackedPagesLayout();
+
+  const ind = document.getElementById('page-indicator');
+  if (ind) ind.textContent = '[Page 1 of 1]';
+
+  showQuickToast('आधीचे काम सुरक्षित राहून नवीन कोरे पान (Page 1) सुरू झाले.');
+}
+
+function saveAllPagesAsViewableDoc() {
   persistAllPagesAutoSave();
   try {
-    const data = {
+    const { w, h, m } = getCurrentPageDims();
+    const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
+    const pageEl = document.getElementById('page');
+
+    let renderedPagesHtml = '';
+    for (let i = 0; i < normalPages.length; i++) {
+      const pNo = normalPages[i];
+      let rawHtml = '';
+      if (i === 0 && pageEl) {
+        const clone = pageEl.cloneNode(true);
+        const stack = clone.querySelector('#stacked-pages-container');
+        if (stack) stack.remove();
+        ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
+          clone.querySelectorAll(sel).forEach(n => n.remove());
+        });
+        clone.querySelectorAll('.pm-element').forEach(el => {
+          el.classList.remove('selected', 'crop-mode');
+          el.style.outline = 'none';
+          el.style.border = 'none';
+          el.style.boxShadow = 'none';
+        });
+        rawHtml = clone.innerHTML;
+      } else {
+        const pData = (typeof pagesData !== 'undefined' && pagesData[pNo]) ? pagesData[pNo] : null;
+        const temp = document.createElement('div');
+        temp.innerHTML = pData && pData.html ? pData.html : '';
+        ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
+          temp.querySelectorAll(sel).forEach(n => n.remove());
+        });
+        temp.querySelectorAll('.pm-element').forEach(el => {
+          el.classList.remove('selected', 'crop-mode');
+          el.style.outline = 'none';
+          el.style.border = 'none';
+          el.style.boxShadow = 'none';
+        });
+        rawHtml = temp.innerHTML;
+      }
+
+      renderedPagesHtml += `
+        <div class="doc-page" data-page-no="${pNo}" style="width:${w}px;height:${h}px;position:relative;background:#fff;margin:0 auto 24px auto;box-shadow:0 2px 8px rgba(0,0,0,0.25);overflow:hidden;page-break-after:always;break-after:page;">
+          <div style="position:relative;width:100%;height:100%;">${rawHtml}</div>
+        </div>
+      `;
+    }
+
+    const projectBackup = {
       version: '1.0',
-      savedAt: new Date().toISOString(),
-      activePageId: typeof activePageId !== 'undefined' ? activePageId : 1,
-      pageOrder: typeof pageOrder !== 'undefined' ? pageOrder : [1],
+      pageOrder: normalPages,
       pagesData: typeof pagesData !== 'undefined' ? pagesData : {},
-      pageMargins: typeof pageMargins !== 'undefined' ? pageMargins : {},
-      pageColumns: typeof pageColumns !== 'undefined' ? pageColumns : {},
-      pageGuides: typeof pageGuides !== 'undefined' ? pageGuides : {}
+      pageMargins: typeof pageMargins !== 'undefined' ? pageMargins : {}
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+
+    const viewableHtml = `<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saved Document (${normalPages.length} Pages)</title>
+<style>
+  body{margin:0;padding:16px;background:#707070;font-family:'Tahoma','Arial',sans-serif;}
+  @media print{body{background:#fff;padding:0;}.doc-page{margin:0!important;box-shadow:none!important;}}
+</style>
+</head>
+<body>
+${renderedPagesHtml}
+<script id="pm-project-data" type="application/json">${JSON.stringify(projectBackup)}</script>
+</body>
+</html>`;
+
+    const blob = new Blob([viewableHtml], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'Bond_Publication_All_Pages.json';
+    a.download = 'Bond_Document_All_Pages.html';
     a.click();
     URL.revokeObjectURL(url);
+    showQuickToast('डॉक्युमेंट (.html) सर्व पेजेससह सेव्ह झाले — उघडल्यावर कोड नाही तर पान दिसेल.');
   } catch (err) {
-    alert('प्रोजेक्ट सेव्ह करताना अडचण आली.');
+    alert('फाईल सेव्ह करताना अडचण आली.');
   }
+}
+
+function openSavedFileCleanly(event) {
+  const file = event && event.target && event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const raw = String(e.target.result || '');
+    try {
+      let parsed = null;
+      const scriptMatch = raw.match(/<script id="pm-project-data" type="application\/json">([\s\S]*?)<\/script>/);
+      if (scriptMatch && scriptMatch[1]) {
+        parsed = JSON.parse(scriptMatch[1]);
+      } else if (raw.trim().startsWith('{')) {
+        parsed = JSON.parse(raw);
+      }
+
+      if (parsed && parsed.pagesData && typeof pageOrder !== 'undefined') {
+        const orderList = Array.isArray(parsed.pageOrder)
+          ? parsed.pageOrder.filter(p => p !== 'M').slice(0, MAX_BOND_PAGES)
+          : [1];
+        pageOrder.length = 0;
+        orderList.forEach(p => pageOrder.push(p));
+
+        Object.keys(pagesData).forEach(k => delete pagesData[k]);
+        orderList.forEach(p => {
+          pagesData[p] = parsed.pagesData[p] || { html: '', width: 816, height: 1056 };
+        });
+
+        const pageEl = document.getElementById('page');
+        if (pageEl) {
+          pageEl.querySelectorAll(':scope > .pm-element').forEach(el => el.remove());
+          const firstHtml = pagesData[orderList[0]] ? pagesData[orderList[0]].html : '';
+          if (firstHtml) {
+            const temp = document.createElement('div');
+            temp.innerHTML = firstHtml;
+            Array.from(temp.children).forEach(child => {
+              if (child.classList && child.classList.contains('pm-element')) {
+                attachElementEvents(child);
+                pageEl.appendChild(child);
+              }
+            });
+          }
+        }
+
+        if (typeof renderPageTabs === 'function') renderPageTabs();
+        updateStackedPagesLayout();
+        persistAllPagesAutoSave();
+        showQuickToast('सेव्ह केलेले पान व मजकूर थेट ओपन झाले.');
+        event.target.value = '';
+        return;
+      }
+
+      // कोणतीही HTML फाईल असल्यास मजकूर/पान थेट पानावर दाखवा
+      const pageEl = document.getElementById('page');
+      if (pageEl) {
+        pageEl.querySelectorAll(':scope > .pm-element').forEach(el => el.remove());
+        const docParser = new DOMParser();
+        const htmlDoc = docParser.parseFromString(raw, 'text/html');
+        const bodyText = (htmlDoc.body && htmlDoc.body.innerText) ? htmlDoc.body.innerText.trim() : '';
+        if (bodyText) {
+          const el = createPMElement(96, 96, 480, 220);
+          const tc = document.createElement('div');
+          tc.className = 'text-content';
+          tc.contentEditable = 'true';
+          tc.innerText = bodyText;
+          el.appendChild(tc);
+          attachElementEvents(el);
+          selectElement(el);
+        }
+      }
+      showQuickToast('फाईल पानावर उघडली.');
+    } catch (err) {
+      alert('ही फाईल उघडताना अडचण आली.');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
 }
 
 function exportAllPagesToPDFPrint() {
@@ -256,13 +440,19 @@ function wireBondPageButtons() {
     btn.onclick = (e) => addBondPageBelow(e);
   });
 
+  const projInput = document.getElementById('project-input');
+  if (projInput) {
+    projInput.accept = '.html,.json';
+    projInput.onchange = (e) => openSavedFileCleanly(e);
+  }
+
   document.querySelectorAll('button, .btn, .dropdown-item').forEach(el => {
     const txt = (el.textContent || '').trim();
     if (txt === 'Save' || txt.includes('Save Project')) {
       el.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        saveAllPagesProject();
+        saveAllPagesAsViewableDoc();
       };
     } else if (txt.includes('PDF/Print') || txt.includes('Export / Print (PDF)')) {
       el.onclick = (e) => {
@@ -274,8 +464,7 @@ function wireBondPageButtons() {
       el.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        persistAllPagesAutoSave();
-        addBondPageBelow(e);
+        startFreshDocumentKeepSaved();
       };
     }
   });
