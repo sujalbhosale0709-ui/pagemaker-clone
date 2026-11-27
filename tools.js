@@ -3,6 +3,8 @@ const SAVED_FILES_STORAGE_KEY = 'pm_saved_files_v1';
 const ACTIVE_DOC_STORAGE_KEY = 'pm_active_doc_v1';
 const IDB_NAME = 'PageMakerDTP_DB';
 const IDB_STORE = 'store';
+const ANCESTRY_PX_PER_INCH = 96;
+const ANCESTRY_STEP_INCH = 0.1;
 
 function showQuickToast(msg) {
   let toast = document.getElementById('pm-quick-toast');
@@ -650,11 +652,48 @@ function isAncestryElement(el) {
   return !!(el && el.dataset && el.dataset.ancestryTree === '1');
 }
 
+function getAncestryLegInch(el) {
+  const rawPx = parseFloat(el.dataset.legHeightPx);
+  if (!isNaN(rawPx) && rawPx > 0) {
+    return Number((rawPx / ANCESTRY_PX_PER_INCH).toFixed(2));
+  }
+  const { h } = getElementExactSize(el);
+  const inferredPx = Math.max(10, Math.round((Math.max(24, h) - 2) * 0.36));
+  return Number((inferredPx / ANCESTRY_PX_PER_INCH).toFixed(2));
+}
+
+function setAncestryLegInch(el, nextInch) {
+  if (!el || !isAncestryElement(el)) return;
+  const clampedInch = Math.max(0.1, Math.min(3.0, Number(parseFloat(nextInch).toFixed(2)) || 0.2));
+  const legPx = Math.max(10, Math.round(clampedInch * ANCESTRY_PX_PER_INCH));
+  el.dataset.legHeightPx = String(legPx);
+
+  // वरचे टोक + आडवी रेषा + खालचे टोक यांसाठी पुरेशी उंची ठेवून बॉक्स अपडेट करणे
+  const neededH = Math.max(36, legPx * 2 + 8);
+  el.style.height = neededH + 'px';
+  renderAncestryConnectorShape(el);
+  updateControlPaletteInputs();
+  saveCurrentActivePageIntoData();
+  showQuickToast(`उंची: ${clampedInch.toFixed(1)}" (वर + खाली सर्व टोके)`);
+}
+
 function renderAncestryConnectorShape(el) {
   if (!el || !isAncestryElement(el)) return;
-  const { w, h } = getElementExactSize(el);
+  const { w } = getElementExactSize(el);
   const cw = Math.max(40, w);
-  const ch = Math.max(24, h);
+
+  let legPx = parseFloat(el.dataset.legHeightPx);
+  if (isNaN(legPx) || legPx <= 0) {
+    legPx = 24;
+    el.dataset.legHeightPx = String(legPx);
+  }
+  legPx = Math.max(10, Math.round(legPx));
+
+  const ch = Math.max(36, legPx * 2 + 8);
+  if ((parseInt(el.style.height) || 0) !== ch) {
+    el.style.height = ch + 'px';
+  }
+
   const stroke = el.dataset.strokeColor || (document.getElementById('picker-color') && document.getElementById('picker-color').value) || '#000000';
   const sw = parseFloat(el.dataset.strokeWidth) || 2;
   const autoEqual = el.dataset.autoEqual !== '0';
@@ -673,9 +712,9 @@ function renderAncestryConnectorShape(el) {
 
   const padX = 10;
   const usableW = Math.max(20, cw - padX * 2);
-  const topStemH = Math.max(10, Math.round(ch * 0.36));
-  const barY = topStemH;
-  const bottomDropLen = Math.max(10, ch - barY - 2);
+  const topStartY = 2;
+  const barY = topStartY + legPx;
+  const bottomEndY = barY + legPx;
 
   let topRatio = parseFloat(el.dataset.topRatio);
   if (isNaN(topRatio)) topRatio = 0.5;
@@ -688,16 +727,16 @@ function renderAncestryConnectorShape(el) {
 
   let linesSvg = '';
   // वरचे १ उभे टोक
-  linesSvg += `<line x1="${topX}" y1="1" x2="${topX}" y2="${barY}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
+  linesSvg += `<line x1="${topX}" y1="${topStartY}" x2="${topX}" y2="${barY}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
 
   // आडवी रेषा
   if (dropCount > 1) {
     linesSvg += `<line x1="${minDropX}" y1="${barY}" x2="${maxDropX}" y2="${barY}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
   }
 
-  // खालील सर्व उभी टोके
+  // खालील सर्व उभी टोके (वरच्या टोकाइतकीच उंची)
   dropXs.forEach(dx => {
-    linesSvg += `<line x1="${dx}" y1="${barY}" x2="${dx}" y2="${barY + bottomDropLen}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
+    linesSvg += `<line x1="${dx}" y1="${barY}" x2="${dx}" y2="${bottomEndY}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
   });
 
   const existingSvg = el.querySelector('.shape-svg');
@@ -727,16 +766,16 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   const isSel = el.classList.contains('selected');
   if (!isSel) return;
 
-  // वरच्या बारवर लहान कृती बटणे (+ टोक / - टोक / समान अंतर)
+  // वरच्या बारवर कृती बटणे (+ टोक / - टोक / समान अंतर / 0.1" उंची - व + व थेट इंच इनपुट)
   const actionBar = document.createElement('div');
-  actionBar.style.cssText = 'position:absolute;top:-28px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;background:#0a246a;padding:2px 5px;border:1px solid #fff;pointer-events:auto;white-space:nowrap;z-index:40;';
+  actionBar.style.cssText = 'position:absolute;top:-32px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:3px;background:#0a246a;padding:2px 5px;border:1px solid #fff;pointer-events:auto;white-space:nowrap;z-index:40;';
 
   const makeActionBtn = (label, titleText, fn) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = label;
     b.title = titleText;
-    b.style.cssText = 'background:#ffffff;color:#000000;border:1px solid #000;padding:2px 6px;font-size:11px;font-weight:bold;cursor:pointer;touch-action:manipulation;';
+    b.style.cssText = 'background:#ffffff;color:#000000;border:1px solid #000;padding:2px 5px;font-size:10px;font-weight:bold;cursor:pointer;touch-action:manipulation;';
     b.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -778,6 +817,49 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
     renderAncestryConnectorShape(el);
     saveCurrentActivePageIntoData();
     showQuickToast('सर्व टोके समान अंतरावर केली.');
+  }));
+
+  // 0.1" रेटने उंची कमी (-) व जास्त (+) आणि डायरेक्ट टाईप बॉक्स (इंच)
+  const heightLabel = document.createElement('span');
+  heightLabel.textContent = 'उंची:';
+  heightLabel.style.cssText = 'color:#fff;font-size:10px;font-weight:bold;margin-left:3px;';
+  actionBar.appendChild(heightLabel);
+
+  const heightInput = document.createElement('input');
+  heightInput.type = 'number';
+  heightInput.step = '0.1';
+  heightInput.min = '0.1';
+  heightInput.max = '3.0';
+  heightInput.value = getAncestryLegInch(el).toFixed(1);
+  heightInput.title = 'इंचामध्ये थेट उंची टाका (उदा. 0.2, 0.5)';
+  heightInput.style.cssText = 'width:40px;padding:1px 3px;font-size:10px;font-weight:bold;border:1px solid #000;background:#fff;color:#000;';
+  heightInput.addEventListener('pointerdown', (ev) => {
+    ev.stopPropagation();
+  });
+  heightInput.addEventListener('change', (ev) => {
+    ev.stopPropagation();
+    const val = parseFloat(heightInput.value);
+    if (!isNaN(val) && val > 0) {
+      setAncestryLegInch(el, val);
+    } else {
+      heightInput.value = getAncestryLegInch(el).toFixed(1);
+    }
+  });
+
+  actionBar.appendChild(makeActionBtn('-0.1"', 'सर्व उभ्या टोकांची उंची 0.1" ने कमी करा', () => {
+    const curInch = getAncestryLegInch(el);
+    const nextInch = Math.max(0.1, Number((curInch - ANCESTRY_STEP_INCH).toFixed(1)));
+    heightInput.value = nextInch.toFixed(1);
+    setAncestryLegInch(el, nextInch);
+  }));
+
+  actionBar.appendChild(heightInput);
+
+  actionBar.appendChild(makeActionBtn('+0.1"', 'सर्व उभ्या टोकांची उंची 0.1" ने वाढवा', () => {
+    const curInch = getAncestryLegInch(el);
+    const nextInch = Math.min(3.0, Number((curInch + ANCESTRY_STEP_INCH).toFixed(1)));
+    heightInput.value = nextInch.toFixed(1);
+    setAncestryLegInch(el, nextInch);
   }));
 
   uiLayer.appendChild(actionBar);
@@ -931,15 +1013,17 @@ function pmInsertAncestryTreePrompt(e) {
 
   const { m } = getCurrentPageDims();
   const baseW = Math.max(220, Math.min(520, count * 95));
-  const baseH = 72;
+  const defaultLegPx = Math.round(0.2 * ANCESTRY_PX_PER_INCH);
+  const baseH = Math.max(36, defaultLegPx * 2 + 8);
   const startX = m.left + 20;
-  const startY = m.top + 30;
+  const startY = m.top + 36;
 
   const el = createPMElement(startX, startY, baseW, baseH);
   el.dataset.ancestryTree = '1';
   el.dataset.dropCount = String(count);
   el.dataset.autoEqual = '1';
   el.dataset.topRatio = '0.5';
+  el.dataset.legHeightPx = String(defaultLegPx);
   el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(count));
   el.dataset.strokeColor = (document.getElementById('picker-color') && document.getElementById('picker-color').value) || '#000000';
   el.dataset.strokeWidth = '2';
