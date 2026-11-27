@@ -1,7 +1,5 @@
 let clipboardElementHTML = null;
-const MAX_BOND_PAGES = 10;
-const BOND_PAGE_GAP_PX = 144; // 1.5 inch = 144px
-const AUTO_SAVE_STORAGE_KEY = 'pm_dtp_autosave_v1';
+const SAVED_FILES_STORAGE_KEY = 'pm_saved_files_v1';
 
 function showQuickToast(msg) {
   let toast = document.getElementById('pm-quick-toast');
@@ -16,7 +14,7 @@ function showQuickToast(msg) {
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => {
     toast.style.display = 'none';
-  }, 2400);
+  }, 2200);
 }
 
 function getCurrentPageDims() {
@@ -29,72 +27,40 @@ function getCurrentPageDims() {
   return { w, h, m };
 }
 
-function syncActivePageHtmlIntoData() {
-  if (typeof pagesData === 'undefined') return;
+function getPageElementsOnlyHtml() {
   const pageEl = document.getElementById('page');
-  if (!pageEl) return;
-  const curId = typeof activePageId !== 'undefined' ? activePageId : 1;
-  const { w, h } = getCurrentPageDims();
-
+  if (!pageEl) return '';
   const clone = pageEl.cloneNode(true);
-  const stack = clone.querySelector('#stacked-pages-container');
-  if (stack) stack.remove();
-  ['#margin-guide', '#master-layer', '#guides-layer', '.margin-guide', '.guides-layer'].forEach(sel => {
+  ['#margin-guide', '#master-layer', '#guides-layer', '.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
     clone.querySelectorAll(sel).forEach(n => n.remove());
   });
+  clone.querySelectorAll('.pm-element').forEach(el => {
+    el.classList.remove('selected', 'crop-mode');
+    el.style.outline = 'none';
+    el.style.border = 'none';
+    el.style.boxShadow = 'none';
+  });
+  return clone.innerHTML;
+}
 
+function saveCurrentActivePageIntoData() {
+  if (typeof pagesData === 'undefined') return;
+  const curId = typeof activePageId !== 'undefined' ? activePageId : 1;
+  const { w, h } = getCurrentPageDims();
   if (!pagesData[curId]) {
     pagesData[curId] = { html: '', width: w, height: h };
   }
-  pagesData[curId].html = clone.innerHTML;
+  pagesData[curId].html = getPageElementsOnlyHtml();
   pagesData[curId].width = w;
   pagesData[curId].height = h;
 }
 
-function persistAllPagesAutoSave() {
-  try {
-    if (typeof pagesData === 'undefined') return;
-    syncActivePageHtmlIntoData();
-    const payload = {
-      savedAt: Date.now(),
-      activePageId: typeof activePageId !== 'undefined' ? activePageId : 1,
-      pageOrder: typeof pageOrder !== 'undefined' ? pageOrder.slice(0, MAX_BOND_PAGES + 1) : [1],
-      pagesData: pagesData,
-      pageMargins: typeof pageMargins !== 'undefined' ? pageMargins : {},
-      pageColumns: typeof pageColumns !== 'undefined' ? pageColumns : {},
-      pageGuides: typeof pageGuides !== 'undefined' ? pageGuides : {}
-    };
-    localStorage.setItem(AUTO_SAVE_STORAGE_KEY, JSON.stringify(payload));
-  } catch (err) {
-    // स्टोरेज मर्यादा आल्यास शांतपणे दुर्लक्ष करा
-  }
-}
-
-function refreshPageBarTabs() {
-  const bar = document.getElementById('page-bar');
-  if (!bar || typeof pageOrder === 'undefined') return;
-  const normalPages = pageOrder.filter(p => p !== 'M');
-  const curId = typeof activePageId !== 'undefined' ? activePageId : 1;
-
-  let html = `<div class="page-tab master ${curId === 'M' ? 'active' : ''}" id="tab-M" onclick="switchPage('M')">M</div>`;
-  normalPages.forEach(pNum => {
-    html += `<div class="page-tab ${curId === pNum ? 'active' : ''}" id="tab-${pNum}" onclick="switchPage(${pNum})">${pNum}</div>`;
-  });
-  html += `<button type="button" class="add-page-btn" id="add-page-btn" onclick="pmActionAddPage(event)">+ Page</button>`;
-  bar.innerHTML = html;
-
-  const ind = document.getElementById('page-indicator');
-  if (ind) {
-    const activeLabel = curId === 'M' ? 'Master' : curId;
-    ind.textContent = `[Page ${activeLabel} of ${normalPages.length}]`;
-  }
-}
-
-function updateStackedPagesLayout() {
+function renderPageElementsIntoCanvas(htmlStr) {
   const pageEl = document.getElementById('page');
-  if (!pageEl || typeof pageOrder === 'undefined') return;
+  if (!pageEl) return;
+  pageEl.querySelectorAll(':scope > .pm-element').forEach(el => el.remove());
 
-  const { w, h, m } = getCurrentPageDims();
+  const { m } = getCurrentPageDims();
   const mg = document.getElementById('margin-guide');
   if (mg) {
     mg.style.top = m.top + 'px';
@@ -103,203 +69,212 @@ function updateStackedPagesLayout() {
     mg.style.bottom = m.bottom + 'px';
   }
 
-  let stackContainer = document.getElementById('stacked-pages-container');
-  if (!stackContainer) {
-    stackContainer = document.createElement('div');
-    stackContainer.id = 'stacked-pages-container';
-    stackContainer.style.cssText = 'position:relative;width:100%;pointer-events:none;z-index:1;';
-    pageEl.appendChild(stackContainer);
+  if (htmlStr) {
+    const temp = document.createElement('div');
+    temp.innerHTML = htmlStr;
+    Array.from(temp.children).forEach(child => {
+      if (child.classList && child.classList.contains('pm-element')) {
+        attachElementEvents(child);
+        pageEl.appendChild(child);
+      }
+    });
   }
-
-  const numPages = pageOrder.filter(p => p !== 'M');
-  if (numPages.length <= 1) {
-    stackContainer.innerHTML = '';
-    pageEl.style.height = h + 'px';
-    pageEl.style.minHeight = h + 'px';
-    return;
-  }
-
-  const extraCount = numPages.length - 1;
-  const totalHeight = h + extraCount * (h + BOND_PAGE_GAP_PX);
-  pageEl.style.height = totalHeight + 'px';
-  pageEl.style.minHeight = totalHeight + 'px';
-
-  let html = '';
-  for (let i = 1; i < numPages.length; i++) {
-    const pNum = numPages[i];
-    const topOffset = i * (h + BOND_PAGE_GAP_PX);
-    const savedPage = (typeof pagesData !== 'undefined' && pagesData[pNum]) ? pagesData[pNum] : null;
-    const innerContent = savedPage && savedPage.html ? savedPage.html : '';
-
-    html += `
-      <div class="bond-subpage" data-page-no="${pNum}" style="
-        position:absolute;
-        left:0;
-        top:${topOffset}px;
-        width:${w}px;
-        height:${h}px;
-        background:#ffffff;
-        border-top:1px solid #000;
-        box-shadow:0 -${BOND_PAGE_GAP_PX}px 0 #808080;
-        pointer-events:auto;
-      ">
-        <div style="position:absolute;top:4px;right:8px;background:#e8eef8;color:#0a246a;padding:1px 6px;font-size:10px;font-weight:bold;border:1px solid #0a246a;z-index:5;">Page ${pNum}</div>
-        <div class="margin-guide" style="
-          position:absolute;
-          top:${m.top}px;
-          left:${m.left}px;
-          right:${m.right}px;
-          bottom:${m.bottom}px;
-          border:1px solid #ff69b4;
-          pointer-events:none;
-          z-index:1;
-        "></div>
-        <div class="bond-subpage-content" style="position:relative;width:100%;height:100%;z-index:2;">
-          ${innerContent}
-        </div>
-      </div>
-    `;
-  }
-  stackContainer.innerHTML = html;
+  selectedEl = null;
 }
 
+function refreshPageBarTabs() {
+  const bar = document.getElementById('page-bar');
+  if (!bar || typeof pageOrder === 'undefined') return;
+  const normalPages = pageOrder.filter(p => p !== 'M');
+  const curId = typeof activePageId !== 'undefined' ? activePageId : 1;
+
+  let html = `<div class="page-tab master ${curId === 'M' ? 'active' : ''}" id="tab-M" onclick="pmSwitchToPage('M')">M</div>`;
+  normalPages.forEach(pNum => {
+    html += `<div class="page-tab ${curId === pNum ? 'active' : ''}" id="tab-${pNum}" onclick="pmSwitchToPage(${pNum})">${pNum}</div>`;
+  });
+  html += `<button type="button" class="add-page-btn" id="add-page-btn" onclick="pmActionAddPage(event)">+ Page</button>`;
+  bar.innerHTML = html;
+
+  const ind = document.getElementById('page-indicator');
+  if (ind) {
+    const label = curId === 'M' ? 'Master' : curId;
+    ind.textContent = `[Page ${label} of ${normalPages.length}]`;
+  }
+}
+
+function pmSwitchToPage(targetId) {
+  saveCurrentActivePageIntoData();
+  if (typeof activePageId !== 'undefined') {
+    activePageId = targetId;
+  }
+  const { w, h } = getCurrentPageDims();
+  const pData = (typeof pagesData !== 'undefined' && pagesData[targetId]) ? pagesData[targetId] : { html: '', width: w, height: h };
+  renderPageElementsIntoCanvas(pData.html || '');
+  refreshPageBarTabs();
+}
+
+/* १. + Page: जुने पान सेव्ह होऊन याच जागी नवीन कोरे (पांढरे) पान येते */
 function pmActionAddPage(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
   if (typeof pageOrder === 'undefined' || typeof pagesData === 'undefined') return;
+  if (typeof saveState === 'function') saveState();
+
+  saveCurrentActivePageIntoData();
 
   const normalPages = pageOrder.filter(p => p !== 'M');
-  if (normalPages.length >= MAX_BOND_PAGES) {
-    alert(`कमाल ${MAX_BOND_PAGES} पेजेसपर्यंतच पाने जोडता येतात.`);
-    return;
-  }
-
-  if (typeof saveState === 'function') saveState();
-  syncActivePageHtmlIntoData();
-
-  const nextPageNo = normalPages.length + 1;
+  const nextPageNo = (normalPages.length ? Math.max(...normalPages) : 0) + 1;
   const { w, h, m } = getCurrentPageDims();
 
   if (typeof pageMargins !== 'undefined') {
     pageMargins[nextPageNo] = Object.assign({}, m);
   }
-  if (!pagesData[nextPageNo]) {
-    pagesData[nextPageNo] = { html: '', width: w, height: h };
-  }
+  pagesData[nextPageNo] = { html: '', width: w, height: h };
   pageOrder.push(nextPageNo);
 
+  if (typeof activePageId !== 'undefined') {
+    activePageId = nextPageNo;
+  }
+
+  renderPageElementsIntoCanvas('');
   refreshPageBarTabs();
-  updateStackedPagesLayout();
-  persistAllPagesAutoSave();
-
-  showQuickToast(`Page ${nextPageNo} खाली (1.5" गॅपसह) जोडले गेले.`);
-
-  const pb = document.getElementById('pasteboard');
-  if (pb) {
-    const zoom = typeof zoomLevel !== 'undefined' ? zoomLevel : 1;
-    const scrollTarget = ((nextPageNo - 1) * (h + BOND_PAGE_GAP_PX)) * zoom;
-    pb.scrollTo({ top: Math.max(0, scrollTarget - 20), behavior: 'smooth' });
-  }
+  showQuickToast(`Page ${nextPageNo} तयार (कोरे पान)`);
 }
 
-function triggerHtmlDownload(fileName, htmlContent) {
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 1200);
-}
-
-function buildViewableDocumentHtml() {
-  syncActivePageHtmlIntoData();
-  const { w, h } = getCurrentPageDims();
-  const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
-  const pageEl = document.getElementById('page');
-
-  let renderedPagesHtml = '';
-  for (let i = 0; i < normalPages.length; i++) {
-    const pNo = normalPages[i];
-    let rawHtml = '';
-    if (i === 0 && pageEl) {
-      const clone = pageEl.cloneNode(true);
-      const stack = clone.querySelector('#stacked-pages-container');
-      if (stack) stack.remove();
-      ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
-        clone.querySelectorAll(sel).forEach(n => n.remove());
-      });
-      clone.querySelectorAll('.pm-element').forEach(el => {
-        el.classList.remove('selected', 'crop-mode');
-        el.style.outline = 'none';
-        el.style.border = 'none';
-        el.style.boxShadow = 'none';
-      });
-      rawHtml = clone.innerHTML;
-    } else {
-      const pData = (typeof pagesData !== 'undefined' && pagesData[pNo]) ? pagesData[pNo] : null;
-      const temp = document.createElement('div');
-      temp.innerHTML = pData && pData.html ? pData.html : '';
-      ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
-        temp.querySelectorAll(sel).forEach(n => n.remove());
-      });
-      temp.querySelectorAll('.pm-element').forEach(el => {
-        el.classList.remove('selected', 'crop-mode');
-        el.style.outline = 'none';
-        el.style.border = 'none';
-        el.style.boxShadow = 'none';
-      });
-      rawHtml = temp.innerHTML;
-    }
-
-    renderedPagesHtml += `
-      <div class="doc-page" data-page-no="${pNo}" style="width:${w}px;height:${h}px;position:relative;background:#fff;margin:0 auto 24px auto;box-shadow:0 2px 8px rgba(0,0,0,0.25);overflow:hidden;page-break-after:always;break-after:page;">
-        <div style="position:relative;width:100%;height:100%;">${rawHtml}</div>
-      </div>
-    `;
-  }
-
-  const projectBackup = {
-    version: '1.0',
-    pageOrder: normalPages,
-    pagesData: typeof pagesData !== 'undefined' ? pagesData : {},
-    pageMargins: typeof pageMargins !== 'undefined' ? pageMargins : {}
-  };
-
-  return `<!DOCTYPE html>
-<html lang="mr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Saved Document (${normalPages.length} Pages)</title>
-<style>
-  body{margin:0;padding:16px;background:#707070;font-family:'Tahoma','Arial',sans-serif;}
-  @media print{body{background:#fff;padding:0;}.doc-page{margin:0!important;box-shadow:none!important;}}
-</style>
-</head>
-<body>
-${renderedPagesHtml}
-<script id="pm-project-data" type="application/json">${JSON.stringify(projectBackup)}</script>
-</body>
-</html>`;
-}
-
+/* २. Save: सर्व पेजेस एकत्र PDF स्वरूपात सेव्ह करण्यासाठी प्रिंट/PDF */
 function pmActionSave(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  persistAllPagesAutoSave();
-  const htmlDoc = buildViewableDocumentHtml();
-  triggerHtmlDownload('Bond_All_Pages.html', htmlDoc);
-  showQuickToast('सर्व पेजेस फाईलमध्ये सेव्ह झाली.');
+  saveCurrentActivePageIntoData();
+
+  const printContainer = document.getElementById('print-all-container');
+  const { w, h } = getCurrentPageDims();
+  const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
+
+  let pagesHtml = '';
+  normalPages.forEach(pNo => {
+    const pData = (typeof pagesData !== 'undefined' && pagesData[pNo]) ? pagesData[pNo] : null;
+    const rawHtml = pData && pData.html ? pData.html : '';
+    pagesHtml += `
+      <div class="print-page" style="width:${w}px;height:${h}px;position:relative;background:#ffffff;page-break-after:always;break-after:page;overflow:hidden;">
+        ${rawHtml}
+      </div>
+    `;
+  });
+
+  if (printContainer) {
+    printContainer.innerHTML = pagesHtml;
+  }
+  window.print();
+}
+
+/* ३. New: सर्व पेजेस स्टोरेजमध्ये सेव्ह करून नवीन कोरे पान सुरू करणे */
+function getSavedFilesFromStorage() {
+  try {
+    const raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function persistSnapshotToStorage() {
+  saveCurrentActivePageIntoData();
+  const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
+  const { w, h, m } = getCurrentPageDims();
+
+  const clonedPages = {};
+  normalPages.forEach(pNo => {
+    const d = (typeof pagesData !== 'undefined' && pagesData[pNo]) ? pagesData[pNo] : { html: '', width: w, height: h };
+    clonedPages[pNo] = { html: d.html || '', width: d.width || w, height: d.height || h };
+  });
+
+  const existing = getSavedFilesFromStorage();
+  const fileNo = existing.length + 1;
+  const nowStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+  const record = {
+    id: 'file_' + Date.now() + '_' + fileNo,
+    no: fileNo,
+    title: `File ${fileNo} (${normalPages.length}p · ${nowStr})`,
+    pageOrder: normalPages,
+    pagesData: clonedPages,
+    margins: Object.assign({}, m)
+  };
+
+  existing.push(record);
+  localStorage.setItem(SAVED_FILES_STORAGE_KEY, JSON.stringify(existing));
+  renderSavedFilesDrawerList();
+  return record;
+}
+
+function renderSavedFilesDrawerList() {
+  const container = document.getElementById('saved-files-list');
+  if (!container) return;
+  const files = getSavedFilesFromStorage();
+  if (!files.length) {
+    container.innerHTML = '<div style="padding:6px;color:#000;">अजून कोणतीही फाईल सेव्ह झालेली नाही.</div>';
+    return;
+  }
+
+  container.innerHTML = files.map((f, idx) => {
+    const num = f.no || (idx + 1);
+    const pCount = Array.isArray(f.pageOrder) ? f.pageOrder.length : 1;
+    return `<button type="button" class="page-tab" style="padding:4px 8px;font-size:10px;" onclick="openStoredFileById('${f.id}')">${num}. ${f.title || ('File ' + num)} [${pCount} Page]</button>`;
+  }).join('');
+}
+
+function toggleSavedFilesDrawer(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  closeMenus();
+  const drawer = document.getElementById('saved-files-drawer');
+  if (!drawer) return;
+  const isOpen = drawer.style.display === 'block';
+  renderSavedFilesDrawerList();
+  drawer.style.display = isOpen ? 'none' : 'block';
+}
+
+function openStoredFileById(fileId) {
+  const files = getSavedFilesFromStorage();
+  const found = files.find(f => f.id === fileId);
+  if (!found || typeof pageOrder === 'undefined' || typeof pagesData === 'undefined') return;
+
+  const orderList = Array.isArray(found.pageOrder) && found.pageOrder.length ? found.pageOrder.slice() : [1];
+  pageOrder.length = 0;
+  orderList.forEach(p => pageOrder.push(p));
+
+  Object.keys(pagesData).forEach(k => delete pagesData[k]);
+  orderList.forEach(pNo => {
+    const src = found.pagesData && found.pagesData[pNo] ? found.pagesData[pNo] : { html: '', width: 816, height: 1056 };
+    pagesData[pNo] = { html: src.html || '', width: src.width || 816, height: src.height || 1056 };
+  });
+
+  if (found.margins && typeof pageMargins !== 'undefined') {
+    orderList.forEach(pNo => {
+      pageMargins[pNo] = Object.assign({}, found.margins);
+    });
+  }
+
+  if (typeof activePageId !== 'undefined') {
+    activePageId = orderList[0];
+  }
+
+  const firstHtml = pagesData[orderList[0]] ? pagesData[orderList[0]].html : '';
+  renderPageElementsIntoCanvas(firstHtml);
+  refreshPageBarTabs();
+
+  const drawer = document.getElementById('saved-files-drawer');
+  if (drawer) drawer.style.display = 'none';
+
+  showQuickToast(`File ${found.no || ''} ओपन झाली (${orderList.length} पेजेस)`);
 }
 
 function pmActionNew(e) {
@@ -307,198 +282,30 @@ function pmActionNew(e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  persistAllPagesAutoSave();
-  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-  const htmlDoc = buildViewableDocumentHtml();
-  triggerHtmlDownload(`Bond_Saved_${stamp}.html`, htmlDoc);
-
   if (typeof saveState === 'function') saveState();
+  const savedRec = persistSnapshotToStorage();
 
-  const pageEl = document.getElementById('page');
-  if (pageEl) {
-    pageEl.querySelectorAll(':scope > .pm-element').forEach(el => el.remove());
-  }
+  const { w, h } = getCurrentPageDims();
   if (typeof pageOrder !== 'undefined') {
     pageOrder.length = 0;
     pageOrder.push(1);
   }
   if (typeof pagesData !== 'undefined') {
-    const { w, h } = getCurrentPageDims();
     Object.keys(pagesData).forEach(k => delete pagesData[k]);
     pagesData[1] = { html: '', width: w, height: h };
   }
   if (typeof activePageId !== 'undefined') {
     activePageId = 1;
   }
-  selectedEl = null;
 
+  renderPageElementsIntoCanvas('');
   refreshPageBarTabs();
-  updateStackedPagesLayout();
-  persistAllPagesAutoSave();
-
-  const pb = document.getElementById('pasteboard');
-  if (pb) pb.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-
-  showQuickToast('जुनी पेजेस सेव्ह झाली; नवीन कोरे पान (Page 1) तयार आहे.');
-}
-
-function openSavedFileCleanly(event) {
-  const file = event && event.target && event.target.files && event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const raw = String(e.target.result || '');
-    try {
-      let parsed = null;
-      const scriptMatch = raw.match(/<script id="pm-project-data" type="application\/json">([\s\S]*?)<\/script>/);
-      if (scriptMatch && scriptMatch[1]) {
-        parsed = JSON.parse(scriptMatch[1]);
-      } else if (raw.trim().startsWith('{')) {
-        parsed = JSON.parse(raw);
-      }
-
-      if (parsed && parsed.pagesData && typeof pageOrder !== 'undefined') {
-        const orderList = Array.isArray(parsed.pageOrder)
-          ? parsed.pageOrder.filter(p => p !== 'M').slice(0, MAX_BOND_PAGES)
-          : [1];
-        pageOrder.length = 0;
-        orderList.forEach(p => pageOrder.push(p));
-
-        Object.keys(pagesData).forEach(k => delete pagesData[k]);
-        orderList.forEach(p => {
-          pagesData[p] = parsed.pagesData[p] || { html: '', width: 816, height: 1056 };
-        });
-
-        const pageEl = document.getElementById('page');
-        if (pageEl) {
-          pageEl.querySelectorAll(':scope > .pm-element').forEach(el => el.remove());
-          const firstHtml = pagesData[orderList[0]] ? pagesData[orderList[0]].html : '';
-          if (firstHtml) {
-            const temp = document.createElement('div');
-            temp.innerHTML = firstHtml;
-            Array.from(temp.children).forEach(child => {
-              if (child.classList && child.classList.contains('pm-element')) {
-                attachElementEvents(child);
-                pageEl.appendChild(child);
-              }
-            });
-          }
-        }
-
-        if (typeof activePageId !== 'undefined') activePageId = orderList[0] || 1;
-        refreshPageBarTabs();
-        updateStackedPagesLayout();
-        persistAllPagesAutoSave();
-        showQuickToast('सेव्ह केलेले पान व मजकूर थेट ओपन झाले.');
-        event.target.value = '';
-        return;
-      }
-
-      const pageEl = document.getElementById('page');
-      if (pageEl) {
-        pageEl.querySelectorAll(':scope > .pm-element').forEach(el => el.remove());
-        const docParser = new DOMParser();
-        const htmlDoc = docParser.parseFromString(raw, 'text/html');
-        const bodyText = (htmlDoc.body && htmlDoc.body.innerText) ? htmlDoc.body.innerText.trim() : '';
-        if (bodyText) {
-          const el = createPMElement(96, 96, 480, 220);
-          const tc = document.createElement('div');
-          tc.className = 'text-content';
-          tc.contentEditable = 'true';
-          tc.innerText = bodyText;
-          el.appendChild(tc);
-          attachElementEvents(el);
-          selectElement(el);
-        }
-      }
-      refreshPageBarTabs();
-      showQuickToast('फाईल पानावर उघडली.');
-    } catch (err) {
-      alert('ही फाईल उघडताना अडचण आली.');
-    }
-    event.target.value = '';
-  };
-  reader.readAsText(file);
-}
-
-function exportAllPagesToPDFPrint() {
-  persistAllPagesAutoSave();
-  const printContainer = document.getElementById('print-all-container');
-  const pageEl = document.getElementById('page');
-  if (!printContainer || !pageEl) {
-    window.print();
-    return;
-  }
-
-  const { w, h, m } = getCurrentPageDims();
-  const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
-  let pagesHtml = '';
-
-  for (let i = 0; i < normalPages.length; i++) {
-    const pNo = normalPages[i];
-    let rawHtml = '';
-    if (i === 0) {
-      const clone = pageEl.cloneNode(true);
-      const stack = clone.querySelector('#stacked-pages-container');
-      if (stack) stack.remove();
-      ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
-        clone.querySelectorAll(sel).forEach(n => n.remove());
-      });
-      clone.querySelectorAll('.pm-element').forEach(el => {
-        el.classList.remove('selected', 'crop-mode');
-        el.style.outline = 'none';
-        el.style.border = 'none';
-        el.style.boxShadow = 'none';
-      });
-      rawHtml = clone.innerHTML;
-    } else {
-      const pData = (typeof pagesData !== 'undefined' && pagesData[pNo]) ? pagesData[pNo] : null;
-      const temp = document.createElement('div');
-      temp.innerHTML = pData && pData.html ? pData.html : '';
-      ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
-        temp.querySelectorAll(sel).forEach(n => n.remove());
-      });
-      temp.querySelectorAll('.pm-element').forEach(el => {
-        el.classList.remove('selected', 'crop-mode');
-        el.style.outline = 'none';
-        el.style.border = 'none';
-        el.style.boxShadow = 'none';
-      });
-      rawHtml = temp.innerHTML;
-    }
-
-    pagesHtml += `
-      <div class="print-page" style="
-        width:${w}px;
-        height:${h}px;
-        position:relative;
-        background:#ffffff;
-        page-break-after:always;
-        break-after:page;
-        overflow:hidden;
-      ">
-        <div style="
-          position:absolute;
-          top:${m.top}px;
-          left:${m.left}px;
-          right:${m.right}px;
-          bottom:${m.bottom}px;
-          pointer-events:none;
-        "></div>
-        ${rawHtml}
-      </div>
-    `;
-  }
-
-  printContainer.innerHTML = pagesHtml;
-  window.print();
+  showQuickToast(`File ${savedRec.no} सेव्ह झाली · नवीन कोरे पान (Page 1)`);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   refreshPageBarTabs();
-  updateStackedPagesLayout();
-  setInterval(persistAllPagesAutoSave, 4000);
+  renderSavedFilesDrawerList();
 });
 
 function toggleMenu(e, id) {
@@ -747,7 +554,6 @@ function convertSelectedToLegacyFont() {
   if (!tc.dataset.unicodeSource) tc.dataset.unicodeSource = tc.innerText;
   tc.innerText = unicodeToLegacyDevanagari(tc.dataset.unicodeSource, legacyType);
   checkTextOverflow(selectedEl);
-  persistAllPagesAutoSave();
 }
 
 function checkTextOverflow(el) {
@@ -852,8 +658,6 @@ function attachElementEvents(el) {
         if (!draggingBox) {
           tc.contentEditable = 'true';
           setTimeout(() => tc.focus(), 0);
-        } else {
-          persistAllPagesAutoSave();
         }
       }
 
@@ -867,7 +671,6 @@ function attachElementEvents(el) {
         tc.dataset.unicodeSource = tc.innerText;
       }
       checkTextOverflow(el);
-      persistAllPagesAutoSave();
     });
   }
 
@@ -911,7 +714,6 @@ function createPMElement(x, y, w, h) {
   attachElementEvents(el);
   document.getElementById('page').appendChild(el);
   selectElement(el);
-  persistAllPagesAutoSave();
   return el;
 }
 
@@ -1014,7 +816,6 @@ function handlePagePointerDown(e) {
     attachElementEvents(el);
     checkTextOverflow(el);
     selectElement(el);
-    persistAllPagesAutoSave();
     setTimeout(() => {
       content.focus();
     }, 0);
@@ -1049,7 +850,6 @@ function handlePagePointerDown(e) {
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
     selectTool('pointer');
-    persistAllPagesAutoSave();
   }
 
   window.addEventListener('pointermove', onMove);
@@ -1075,7 +875,6 @@ function placeImage(event) {
     w.appendChild(img);
     el.appendChild(w);
     selectTool('pointer');
-    persistAllPagesAutoSave();
   };
   reader.readAsDataURL(file);
   event.target.value = '';
@@ -1115,7 +914,6 @@ function initRotate(e, el) {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
-    persistAllPagesAutoSave();
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -1140,7 +938,6 @@ function initCrop(e, el, dir) {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
-    persistAllPagesAutoSave();
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -1165,7 +962,6 @@ function initDrag(e, el) {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
-    persistAllPagesAutoSave();
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -1211,7 +1007,6 @@ function initResize(e, el, dir) {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
-    persistAllPagesAutoSave();
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -1267,7 +1062,6 @@ function pasteCopied() {
   attachElementEvents(newEl);
   document.getElementById('page').appendChild(newEl);
   selectElement(newEl);
-  persistAllPagesAutoSave();
 }
 
 function pasteMultiple() {
@@ -1300,7 +1094,6 @@ function pasteMultiple() {
     lastEl = c;
   }
   selectElement(lastEl);
-  persistAllPagesAutoSave();
 }
 
 function updateControlPaletteInputs() {
@@ -1321,7 +1114,6 @@ function updateBoxGeometry() {
   selectedEl.style.width = (parseInt(document.getElementById('box-w').value) || 10) + 'px';
   selectedEl.style.height = (parseInt(document.getElementById('box-h').value) || 10) + 'px';
   checkTextOverflow(selectedEl);
-  persistAllPagesAutoSave();
 }
 
 function updateBoxRotation() {
@@ -1330,7 +1122,6 @@ function updateBoxRotation() {
   const d = parseInt(document.getElementById('box-rot').value) || 0;
   selectedEl.dataset.rotation = d;
   selectedEl.style.transform = `rotate(${d}deg)`;
-  persistAllPagesAutoSave();
 }
 
 function applyStyle(cmd, val = null) {
@@ -1345,7 +1136,6 @@ function applyStyle(cmd, val = null) {
     applyFontFamily(val);
   }
   if (selectedEl) checkTextOverflow(selectedEl);
-  persistAllPagesAutoSave();
 }
 
 function toggleReverseText() {
@@ -1361,7 +1151,6 @@ function toggleReverseText() {
     tc.dataset.reversed = '1';
     tc.style.color = '#ffffff';
   }
-  persistAllPagesAutoSave();
 }
 
 function setLetterTrackingPrompt() {
@@ -1377,7 +1166,6 @@ function setLetterTrackingPrompt() {
   saveState();
   tc.style.letterSpacing = (parseFloat(valStr) || 0) + 'px';
   checkTextOverflow(selectedEl);
-  persistAllPagesAutoSave();
 }
 
 function setWordSpacingPrompt() {
@@ -1393,7 +1181,6 @@ function setWordSpacingPrompt() {
   saveState();
   tc.style.wordSpacing = (parseFloat(valStr) || 0) + 'px';
   checkTextOverflow(selectedEl);
-  persistAllPagesAutoSave();
 }
 
 function setLineSpacingPrompt() {
@@ -1411,7 +1198,6 @@ function setLineSpacingPrompt() {
   saveState();
   tc.style.lineHeight = nextVal;
   checkTextOverflow(selectedEl);
-  persistAllPagesAutoSave();
 }
 
 function changeFontSize(s) {
@@ -1421,7 +1207,6 @@ function changeFontSize(s) {
     if (tc) {
       tc.style.fontSize = (parseInt(s) || 16) + 'px';
       checkTextOverflow(selectedEl);
-      persistAllPagesAutoSave();
     }
   }
 }
@@ -1435,7 +1220,6 @@ function setLineHeight(lh) {
     if (tc) {
       tc.style.lineHeight = val;
       checkTextOverflow(selectedEl);
-      persistAllPagesAutoSave();
     }
   }
 }
@@ -1447,7 +1231,6 @@ function applyColor(c) {
   const tc = selectedEl.querySelector('.text-content');
   if (tc) tc.style.color = c;
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke', c));
-  persistAllPagesAutoSave();
 }
 
 function applyFillColor() {
@@ -1455,7 +1238,6 @@ function applyFillColor() {
   saveState();
   const c = document.getElementById('picker-color').value;
   selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => s.setAttribute('fill', c));
-  persistAllPagesAutoSave();
 }
 
 function applyFillStrokePrompt() {
@@ -1480,14 +1262,12 @@ function applyFillStrokePrompt() {
     s.setAttribute('stroke', strokeCol.trim() || '#000000');
     s.setAttribute('stroke-width', parseFloat(strokeW) || 1);
   });
-  persistAllPagesAutoSave();
 }
 
 function changeStrokeWidth(w) {
   if (!selectedEl) return;
   saveState();
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke-width', w));
-  persistAllPagesAutoSave();
 }
 
 function alignObjects(mode) {
@@ -1532,7 +1312,6 @@ function alignObjects(mode) {
     rects.forEach(r => { r.el.style.top = Math.round(midY - r.h / 2) + 'px'; });
   }
   updateControlPaletteInputs();
-  persistAllPagesAutoSave();
 }
 
 function toggleTextWrap() {
@@ -1546,7 +1325,6 @@ function toggleTextWrap() {
     selectedEl.dataset.textWrap = '1';
     selectedEl.style.boxShadow = '0 0 0 6px rgba(0,168,232,0.18)';
   }
-  persistAllPagesAutoSave();
 }
 
 function openStoryEditor() {
@@ -1567,7 +1345,6 @@ function openStoryEditor() {
     const lType = getLegacyFontType(tc.style.fontFamily || document.getElementById('font-family').value);
     tc.innerText = lType ? unicodeToLegacyDevanagari(updated, lType) : updated;
     checkTextOverflow(selectedEl);
-    persistAllPagesAutoSave();
   }
 }
 
@@ -1577,8 +1354,6 @@ function exportPageAsPNG() {
     const w = parseInt(pageEl.style.width) || 816;
     const h = parseInt(pageEl.style.height) || 1056;
     const clone = pageEl.cloneNode(true);
-    const stack = clone.querySelector('#stacked-pages-container');
-    if (stack) stack.remove();
     ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
       clone.querySelectorAll(sel).forEach(n => n.remove());
     });
@@ -1640,17 +1415,15 @@ function duplicateSelected() {
   attachElementEvents(c);
   document.getElementById('page').appendChild(c);
   selectElement(c);
-  persistAllPagesAutoSave();
 }
 
-function bringToFront() { if (selectedEl) { saveState(); selectedEl.style.zIndex = 50; persistAllPagesAutoSave(); } }
-function sendToBack() { if (selectedEl) { saveState(); selectedEl.style.zIndex = 5; persistAllPagesAutoSave(); } }
+function bringToFront() { if (selectedEl) { saveState(); selectedEl.style.zIndex = 50; } }
+function sendToBack() { if (selectedEl) { saveState(); selectedEl.style.zIndex = 5; } }
 function bringForward() {
   if (selectedEl) {
     saveState();
     const cur = parseInt(selectedEl.style.zIndex) || 10;
     selectedEl.style.zIndex = Math.min(80, cur + 1);
-    persistAllPagesAutoSave();
   }
 }
 function sendBackward() {
@@ -1658,10 +1431,9 @@ function sendBackward() {
     saveState();
     const cur = parseInt(selectedEl.style.zIndex) || 10;
     selectedEl.style.zIndex = Math.max(3, cur - 1);
-    persistAllPagesAutoSave();
   }
 }
-function deleteSelected() { if (selectedEl) { saveState(); selectedEl.remove(); selectedEl = null; persistAllPagesAutoSave(); } }
+function deleteSelected() { if (selectedEl) { saveState(); selectedEl.remove(); selectedEl = null; } }
 
 function insertPageNumberBox() {
   const label = (activePageId === 'M') ? '#' : String(activePageId);
@@ -1672,7 +1444,6 @@ function insertPageNumberBox() {
   c.style.textAlign = 'center';
   c.innerText = label;
   el.appendChild(c);
-  persistAllPagesAutoSave();
 }
 
 function findAndReplaceText() {
@@ -1684,5 +1455,4 @@ function findAndReplaceText() {
   document.querySelectorAll('.text-content').forEach(tc => {
     tc.innerHTML = tc.innerHTML.split(findVal).join(repVal);
   });
-  persistAllPagesAutoSave();
 }
