@@ -4,16 +4,7 @@ const ACTIVE_DOC_STORAGE_KEY = 'pm_active_doc_v1';
 const IDB_NAME = 'PageMakerDTP_DB';
 const IDB_STORE = 'store';
 
-const JSONBIN_BIN_ID = '6b0907173957a11c13b5e85d';
-const JSONBIN_MASTER_KEY = '$2a$10$WS8gsXLYxq4YKMARH79PouG08rREafo9OlEyALVhnr3aBNAeEMsR.';
-
-let lastCloudStatusMsg = 'Cloud ready';
-
 function showQuickToast(msg) {
-  lastCloudStatusMsg = msg;
-  const bar = document.getElementById('cloud-status-bar');
-  if (bar) bar.textContent = msg;
-
   let toast = document.getElementById('pm-quick-toast');
   if (!toast) {
     toast = document.createElement('div');
@@ -26,76 +17,7 @@ function showQuickToast(msg) {
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => {
     toast.style.display = 'none';
-  }, 3000);
-}
-
-function isCloudSyncConfigured() {
-  return typeof JSONBIN_BIN_ID === 'string'
-    && JSONBIN_BIN_ID.trim().length > 5
-    && typeof JSONBIN_MASTER_KEY === 'string'
-    && JSONBIN_MASTER_KEY.trim().length > 5;
-}
-
-function getCloudBinUrl() {
-  return `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID.trim()}`;
-}
-
-async function fetchFilesFromCloud() {
-  if (!isCloudSyncConfigured()) {
-    lastCloudStatusMsg = 'Cloud Error: Bin ID / Key missing';
-    return [];
-  }
-  try {
-    const res = await fetch(`${getCloudBinUrl()}/latest?v=${Date.now()}`, {
-      method: 'GET',
-      cache: 'no-store',
-      headers: {
-        'X-Master-Key': JSONBIN_MASTER_KEY.trim()
-      }
-    });
-    if (!res.ok) {
-      lastCloudStatusMsg = `Cloud Read Error (${res.status})`;
-      return [];
-    }
-    const json = await res.json();
-    const rec = json && json.record ? json.record : null;
-    lastCloudStatusMsg = 'Cloud Read OK';
-    if (Array.isArray(rec)) return rec.filter(Boolean);
-    if (rec && Array.isArray(rec.files)) return rec.files.filter(Boolean);
-    return [];
-  } catch (err) {
-    lastCloudStatusMsg = `Cloud Network Error: ${err.message || err}`;
-    return [];
-  }
-}
-
-async function syncAllFilesToCloud(list) {
-  if (!isCloudSyncConfigured()) {
-    showQuickToast('Cloud Error: Bin ID / Key missing');
-    return false;
-  }
-  try {
-    const cleanList = (Array.isArray(list) ? list : []).map((item, idx) =>
-      Object.assign({}, item, { no: idx + 1 })
-    );
-    const res = await fetch(getCloudBinUrl(), {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_MASTER_KEY.trim()
-      },
-      body: JSON.stringify({ files: cleanList })
-    });
-    if (!res.ok) {
-      showQuickToast(`Cloud Save Error (${res.status})`);
-      return false;
-    }
-    showQuickToast(`Cloud OK (${cleanList.length} files saved)`);
-    return true;
-  } catch (err) {
-    showQuickToast(`Cloud Save Failed: ${err.message || err}`);
-    return false;
-  }
+  }, 2200);
 }
 
 function openIDB() {
@@ -375,19 +297,15 @@ function parseFilesListSafe(raw) {
   }
 }
 
-function mergeFileLists(lsList, idbList, cloudList = []) {
+function mergeFileLists(lsList, idbList) {
   const map = new Map();
-  [...cloudList, ...idbList, ...lsList].forEach((item, i) => {
+  [...idbList, ...lsList].forEach((item, i) => {
     if (item && item.id) {
       const prev = map.get(item.id);
       map.set(item.id, Object.assign({ no: i + 1 }, prev || {}, item));
     }
   });
-  return Array.from(map.values()).sort((a, b) => {
-    const ta = parseInt((a.id || '').split('_')[1] || 0);
-    const tb = parseInt((b.id || '').split('_')[1] || 0);
-    return ta - tb;
-  }).map((item, i) => Object.assign({}, item, { no: i + 1 }));
+  return Array.from(map.values()).map((item, i) => Object.assign({}, item, { no: i + 1 }));
 }
 
 function getSavedFilesFromStorage() {
@@ -399,14 +317,11 @@ function getSavedFilesFromStorage() {
   }
 }
 
-async function saveSavedFilesList(list, pushCloud = true) {
+async function saveSavedFilesList(list) {
   try {
     const serialized = JSON.stringify(list);
     try { localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized); } catch (e) {}
     await writeToIDB(SAVED_FILES_STORAGE_KEY, serialized);
-    if (pushCloud && isCloudSyncConfigured()) {
-      await syncAllFilesToCloud(list);
-    }
   } catch (err) {}
 }
 
@@ -415,11 +330,9 @@ async function hydrateSavedFilesOnLoad() {
     const lsList = getSavedFilesFromStorage();
     const idbRaw = await readFromIDB(SAVED_FILES_STORAGE_KEY);
     const idbList = parseFilesListSafe(idbRaw);
-    const cloudList = await fetchFilesFromCloud();
-
-    const merged = mergeFileLists(lsList, idbList, cloudList);
+    const merged = mergeFileLists(lsList, idbList);
     if (merged.length) {
-      await saveSavedFilesList(merged, false);
+      await saveSavedFilesList(merged);
     }
     renderSavedFilesDrawerList();
   } catch (e) {
@@ -439,9 +352,7 @@ async function persistSnapshotToStorage() {
     clonedPages[pNo] = { html: d.html || '', width: d.width || w, height: d.height || h };
   });
 
-  const cloud = await fetchFilesFromCloud();
-  const existing = mergeFileLists(getSavedFilesFromStorage(), [], cloud);
-
+  const existing = getSavedFilesFromStorage();
   const fileNo = existing.length + 1;
   const nowStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
@@ -455,7 +366,7 @@ async function persistSnapshotToStorage() {
   };
 
   existing.push(record);
-  await saveSavedFilesList(existing, true);
+  await saveSavedFilesList(existing);
   renderSavedFilesDrawerList();
   return record;
 }
@@ -476,7 +387,7 @@ async function renameStoredFileById(fileId) {
   }
 
   found.title = trimmed;
-  await saveSavedFilesList(files, true);
+  await saveSavedFilesList(files);
   renderSavedFilesDrawerList();
   showQuickToast('फाईलचे नाव बदलले.');
 }
@@ -490,7 +401,7 @@ async function deleteStoredFileById(fileId) {
   if (!confirm(`"${label}" ही फाईल डिलिट करायची का?`)) return;
 
   const updated = files.filter(f => f.id !== fileId);
-  await saveSavedFilesList(updated, true);
+  await saveSavedFilesList(updated);
   renderSavedFilesDrawerList();
   showQuickToast('फाईल डिलिट झाली.');
 }
@@ -509,49 +420,12 @@ function renderSavedFilesDrawerList() {
   container.style.webkitOverflowScrolling = 'touch';
 
   const files = getSavedFilesFromStorage();
-
-  let topBar = document.getElementById('saved-files-cloud-toolbar');
-  if (!topBar) {
-    topBar = document.createElement('div');
-    topBar.id = 'saved-files-cloud-toolbar';
-    topBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:6px;background:#c0bcb4;padding:4px 6px;border:1px solid #808080;flex-shrink:0;';
-
-    const statusSpan = document.createElement('span');
-    statusSpan.id = 'cloud-status-bar';
-    statusSpan.style.cssText = 'font-size:10px;color:#000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-    statusSpan.textContent = lastCloudStatusMsg;
-
-    const syncBtn = document.createElement('button');
-    syncBtn.type = 'button';
-    syncBtn.className = 'btn';
-    syncBtn.style.cssText = 'padding:3px 8px;font-size:10px;cursor:pointer;flex-shrink:0;';
-    syncBtn.textContent = 'Sync Now';
-    syncBtn.addEventListener('click', async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      statusSpan.textContent = 'Syncing...';
-      await hydrateSavedFilesOnLoad();
-      statusSpan.textContent = lastCloudStatusMsg;
-    });
-
-    topBar.appendChild(statusSpan);
-    topBar.appendChild(syncBtn);
-  } else {
-    const st = topBar.querySelector('#cloud-status-bar');
-    if (st) st.textContent = lastCloudStatusMsg;
-  }
-
-  container.innerHTML = '';
-  container.appendChild(topBar);
-
   if (!files.length) {
-    const emptyDiv = document.createElement('div');
-    emptyDiv.style.cssText = 'padding:8px;color:#000;';
-    emptyDiv.textContent = 'अजून कोणतीही फाईल सेव्ह झालेली नाही.';
-    container.appendChild(emptyDiv);
+    container.innerHTML = '<div style="padding:8px;color:#000;">अजून कोणतीही फाईल सेव्ह झालेली नाही.</div>';
     return;
   }
 
+  container.innerHTML = '';
   files.forEach((f, idx) => {
     const num = f.no || (idx + 1);
     const pCount = Array.isArray(f.pageOrder) ? f.pageOrder.length : 1;
