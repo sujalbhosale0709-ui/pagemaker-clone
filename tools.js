@@ -4,7 +4,7 @@ const ACTIVE_DOC_STORAGE_KEY = 'pm_active_doc_v1';
 const IDB_NAME = 'PageMakerDTP_DB';
 const IDB_STORE = 'store';
 const ANCESTRY_PX_PER_INCH = 96;
-const ANCESTRY_STEP_INCH = 0.1;
+const ANCESTRY_STEP_INCH = 0.01;
 
 function showQuickToast(msg) {
   let toast = document.getElementById('pm-quick-toast');
@@ -664,17 +664,16 @@ function getAncestryLegInch(el) {
 
 function setAncestryLegInch(el, nextInch) {
   if (!el || !isAncestryElement(el)) return;
-  const clampedInch = Math.max(0.1, Math.min(3.0, Number(parseFloat(nextInch).toFixed(2)) || 0.2));
-  const legPx = Math.max(10, Math.round(clampedInch * ANCESTRY_PX_PER_INCH));
+  const clampedInch = Math.max(0.05, Math.min(3.0, Number(parseFloat(nextInch).toFixed(2)) || 0.2));
+  const legPx = Math.max(6, Math.round(clampedInch * ANCESTRY_PX_PER_INCH));
   el.dataset.legHeightPx = String(legPx);
 
-  // वरचे टोक + आडवी रेषा + खालचे टोक यांसाठी पुरेशी उंची ठेवून बॉक्स अपडेट करणे
-  const neededH = Math.max(36, legPx * 2 + 8);
+  const neededH = Math.max(32, legPx * 2 + 8);
   el.style.height = neededH + 'px';
   renderAncestryConnectorShape(el);
   updateControlPaletteInputs();
   saveCurrentActivePageIntoData();
-  showQuickToast(`उंची: ${clampedInch.toFixed(1)}" (वर + खाली सर्व टोके)`);
+  showQuickToast(`उंची: ${clampedInch.toFixed(2)}" (वर + खाली सर्व टोके)`);
 }
 
 function renderAncestryConnectorShape(el) {
@@ -684,12 +683,12 @@ function renderAncestryConnectorShape(el) {
 
   let legPx = parseFloat(el.dataset.legHeightPx);
   if (isNaN(legPx) || legPx <= 0) {
-    legPx = 24;
+    legPx = 20;
     el.dataset.legHeightPx = String(legPx);
   }
-  legPx = Math.max(10, Math.round(legPx));
+  legPx = Math.max(6, Math.round(legPx));
 
-  const ch = Math.max(36, legPx * 2 + 8);
+  const ch = Math.max(32, legPx * 2 + 8);
   if ((parseInt(el.style.height) || 0) !== ch) {
     el.style.height = ch + 'px';
   }
@@ -726,15 +725,12 @@ function renderAncestryConnectorShape(el) {
   const maxDropX = dropCount > 1 ? Math.max(...dropXs) : topX;
 
   let linesSvg = '';
-  // वरचे १ उभे टोक
   linesSvg += `<line x1="${topX}" y1="${topStartY}" x2="${topX}" y2="${barY}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
 
-  // आडवी रेषा
   if (dropCount > 1) {
     linesSvg += `<line x1="${minDropX}" y1="${barY}" x2="${maxDropX}" y2="${barY}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
   }
 
-  // खालील सर्व उभी टोके (वरच्या टोकाइतकीच उंची)
   dropXs.forEach(dx => {
     linesSvg += `<line x1="${dx}" y1="${barY}" x2="${dx}" y2="${bottomEndY}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
   });
@@ -766,7 +762,6 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   const isSel = el.classList.contains('selected');
   if (!isSel) return;
 
-  // वरच्या बारवर कृती बटणे (+ टोक / - टोक / समान अंतर / 0.1" उंची - व + व थेट इंच इनपुट)
   const actionBar = document.createElement('div');
   actionBar.style.cssText = 'position:absolute;top:-32px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:3px;background:#0a246a;padding:2px 5px;border:1px solid #fff;pointer-events:auto;white-space:nowrap;z-index:40;';
 
@@ -819,7 +814,6 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
     showQuickToast('सर्व टोके समान अंतरावर केली.');
   }));
 
-  // 0.1" रेटने उंची कमी (-) व जास्त (+) आणि डायरेक्ट टाईप बॉक्स (इंच)
   const heightLabel = document.createElement('span');
   heightLabel.textContent = 'उंची:';
   heightLabel.style.cssText = 'color:#fff;font-size:10px;font-weight:bold;margin-left:3px;';
@@ -827,12 +821,12 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
 
   const heightInput = document.createElement('input');
   heightInput.type = 'number';
-  heightInput.step = '0.1';
-  heightInput.min = '0.1';
+  heightInput.step = '0.01';
+  heightInput.min = '0.05';
   heightInput.max = '3.0';
-  heightInput.value = getAncestryLegInch(el).toFixed(1);
-  heightInput.title = 'इंचामध्ये थेट उंची टाका (उदा. 0.2, 0.5)';
-  heightInput.style.cssText = 'width:40px;padding:1px 3px;font-size:10px;font-weight:bold;border:1px solid #000;background:#fff;color:#000;';
+  heightInput.value = getAncestryLegInch(el).toFixed(2);
+  heightInput.title = 'इंचामध्ये थेट उंची टाका (उदा. 0.15, 0.25, 0.50)';
+  heightInput.style.cssText = 'width:46px;padding:1px 3px;font-size:10px;font-weight:bold;border:1px solid #000;background:#fff;color:#000;';
   heightInput.addEventListener('pointerdown', (ev) => {
     ev.stopPropagation();
   });
@@ -842,29 +836,28 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
     if (!isNaN(val) && val > 0) {
       setAncestryLegInch(el, val);
     } else {
-      heightInput.value = getAncestryLegInch(el).toFixed(1);
+      heightInput.value = getAncestryLegInch(el).toFixed(2);
     }
   });
 
-  actionBar.appendChild(makeActionBtn('-0.1"', 'सर्व उभ्या टोकांची उंची 0.1" ने कमी करा', () => {
+  actionBar.appendChild(makeActionBtn('-0.01"', 'सर्व उभ्या टोकांची उंची 0.01" ने कमी करा', () => {
     const curInch = getAncestryLegInch(el);
-    const nextInch = Math.max(0.1, Number((curInch - ANCESTRY_STEP_INCH).toFixed(1)));
-    heightInput.value = nextInch.toFixed(1);
+    const nextInch = Math.max(0.05, Number((curInch - ANCESTRY_STEP_INCH).toFixed(2)));
+    heightInput.value = nextInch.toFixed(2);
     setAncestryLegInch(el, nextInch);
   }));
 
   actionBar.appendChild(heightInput);
 
-  actionBar.appendChild(makeActionBtn('+0.1"', 'सर्व उभ्या टोकांची उंची 0.1" ने वाढवा', () => {
+  actionBar.appendChild(makeActionBtn('+0.01"', 'सर्व उभ्या टोकांची उंची 0.01" ने वाढवा', () => {
     const curInch = getAncestryLegInch(el);
-    const nextInch = Math.min(3.0, Number((curInch + ANCESTRY_STEP_INCH).toFixed(1)));
-    heightInput.value = nextInch.toFixed(1);
+    const nextInch = Math.min(3.0, Number((curInch + ANCESTRY_STEP_INCH).toFixed(2)));
+    heightInput.value = nextInch.toFixed(2);
     setAncestryLegInch(el, nextInch);
   }));
 
   uiLayer.appendChild(actionBar);
 
-  // मोठे बोट-फ्रेंडली डावे हँडल (डावीकडे लांबी वाढवणे/कमी करणे)
   const leftHandle = document.createElement('div');
   leftHandle.title = 'डावीकडे ओढून लांबी वाढवा';
   leftHandle.style.cssText = `position:absolute;left:-14px;top:${Math.max(4, barY - 14)}px;width:28px;height:28px;background:#0a246a;color:#fff;border:2px solid #fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;box-shadow:0 1px 4px rgba(0,0,0,0.4);`;
@@ -900,7 +893,6 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   });
   uiLayer.appendChild(leftHandle);
 
-  // मोठे बोट-फ्रेंडली उजवे हँडल (उजवीकडे लांबी वाढवणे/कमी करणे)
   const rightHandle = document.createElement('div');
   rightHandle.title = 'उजवीकडे ओढून लांबी वाढवा';
   rightHandle.style.cssText = `position:absolute;right:-14px;top:${Math.max(4, barY - 14)}px;width:28px;height:28px;background:#0a246a;color:#fff;border:2px solid #fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;box-shadow:0 1px 4px rgba(0,0,0,0.4);`;
@@ -932,7 +924,6 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   });
   uiLayer.appendChild(rightHandle);
 
-  // वरच्या १ टोकाचे हँडल (डावीकडे/उजवीकडे सरकवण्यासाठी)
   const topHandle = document.createElement('div');
   topHandle.title = 'वरचे टोक डावीकडे/उजवीकडे सरकवा';
   topHandle.style.cssText = `position:absolute;left:${topX - 11}px;top:-11px;width:22px;height:22px;background:#8b0000;color:#fff;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;`;
@@ -962,7 +953,6 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   });
   uiLayer.appendChild(topHandle);
 
-  // खालच्या प्रत्येक टोकाचे हँडल (स्वतःच्या जागेवरून डावीकडे/उजवीकडे सरकवता येईल)
   dropXs.forEach((dx, idx) => {
     const dHandle = document.createElement('div');
     dHandle.title = `टोक ${idx + 1} डावीकडे/उजवीकडे सरकवा`;
@@ -1013,8 +1003,8 @@ function pmInsertAncestryTreePrompt(e) {
 
   const { m } = getCurrentPageDims();
   const baseW = Math.max(220, Math.min(520, count * 95));
-  const defaultLegPx = Math.round(0.2 * ANCESTRY_PX_PER_INCH);
-  const baseH = Math.max(36, defaultLegPx * 2 + 8);
+  const defaultLegPx = Math.max(6, Math.round(0.2 * ANCESTRY_PX_PER_INCH));
+  const baseH = Math.max(32, defaultLegPx * 2 + 8);
   const startX = m.left + 20;
   const startY = m.top + 36;
 
