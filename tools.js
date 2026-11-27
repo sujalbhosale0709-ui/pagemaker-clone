@@ -29,12 +29,32 @@ function getCurrentPageDims() {
   return { w, h, m };
 }
 
+function syncActivePageHtmlIntoData() {
+  if (typeof pagesData === 'undefined') return;
+  const pageEl = document.getElementById('page');
+  if (!pageEl) return;
+  const curId = typeof activePageId !== 'undefined' ? activePageId : 1;
+  const { w, h } = getCurrentPageDims();
+
+  const clone = pageEl.cloneNode(true);
+  const stack = clone.querySelector('#stacked-pages-container');
+  if (stack) stack.remove();
+  ['#margin-guide', '#master-layer', '#guides-layer', '.margin-guide', '.guides-layer'].forEach(sel => {
+    clone.querySelectorAll(sel).forEach(n => n.remove());
+  });
+
+  if (!pagesData[curId]) {
+    pagesData[curId] = { html: '', width: w, height: h };
+  }
+  pagesData[curId].html = clone.innerHTML;
+  pagesData[curId].width = w;
+  pagesData[curId].height = h;
+}
+
 function persistAllPagesAutoSave() {
   try {
     if (typeof pagesData === 'undefined') return;
-    if (typeof saveCurrentPageState === 'function') {
-      saveCurrentPageState();
-    }
+    syncActivePageHtmlIntoData();
     const payload = {
       savedAt: Date.now(),
       activePageId: typeof activePageId !== 'undefined' ? activePageId : 1,
@@ -46,7 +66,7 @@ function persistAllPagesAutoSave() {
     };
     localStorage.setItem(AUTO_SAVE_STORAGE_KEY, JSON.stringify(payload));
   } catch (err) {
-    // स्टोरेज त्रुटी दुर्लक्षित करा
+    // स्टोरेज मर्यादा आल्यास शांतपणे दुर्लक्ष करा
   }
 }
 
@@ -157,7 +177,7 @@ function pmActionAddPage(e) {
   }
 
   if (typeof saveState === 'function') saveState();
-  if (typeof saveCurrentPageState === 'function') saveCurrentPageState();
+  syncActivePageHtmlIntoData();
 
   const nextPageNo = normalPages.length + 1;
   const { w, h, m } = getCurrentPageDims();
@@ -200,6 +220,7 @@ function triggerHtmlDownload(fileName, htmlContent) {
 }
 
 function buildViewableDocumentHtml() {
+  syncActivePageHtmlIntoData();
   const { w, h } = getCurrentPageDims();
   const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
   const pageEl = document.getElementById('page');
