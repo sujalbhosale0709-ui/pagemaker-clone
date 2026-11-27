@@ -4,22 +4,6 @@ const ACTIVE_DOC_STORAGE_KEY = 'pm_active_doc_v1';
 const IDB_NAME = 'PageMakerDTP_DB';
 const IDB_STORE = 'store';
 
-function showQuickToast(msg) {
-  let toast = document.getElementById('pm-quick-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'pm-quick-toast';
-    toast.style.cssText = 'position:fixed;top:54px;left:50%;transform:translateX(-50%);background:#0a246a;color:#fff;padding:6px 12px;border:1px solid #fff;z-index:9999;font-size:11px;box-shadow:2px 2px 6px rgba(0,0,0,0.4);max-width:90vw;text-align:center;';
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.style.display = 'block';
-  clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => {
-    toast.style.display = 'none';
-  }, 2200);
-}
-
 function openIDB() {
   return new Promise((resolve) => {
     try {
@@ -39,26 +23,19 @@ function openIDB() {
   });
 }
 
-function writeToIDB(key, value) {
-  return new Promise(async (resolve) => {
-    const db = await openIDB();
-    if (!db) return resolve(false);
-    try {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).put(value, key);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => resolve(false);
-      tx.onabort = () => resolve(false);
-    } catch (e) {
-      resolve(false);
-    }
-  });
+async function writeToIDB(key, value) {
+  const db = await openIDB();
+  if (!db) return;
+  try {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, key);
+  } catch (e) {}
 }
 
-function readFromIDB(key) {
-  return new Promise(async (resolve) => {
-    const db = await openIDB();
-    if (!db) return resolve(null);
+async function readFromIDB(key) {
+  const db = await openIDB();
+  if (!db) return null;
+  return new Promise((resolve) => {
     try {
       const tx = db.transaction(IDB_STORE, 'readonly');
       const req = tx.objectStore(IDB_STORE).get(key);
@@ -68,6 +45,22 @@ function readFromIDB(key) {
       resolve(null);
     }
   });
+}
+
+function showQuickToast(msg) {
+  let toast = document.getElementById('pm-quick-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'pm-quick-toast';
+    toast.style.cssText = 'position:fixed;top:54px;left:50%;transform:translateX(-50%);background:#0a246a;color:#fff;padding:6px 12px;border:1px solid #fff;z-index:9999;font-size:11px;box-shadow:2px 2px 6px rgba(0,0,0,0.4);';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.style.display = 'none';
+  }, 2200);
 }
 
 function getCurrentPageDims() {
@@ -159,12 +152,11 @@ function applyRestoredSessionObject(parsed) {
 async function restoreActiveSessionIfPresent() {
   try {
     let raw = localStorage.getItem(ACTIVE_DOC_STORAGE_KEY);
-    const idbRaw = await readFromIDB(ACTIVE_DOC_STORAGE_KEY);
-    if (!raw && idbRaw) {
-      raw = idbRaw;
-      try { localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, idbRaw); } catch (e) {}
-    } else if (raw && !idbRaw) {
-      await writeToIDB(ACTIVE_DOC_STORAGE_KEY, raw);
+    if (!raw) {
+      raw = await readFromIDB(ACTIVE_DOC_STORAGE_KEY);
+      if (raw) {
+        try { localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, raw); } catch (e) {}
+      }
     }
     if (!raw) return false;
     const parsed = JSON.parse(raw);
@@ -288,51 +280,33 @@ function pmActionSave(e) {
   window.print();
 }
 
-function parseFilesListSafe(raw) {
-  try {
-    const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function mergeFileLists(lsList, idbList) {
-  const map = new Map();
-  [...idbList, ...lsList].forEach((item, i) => {
-    if (item && item.id) {
-      const prev = map.get(item.id);
-      map.set(item.id, Object.assign({ no: i + 1 }, prev || {}, item));
-    }
-  });
-  return Array.from(map.values()).map((item, i) => Object.assign({}, item, { no: i + 1 }));
-}
-
 function getSavedFilesFromStorage() {
   try {
     const raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
-    return parseFilesListSafe(raw);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
   } catch (err) {
     return [];
   }
 }
 
-async function saveSavedFilesList(list) {
+function saveSavedFilesList(list) {
   try {
     const serialized = JSON.stringify(list);
-    try { localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized); } catch (e) {}
-    await writeToIDB(SAVED_FILES_STORAGE_KEY, serialized);
+    localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized);
+    writeToIDB(SAVED_FILES_STORAGE_KEY, serialized);
   } catch (err) {}
 }
 
 async function hydrateSavedFilesOnLoad() {
   try {
-    const lsList = getSavedFilesFromStorage();
-    const idbRaw = await readFromIDB(SAVED_FILES_STORAGE_KEY);
-    const idbList = parseFilesListSafe(idbRaw);
-    const merged = mergeFileLists(lsList, idbList);
-    if (merged.length) {
-      await saveSavedFilesList(merged);
+    let raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
+    if (!raw || raw === '[]') {
+      const idbRaw = await readFromIDB(SAVED_FILES_STORAGE_KEY);
+      if (idbRaw) {
+        raw = idbRaw;
+        try { localStorage.setItem(SAVED_FILES_STORAGE_KEY, idbRaw); } catch (e) {}
+      }
     }
     renderSavedFilesDrawerList();
   } catch (e) {
@@ -340,7 +314,7 @@ async function hydrateSavedFilesOnLoad() {
   }
 }
 
-async function persistSnapshotToStorage() {
+function persistSnapshotToStorage() {
   ensureDocStore();
   saveCurrentActivePageIntoData();
   const normalPages = window.pageOrder.filter(p => p !== 'M');
@@ -366,12 +340,12 @@ async function persistSnapshotToStorage() {
   };
 
   existing.push(record);
-  await saveSavedFilesList(existing);
+  saveSavedFilesList(existing);
   renderSavedFilesDrawerList();
   return record;
 }
 
-async function renameStoredFileById(fileId) {
+function renameStoredFileById(fileId) {
   const files = getSavedFilesFromStorage();
   const found = files.find(f => f.id === fileId);
   if (!found) return;
@@ -387,12 +361,12 @@ async function renameStoredFileById(fileId) {
   }
 
   found.title = trimmed;
-  await saveSavedFilesList(files);
+  saveSavedFilesList(files);
   renderSavedFilesDrawerList();
   showQuickToast('फाईलचे नाव बदलले.');
 }
 
-async function deleteStoredFileById(fileId) {
+function deleteStoredFileById(fileId) {
   const files = getSavedFilesFromStorage();
   const found = files.find(f => f.id === fileId);
   if (!found) return;
@@ -401,7 +375,7 @@ async function deleteStoredFileById(fileId) {
   if (!confirm(`"${label}" ही फाईल डिलिट करायची का?`)) return;
 
   const updated = files.filter(f => f.id !== fileId);
-  await saveSavedFilesList(updated);
+  saveSavedFilesList(updated);
   renderSavedFilesDrawerList();
   showQuickToast('फाईल डिलिट झाली.');
 }
@@ -410,6 +384,7 @@ function renderSavedFilesDrawerList() {
   const container = document.getElementById('saved-files-list');
   if (!container) return;
 
+  /* एकाखाली एक (vertical column) आणि 100-200 फाइल्स सहज वर-खाली स्क्रोल होण्यासाठी स्टाइल */
   container.style.display = 'flex';
   container.style.flexDirection = 'column';
   container.style.flexWrap = 'nowrap';
@@ -479,7 +454,7 @@ function renderSavedFilesDrawerList() {
   });
 }
 
-async function toggleSavedFilesDrawer(e) {
+function toggleSavedFilesDrawer(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -488,7 +463,7 @@ async function toggleSavedFilesDrawer(e) {
   const drawer = document.getElementById('saved-files-drawer');
   if (!drawer) return;
   const isOpen = drawer.style.display === 'block';
-  await hydrateSavedFilesOnLoad();
+  renderSavedFilesDrawerList();
   drawer.style.display = isOpen ? 'none' : 'block';
 }
 
@@ -525,12 +500,12 @@ function openStoredFileById(fileId) {
   showQuickToast(`File ${found.no || ''} ओपन झाली (${orderList.length} पेजेस)`);
 }
 
-async function pmActionNew(e) {
+function pmActionNew(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  const savedRec = await persistSnapshotToStorage();
+  const savedRec = persistSnapshotToStorage();
 
   const { w, h } = getCurrentPageDims();
   window.pageOrder = [1];
@@ -543,11 +518,11 @@ async function pmActionNew(e) {
   showQuickToast(`File ${savedRec.no} सेव्ह झाली · नवीन कोरे पान (Page 1)`);
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   ensureDocStore();
-  await restoreActiveSessionIfPresent();
+  restoreActiveSessionIfPresent();
   refreshPageBarTabs();
-  await hydrateSavedFilesOnLoad();
+  hydrateSavedFilesOnLoad();
 });
 
 document.addEventListener('visibilitychange', () => {
