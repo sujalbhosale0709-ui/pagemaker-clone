@@ -4,6 +4,22 @@ const ACTIVE_DOC_STORAGE_KEY = 'pm_active_doc_v1';
 const IDB_NAME = 'PageMakerDTP_DB';
 const IDB_STORE = 'store';
 
+function showQuickToast(msg) {
+  let toast = document.getElementById('pm-quick-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'pm-quick-toast';
+    toast.style.cssText = 'position:fixed;top:54px;left:50%;transform:translateX(-50%);background:#0a246a;color:#fff;padding:6px 12px;border:1px solid #fff;z-index:9999;font-size:11px;box-shadow:2px 2px 6px rgba(0,0,0,0.4);max-width:90vw;text-align:center;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.style.display = 'none';
+  }, 2200);
+}
+
 function openIDB() {
   return new Promise((resolve) => {
     try {
@@ -23,19 +39,26 @@ function openIDB() {
   });
 }
 
-async function writeToIDB(key, value) {
-  const db = await openIDB();
-  if (!db) return;
-  try {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(value, key);
-  } catch (e) {}
+function writeToIDB(key, value) {
+  return new Promise(async (resolve) => {
+    const db = await openIDB();
+    if (!db) return resolve(false);
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch (e) {
+      resolve(false);
+    }
+  });
 }
 
-async function readFromIDB(key) {
-  const db = await openIDB();
-  if (!db) return null;
-  return new Promise((resolve) => {
+function readFromIDB(key) {
+  return new Promise(async (resolve) => {
+    const db = await openIDB();
+    if (!db) return resolve(null);
     try {
       const tx = db.transaction(IDB_STORE, 'readonly');
       const req = tx.objectStore(IDB_STORE).get(key);
@@ -45,22 +68,6 @@ async function readFromIDB(key) {
       resolve(null);
     }
   });
-}
-
-function showQuickToast(msg) {
-  let toast = document.getElementById('pm-quick-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'pm-quick-toast';
-    toast.style.cssText = 'position:fixed;top:54px;left:50%;transform:translateX(-50%);background:#0a246a;color:#fff;padding:6px 12px;border:1px solid #fff;z-index:9999;font-size:11px;box-shadow:2px 2px 6px rgba(0,0,0,0.4);';
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.style.display = 'block';
-  clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => {
-    toast.style.display = 'none';
-  }, 2200);
 }
 
 function getCurrentPageDims() {
@@ -77,7 +84,7 @@ function getPageElementsOnlyHtml() {
   const pageEl = document.getElementById('page');
   if (!pageEl) return '';
   const clone = pageEl.cloneNode(true);
-  ['#margin-guide', '#master-layer', '#guides-layer', '.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
+  ['#margin-guide', '#master-layer', '#guides-layer', '.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer'].forEach(sel => {
     clone.querySelectorAll(sel).forEach(n => n.remove());
   });
   clone.querySelectorAll('.pm-element').forEach(el => {
@@ -152,11 +159,12 @@ function applyRestoredSessionObject(parsed) {
 async function restoreActiveSessionIfPresent() {
   try {
     let raw = localStorage.getItem(ACTIVE_DOC_STORAGE_KEY);
-    if (!raw) {
-      raw = await readFromIDB(ACTIVE_DOC_STORAGE_KEY);
-      if (raw) {
-        try { localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, raw); } catch (e) {}
-      }
+    const idbRaw = await readFromIDB(ACTIVE_DOC_STORAGE_KEY);
+    if (!raw && idbRaw) {
+      raw = idbRaw;
+      try { localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, idbRaw); } catch (e) {}
+    } else if (raw && !idbRaw) {
+      await writeToIDB(ACTIVE_DOC_STORAGE_KEY, raw);
     }
     if (!raw) return false;
     const parsed = JSON.parse(raw);
@@ -280,33 +288,51 @@ function pmActionSave(e) {
   window.print();
 }
 
+function parseFilesListSafe(raw) {
+  try {
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function mergeFileLists(lsList, idbList) {
+  const map = new Map();
+  [...idbList, ...lsList].forEach((item, i) => {
+    if (item && item.id) {
+      const prev = map.get(item.id);
+      map.set(item.id, Object.assign({ no: i + 1 }, prev || {}, item));
+    }
+  });
+  return Array.from(map.values()).map((item, i) => Object.assign({}, item, { no: i + 1 }));
+}
+
 function getSavedFilesFromStorage() {
   try {
     const raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list : [];
+    return parseFilesListSafe(raw);
   } catch (err) {
     return [];
   }
 }
 
-function saveSavedFilesList(list) {
+async function saveSavedFilesList(list) {
   try {
     const serialized = JSON.stringify(list);
-    localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized);
-    writeToIDB(SAVED_FILES_STORAGE_KEY, serialized);
+    try { localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized); } catch (e) {}
+    await writeToIDB(SAVED_FILES_STORAGE_KEY, serialized);
   } catch (err) {}
 }
 
 async function hydrateSavedFilesOnLoad() {
   try {
-    let raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
-    if (!raw || raw === '[]') {
-      const idbRaw = await readFromIDB(SAVED_FILES_STORAGE_KEY);
-      if (idbRaw) {
-        raw = idbRaw;
-        try { localStorage.setItem(SAVED_FILES_STORAGE_KEY, idbRaw); } catch (e) {}
-      }
+    const lsList = getSavedFilesFromStorage();
+    const idbRaw = await readFromIDB(SAVED_FILES_STORAGE_KEY);
+    const idbList = parseFilesListSafe(idbRaw);
+    const merged = mergeFileLists(lsList, idbList);
+    if (merged.length) {
+      await saveSavedFilesList(merged);
     }
     renderSavedFilesDrawerList();
   } catch (e) {
@@ -314,7 +340,7 @@ async function hydrateSavedFilesOnLoad() {
   }
 }
 
-function persistSnapshotToStorage() {
+async function persistSnapshotToStorage() {
   ensureDocStore();
   saveCurrentActivePageIntoData();
   const normalPages = window.pageOrder.filter(p => p !== 'M');
@@ -340,12 +366,12 @@ function persistSnapshotToStorage() {
   };
 
   existing.push(record);
-  saveSavedFilesList(existing);
+  await saveSavedFilesList(existing);
   renderSavedFilesDrawerList();
   return record;
 }
 
-function renameStoredFileById(fileId) {
+async function renameStoredFileById(fileId) {
   const files = getSavedFilesFromStorage();
   const found = files.find(f => f.id === fileId);
   if (!found) return;
@@ -361,12 +387,12 @@ function renameStoredFileById(fileId) {
   }
 
   found.title = trimmed;
-  saveSavedFilesList(files);
+  await saveSavedFilesList(files);
   renderSavedFilesDrawerList();
   showQuickToast('फाईलचे नाव बदलले.');
 }
 
-function deleteStoredFileById(fileId) {
+async function deleteStoredFileById(fileId) {
   const files = getSavedFilesFromStorage();
   const found = files.find(f => f.id === fileId);
   if (!found) return;
@@ -375,7 +401,7 @@ function deleteStoredFileById(fileId) {
   if (!confirm(`"${label}" ही फाईल डिलिट करायची का?`)) return;
 
   const updated = files.filter(f => f.id !== fileId);
-  saveSavedFilesList(updated);
+  await saveSavedFilesList(updated);
   renderSavedFilesDrawerList();
   showQuickToast('फाईल डिलिट झाली.');
 }
@@ -384,7 +410,6 @@ function renderSavedFilesDrawerList() {
   const container = document.getElementById('saved-files-list');
   if (!container) return;
 
-  /* एकाखाली एक (vertical column) आणि 100-200 फाइल्स सहज वर-खाली स्क्रोल होण्यासाठी स्टाइल */
   container.style.display = 'flex';
   container.style.flexDirection = 'column';
   container.style.flexWrap = 'nowrap';
@@ -454,7 +479,7 @@ function renderSavedFilesDrawerList() {
   });
 }
 
-function toggleSavedFilesDrawer(e) {
+async function toggleSavedFilesDrawer(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -463,7 +488,7 @@ function toggleSavedFilesDrawer(e) {
   const drawer = document.getElementById('saved-files-drawer');
   if (!drawer) return;
   const isOpen = drawer.style.display === 'block';
-  renderSavedFilesDrawerList();
+  await hydrateSavedFilesOnLoad();
   drawer.style.display = isOpen ? 'none' : 'block';
 }
 
@@ -500,12 +525,12 @@ function openStoredFileById(fileId) {
   showQuickToast(`File ${found.no || ''} ओपन झाली (${orderList.length} पेजेस)`);
 }
 
-function pmActionNew(e) {
+async function pmActionNew(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  const savedRec = persistSnapshotToStorage();
+  const savedRec = await persistSnapshotToStorage();
 
   const { w, h } = getCurrentPageDims();
   window.pageOrder = [1];
@@ -518,11 +543,11 @@ function pmActionNew(e) {
   showQuickToast(`File ${savedRec.no} सेव्ह झाली · नवीन कोरे पान (Page 1)`);
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   ensureDocStore();
-  restoreActiveSessionIfPresent();
+  await restoreActiveSessionIfPresent();
   refreshPageBarTabs();
-  hydrateSavedFilesOnLoad();
+  await hydrateSavedFilesOnLoad();
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -606,6 +631,324 @@ function selectTool(tool) {
     tc.contentEditable = 'true';
     tc.style.cursor = (tool === 'text') ? 'text' : 'move';
   });
+}
+
+/* =========================================================
+   वंशावळ कनेक्टर शेप टूल (Ancestry Connector Shape Tool)
+   ========================================================= */
+function computeEqualDropRatios(count) {
+  const n = Math.max(1, parseInt(count) || 1);
+  if (n === 1) return [0.5];
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    arr.push(Number((i / (n - 1)).toFixed(4)));
+  }
+  return arr;
+}
+
+function isAncestryElement(el) {
+  return !!(el && el.dataset && el.dataset.ancestryTree === '1');
+}
+
+function renderAncestryConnectorShape(el) {
+  if (!el || !isAncestryElement(el)) return;
+  const { w, h } = getElementExactSize(el);
+  const cw = Math.max(40, w);
+  const ch = Math.max(24, h);
+  const stroke = el.dataset.strokeColor || (document.getElementById('picker-color') && document.getElementById('picker-color').value) || '#000000';
+  const sw = parseFloat(el.dataset.strokeWidth) || 2;
+  const autoEqual = el.dataset.autoEqual !== '0';
+
+  let ratios = [];
+  try {
+    ratios = JSON.parse(el.dataset.dropRatios || '[]');
+  } catch (e) {
+    ratios = [];
+  }
+  const dropCount = Math.max(1, parseInt(el.dataset.dropCount) || ratios.length || 2);
+  if (autoEqual || !Array.isArray(ratios) || ratios.length !== dropCount) {
+    ratios = computeEqualDropRatios(dropCount);
+    el.dataset.dropRatios = JSON.stringify(ratios);
+  }
+
+  const padX = 10;
+  const usableW = Math.max(20, cw - padX * 2);
+  const topStemH = Math.max(10, Math.round(ch * 0.36));
+  const barY = topStemH;
+  const bottomDropLen = Math.max(10, ch - barY - 2);
+
+  let topRatio = parseFloat(el.dataset.topRatio);
+  if (isNaN(topRatio)) topRatio = 0.5;
+  topRatio = Math.max(0.05, Math.min(0.95, topRatio));
+  const topX = Math.round(padX + usableW * topRatio);
+
+  const dropXs = ratios.map(r => Math.round(padX + usableW * Math.max(0, Math.min(1, parseFloat(r) || 0))));
+  const minDropX = dropCount > 1 ? Math.min(...dropXs) : topX;
+  const maxDropX = dropCount > 1 ? Math.max(...dropXs) : topX;
+
+  let linesSvg = '';
+  // वरचे १ उभे टोक
+  linesSvg += `<line x1="${topX}" y1="1" x2="${topX}" y2="${barY}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
+
+  // आडवी रेषा
+  if (dropCount > 1) {
+    linesSvg += `<line x1="${minDropX}" y1="${barY}" x2="${maxDropX}" y2="${barY}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
+  }
+
+  // खालील सर्व उभी टोके
+  dropXs.forEach(dx => {
+    linesSvg += `<line x1="${dx}" y1="${barY}" x2="${dx}" y2="${barY + bottomDropLen}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="square"/>`;
+  });
+
+  const existingSvg = el.querySelector('.shape-svg');
+  if (existingSvg) existingSvg.remove();
+
+  const svgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svgNode.setAttribute('class', 'shape-svg');
+  svgNode.setAttribute('viewBox', `0 0 ${cw} ${ch}`);
+  svgNode.setAttribute('preserveAspectRatio', 'none');
+  svgNode.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+  svgNode.innerHTML = linesSvg;
+  el.appendChild(svgNode);
+
+  renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropXs);
+}
+
+function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropXs) {
+  let uiLayer = el.querySelector('.anc-ui-layer');
+  if (!uiLayer) {
+    uiLayer = document.createElement('div');
+    uiLayer.className = 'anc-ui-layer';
+    uiLayer.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:25;';
+    el.appendChild(uiLayer);
+  }
+  uiLayer.innerHTML = '';
+
+  const isSel = el.classList.contains('selected');
+  if (!isSel) return;
+
+  // वरच्या बारवर लहान कृती बटणे (+ टोक / - टोक / समान अंतर)
+  const actionBar = document.createElement('div');
+  actionBar.style.cssText = 'position:absolute;top:-28px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;background:#0a246a;padding:2px 5px;border:1px solid #fff;pointer-events:auto;white-space:nowrap;z-index:40;';
+
+  const makeActionBtn = (label, titleText, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.title = titleText;
+    b.style.cssText = 'background:#ffffff;color:#000000;border:1px solid #000;padding:2px 6px;font-size:11px;font-weight:bold;cursor:pointer;touch-action:manipulation;';
+    b.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      fn();
+    });
+    return b;
+  };
+
+  actionBar.appendChild(makeActionBtn('+ टोक', 'खाली नवीन टोक जोडा', () => {
+    const curCount = Math.max(1, parseInt(el.dataset.dropCount) || 2);
+    const nextCount = curCount + 1;
+    el.dataset.dropCount = String(nextCount);
+    el.dataset.autoEqual = '1';
+    el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(nextCount));
+    renderAncestryConnectorShape(el);
+    saveCurrentActivePageIntoData();
+    showQuickToast(`खाली ${nextCount} टोके (समान अंतरावर)`);
+  }));
+
+  actionBar.appendChild(makeActionBtn('- टोक', 'शेवटचे टोक काढून टाका', () => {
+    const curCount = Math.max(1, parseInt(el.dataset.dropCount) || 2);
+    if (curCount <= 1) {
+      showQuickToast('किमान १ टोक आवश्यक आहे.');
+      return;
+    }
+    const nextCount = curCount - 1;
+    el.dataset.dropCount = String(nextCount);
+    el.dataset.autoEqual = '1';
+    el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(nextCount));
+    renderAncestryConnectorShape(el);
+    saveCurrentActivePageIntoData();
+    showQuickToast(`खाली ${nextCount} टोके (समान अंतरावर)`);
+  }));
+
+  actionBar.appendChild(makeActionBtn('समान अंतर', 'सर्व खालची टोके समान अंतरावर करा', () => {
+    const curCount = Math.max(1, parseInt(el.dataset.dropCount) || 2);
+    el.dataset.autoEqual = '1';
+    el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(curCount));
+    renderAncestryConnectorShape(el);
+    saveCurrentActivePageIntoData();
+    showQuickToast('सर्व टोके समान अंतरावर केली.');
+  }));
+
+  uiLayer.appendChild(actionBar);
+
+  // मोठे बोट-फ्रेंडली डावे हँडल (डावीकडे लांबी वाढवणे/कमी करणे)
+  const leftHandle = document.createElement('div');
+  leftHandle.title = 'डावीकडे ओढून लांबी वाढवा';
+  leftHandle.style.cssText = `position:absolute;left:-14px;top:${Math.max(4, barY - 14)}px;width:28px;height:28px;background:#0a246a;color:#fff;border:2px solid #fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;box-shadow:0 1px 4px rgba(0,0,0,0.4);`;
+  leftHandle.textContent = '◄';
+  leftHandle.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    selectElement(el);
+    const startX = ev.clientX;
+    const origLeft = parseInt(el.style.left) || 0;
+    const origW = getElementExactSize(el).w;
+    const rightEdge = origLeft + origW;
+
+    function onMove(mEv) {
+      mEv.preventDefault();
+      const dx = (mEv.clientX - startX) / zoomLevel;
+      const nextLeft = Math.min(rightEdge - 60, Math.round(origLeft + dx));
+      const nextW = Math.max(60, rightEdge - nextLeft);
+      el.style.left = nextLeft + 'px';
+      el.style.width = nextW + 'px';
+      renderAncestryConnectorShape(el);
+      updateControlPaletteInputs();
+    }
+    function onUp() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      saveCurrentActivePageIntoData();
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  });
+  uiLayer.appendChild(leftHandle);
+
+  // मोठे बोट-फ्रेंडली उजवे हँडल (उजवीकडे लांबी वाढवणे/कमी करणे)
+  const rightHandle = document.createElement('div');
+  rightHandle.title = 'उजवीकडे ओढून लांबी वाढवा';
+  rightHandle.style.cssText = `position:absolute;right:-14px;top:${Math.max(4, barY - 14)}px;width:28px;height:28px;background:#0a246a;color:#fff;border:2px solid #fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;box-shadow:0 1px 4px rgba(0,0,0,0.4);`;
+  rightHandle.textContent = '►';
+  rightHandle.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    selectElement(el);
+    const startX = ev.clientX;
+    const origW = getElementExactSize(el).w;
+
+    function onMove(mEv) {
+      mEv.preventDefault();
+      const dx = (mEv.clientX - startX) / zoomLevel;
+      const nextW = Math.max(60, Math.round(origW + dx));
+      el.style.width = nextW + 'px';
+      renderAncestryConnectorShape(el);
+      updateControlPaletteInputs();
+    }
+    function onUp() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      saveCurrentActivePageIntoData();
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  });
+  uiLayer.appendChild(rightHandle);
+
+  // वरच्या १ टोकाचे हँडल (डावीकडे/उजवीकडे सरकवण्यासाठी)
+  const topHandle = document.createElement('div');
+  topHandle.title = 'वरचे टोक डावीकडे/उजवीकडे सरकवा';
+  topHandle.style.cssText = `position:absolute;left:${topX - 11}px;top:-11px;width:22px;height:22px;background:#8b0000;color:#fff;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;`;
+  topHandle.textContent = '●';
+  topHandle.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    selectElement(el);
+
+    function onMove(mEv) {
+      mEv.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const localX = (mEv.clientX - rect.left) / zoomLevel;
+      const ratio = Math.max(0.05, Math.min(0.95, (localX - padX) / usableW));
+      el.dataset.topRatio = ratio.toFixed(4);
+      renderAncestryConnectorShape(el);
+    }
+    function onUp() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      saveCurrentActivePageIntoData();
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  });
+  uiLayer.appendChild(topHandle);
+
+  // खालच्या प्रत्येक टोकाचे हँडल (स्वतःच्या जागेवरून डावीकडे/उजवीकडे सरकवता येईल)
+  dropXs.forEach((dx, idx) => {
+    const dHandle = document.createElement('div');
+    dHandle.title = `टोक ${idx + 1} डावीकडे/उजवीकडे सरकवा`;
+    dHandle.style.cssText = `position:absolute;left:${dx - 11}px;bottom:-11px;width:22px;height:22px;background:#006400;color:#fff;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;`;
+    dHandle.textContent = String(idx + 1);
+    dHandle.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      selectElement(el);
+
+      function onMove(mEv) {
+        mEv.preventDefault();
+        const rect = el.getBoundingClientRect();
+        const localX = (mEv.clientX - rect.left) / zoomLevel;
+        const ratio = Math.max(0, Math.min(1, (localX - padX) / usableW));
+        let curRatios = [];
+        try { curRatios = JSON.parse(el.dataset.dropRatios || '[]'); } catch (e) { curRatios = []; }
+        if (!Array.isArray(curRatios) || curRatios.length !== dropXs.length) {
+          curRatios = computeEqualDropRatios(dropXs.length);
+        }
+        curRatios[idx] = Number(ratio.toFixed(4));
+        el.dataset.autoEqual = '0';
+        el.dataset.dropRatios = JSON.stringify(curRatios);
+        renderAncestryConnectorShape(el);
+      }
+      function onUp() {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        saveCurrentActivePageIntoData();
+      }
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    });
+    uiLayer.appendChild(dHandle);
+  });
+}
+
+function pmInsertAncestryTreePrompt(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  const ans = prompt('वरती १ टोक राहील — खाली किती टोके पाहिजेत? (उदा. 1, 2, 3, 4, 5)', '3');
+  if (ans === null) return;
+  const count = Math.max(1, Math.min(20, parseInt(ans) || 2));
+
+  const { m } = getCurrentPageDims();
+  const baseW = Math.max(220, Math.min(520, count * 95));
+  const baseH = 72;
+  const startX = m.left + 20;
+  const startY = m.top + 30;
+
+  const el = createPMElement(startX, startY, baseW, baseH);
+  el.dataset.ancestryTree = '1';
+  el.dataset.dropCount = String(count);
+  el.dataset.autoEqual = '1';
+  el.dataset.topRatio = '0.5';
+  el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(count));
+  el.dataset.strokeColor = (document.getElementById('picker-color') && document.getElementById('picker-color').value) || '#000000';
+  el.dataset.strokeWidth = '2';
+
+  renderAncestryConnectorShape(el);
+  selectElement(el);
+  selectTool('pointer');
+  saveCurrentActivePageIntoData();
+  showQuickToast(`वंशावळ शेप तयार: वर १ · खाली ${count} टोके (समान अंतरावर)`);
 }
 
 function getMagnetTargets(axis) {
@@ -900,6 +1243,7 @@ function attachElementEvents(el) {
   el.onpointerdown = (e) => {
     if (currentTool === 'hand' || currentTool === 'zoom') return;
     if (e.target.classList.contains('handle') || e.target.classList.contains('overflow-badge')) return;
+    if (e.target.closest && e.target.closest('.anc-ui-layer')) return;
     if (e.target.classList && e.target.classList.contains('text-content')) return;
 
     e.preventDefault();
@@ -912,6 +1256,9 @@ function attachElementEvents(el) {
     }
   };
 
+  if (isAncestryElement(el)) {
+    renderAncestryConnectorShape(el);
+  }
   checkTextOverflow(el);
 }
 
@@ -939,6 +1286,10 @@ function createPMElement(x, y, w, h) {
 }
 
 function populateShapeInner(el, type, w, h) {
+  if (isAncestryElement(el)) {
+    renderAncestryConnectorShape(el);
+    return;
+  }
   const stroke = document.getElementById('picker-color').value || '#000000';
   let svgInner = '';
   let isFrame = false;
@@ -1227,6 +1578,9 @@ function initResize(e, el, dir) {
       el.style.top = ((oy + oh) - newH) + 'px';
       el.style.height = newH + 'px';
     }
+    if (isAncestryElement(el)) {
+      renderAncestryConnectorShape(el);
+    }
     checkTextOverflow(el);
     updateControlPaletteInputs();
   }
@@ -1242,10 +1596,14 @@ function initResize(e, el, dir) {
 }
 
 function selectElement(el) {
-  document.querySelectorAll('#page > .pm-element').forEach(i => i.classList.remove('selected', 'crop-mode'));
+  document.querySelectorAll('#page > .pm-element').forEach(i => {
+    i.classList.remove('selected', 'crop-mode');
+    if (isAncestryElement(i)) renderAncestryConnectorShape(i);
+  });
   el.classList.add('selected');
   if (currentTool === 'crop') el.classList.add('crop-mode');
   selectedEl = el;
+  if (isAncestryElement(el)) renderAncestryConnectorShape(el);
   updateControlPaletteInputs();
 }
 
@@ -1256,7 +1614,10 @@ function selectAllOnPage() {
 }
 
 function deselectAllElements() {
-  document.querySelectorAll('#page > .pm-element').forEach(i => i.classList.remove('selected', 'crop-mode'));
+  document.querySelectorAll('#page > .pm-element').forEach(i => {
+    i.classList.remove('selected', 'crop-mode');
+    if (isAncestryElement(i)) renderAncestryConnectorShape(i);
+  });
   selectedEl = null;
 }
 
@@ -1340,6 +1701,7 @@ function updateBoxGeometry() {
   selectedEl.style.top = (parseInt(document.getElementById('pos-y').value) || 0) + 'px';
   selectedEl.style.width = (parseInt(document.getElementById('box-w').value) || 10) + 'px';
   selectedEl.style.height = (parseInt(document.getElementById('box-h').value) || 10) + 'px';
+  if (isAncestryElement(selectedEl)) renderAncestryConnectorShape(selectedEl);
   checkTextOverflow(selectedEl);
   saveCurrentActivePageIntoData();
 }
@@ -1458,6 +1820,10 @@ function applyColor(c) {
   if (!selectedEl) return;
   const tc = selectedEl.querySelector('.text-content');
   if (tc) tc.style.color = c;
+  if (isAncestryElement(selectedEl)) {
+    selectedEl.dataset.strokeColor = c;
+    renderAncestryConnectorShape(selectedEl);
+  }
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke', c));
   saveCurrentActivePageIntoData();
 }
@@ -1481,6 +1847,11 @@ function applyFillStrokePrompt() {
   const strokeW = prompt('Stroke Width (pt/px मध्ये, उदा. 1, 2, 4):', '2');
   if (strokeW === null) return;
 
+  if (isAncestryElement(selectedEl)) {
+    selectedEl.dataset.strokeColor = strokeCol.trim() || '#000000';
+    selectedEl.dataset.strokeWidth = String(parseFloat(strokeW) || 2);
+    renderAncestryConnectorShape(selectedEl);
+  }
   selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => {
     s.setAttribute('fill', fillCol.trim() || 'none');
     s.setAttribute('stroke', strokeCol.trim() || '#000000');
@@ -1495,6 +1866,10 @@ function applyFillStrokePrompt() {
 
 function changeStrokeWidth(w) {
   if (!selectedEl) return;
+  if (isAncestryElement(selectedEl)) {
+    selectedEl.dataset.strokeWidth = String(parseFloat(w) || 2);
+    renderAncestryConnectorShape(selectedEl);
+  }
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke-width', w));
   saveCurrentActivePageIntoData();
 }
@@ -1583,7 +1958,7 @@ function exportPageAsPNG() {
     const w = parseInt(pageEl.style.width) || 816;
     const h = parseInt(pageEl.style.height) || 1056;
     const clone = pageEl.cloneNode(true);
-    ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
+    ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer'].forEach(sel => {
       clone.querySelectorAll(sel).forEach(n => n.remove());
     });
     clone.querySelectorAll('.pm-element').forEach(el => {
