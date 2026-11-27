@@ -86,7 +86,7 @@ function getPageElementsOnlyHtml() {
   const pageEl = document.getElementById('page');
   if (!pageEl) return '';
   const clone = pageEl.cloneNode(true);
-  ['#margin-guide', '#master-layer', '#guides-layer', '.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer'].forEach(sel => {
+  ['#margin-guide', '#master-layer', '#guides-layer', '.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer', '.anc-floating-bar'].forEach(sel => {
     clone.querySelectorAll(sel).forEach(n => n.remove());
   });
   clone.querySelectorAll('.pm-element').forEach(el => {
@@ -201,6 +201,7 @@ function renderPageElementsIntoCanvas(htmlStr) {
     });
   }
   selectedEl = null;
+  removeAncestryFloatingBar();
 }
 
 function refreshPageBarTabs() {
@@ -679,6 +680,185 @@ function setAncestryLegInch(el, nextInch) {
   showQuickToast(`उंची: ${clampedInch.toFixed(2)}" (वर + खाली सर्व टोके)`);
 }
 
+function removeAncestryFloatingBar() {
+  const existing = document.getElementById('anc-floating-action-bar');
+  if (existing) existing.remove();
+}
+
+function syncAncestryFloatingBar(el) {
+  const bar = document.getElementById('anc-floating-action-bar');
+  if (!bar || !el || !el.isConnected || !isAncestryElement(el)) return;
+  const pageEl = document.getElementById('page');
+  if (!pageEl) return;
+
+  const customLeft = parseFloat(bar.dataset.customLeft);
+  const customTop = parseFloat(bar.dataset.customTop);
+
+  if (!isNaN(customLeft) && !isNaN(customTop)) {
+    bar.style.left = customLeft + 'px';
+    bar.style.top = customTop + 'px';
+  } else {
+    const elLeft = parseInt(el.style.left) || 0;
+    const elTop = parseInt(el.style.top) || 0;
+    const { w } = getElementExactSize(el);
+    const barW = bar.offsetWidth || 290;
+    const centerLeft = Math.max(6, Math.round(elLeft + w / 2 - barW / 2));
+    const fixedTop = Math.max(6, elTop - 64);
+    bar.style.left = centerLeft + 'px';
+    bar.style.top = fixedTop + 'px';
+  }
+
+  const hInput = bar.querySelector('input[type="number"]');
+  if (hInput && document.activeElement !== hInput) {
+    hInput.value = getAncestryLegInch(el).toFixed(2);
+  }
+}
+
+function renderAncestryFloatingBar(el) {
+  removeAncestryFloatingBar();
+  if (!el || !isAncestryElement(el) || !el.classList.contains('selected')) return;
+  const pageEl = document.getElementById('page');
+  if (!pageEl) return;
+
+  const actionBar = document.createElement('div');
+  actionBar.id = 'anc-floating-action-bar';
+  actionBar.className = 'anc-floating-bar';
+  actionBar.style.cssText = 'position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:3px;background:#0a246a;padding:2px 5px;border:1px solid #fff;white-space:nowrap;z-index:60;box-shadow:1px 2px 5px rgba(0,0,0,0.35);';
+
+  const dragGrip = document.createElement('span');
+  dragGrip.textContent = '⠿';
+  dragGrip.title = 'पट्टी वरच्या कडीला किंवा हव्या तिथे सरकवा';
+  dragGrip.style.cssText = 'color:#ffe4b5;font-size:12px;font-weight:bold;cursor:move;padding:0 3px;touch-action:none;user-select:none;';
+  dragGrip.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const startX = ev.clientX;
+    const startY = ev.clientY;
+    const origLeft = parseFloat(actionBar.style.left) || 0;
+    const origTop = parseFloat(actionBar.style.top) || 0;
+
+    function onMove(mEv) {
+      mEv.preventDefault();
+      const dx = (mEv.clientX - startX) / zoomLevel;
+      const dy = (mEv.clientY - startY) / zoomLevel;
+      const nextL = Math.max(4, Math.round(origLeft + dx));
+      const nextT = Math.max(4, Math.round(origTop + dy));
+      actionBar.dataset.customLeft = String(nextL);
+      actionBar.dataset.customTop = String(nextT);
+      actionBar.style.left = nextL + 'px';
+      actionBar.style.top = nextT + 'px';
+    }
+    function onUp() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  });
+  actionBar.appendChild(dragGrip);
+
+  const makeActionBtn = (label, titleText, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.title = titleText;
+    b.style.cssText = 'background:#ffffff;color:#000000;border:1px solid #000;padding:2px 5px;font-size:10px;font-weight:bold;cursor:pointer;touch-action:manipulation;';
+    b.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      fn();
+    });
+    return b;
+  };
+
+  actionBar.appendChild(makeActionBtn('+ टोक', 'खाली नवीन टोक जोडा', () => {
+    const curCount = Math.max(1, parseInt(el.dataset.dropCount) || 2);
+    const nextCount = curCount + 1;
+    el.dataset.dropCount = String(nextCount);
+    el.dataset.autoEqual = '1';
+    el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(nextCount));
+    renderAncestryConnectorShape(el);
+    saveCurrentActivePageIntoData();
+    showQuickToast(`खाली ${nextCount} टोके (समान अंतरावर)`);
+  }));
+
+  actionBar.appendChild(makeActionBtn('- टोक', 'शेवटचे टोक काढून टाका', () => {
+    const curCount = Math.max(1, parseInt(el.dataset.dropCount) || 2);
+    if (curCount <= 1) {
+      showQuickToast('किमान १ टोक आवश्यक आहे.');
+      return;
+    }
+    const nextCount = curCount - 1;
+    el.dataset.dropCount = String(nextCount);
+    el.dataset.autoEqual = '1';
+    el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(nextCount));
+    renderAncestryConnectorShape(el);
+    saveCurrentActivePageIntoData();
+    showQuickToast(`खाली ${nextCount} टोके (समान अंतरावर)`);
+  }));
+
+  actionBar.appendChild(makeActionBtn('समान अंतर', 'सर्व खालची टोके समान अंतरावर करा', () => {
+    const curCount = Math.max(1, parseInt(el.dataset.dropCount) || 2);
+    el.dataset.autoEqual = '1';
+    el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(curCount));
+    renderAncestryConnectorShape(el);
+    saveCurrentActivePageIntoData();
+    showQuickToast('सर्व टोके समान अंतरावर केली.');
+  }));
+
+  const heightLabel = document.createElement('span');
+  heightLabel.textContent = 'उंची:';
+  heightLabel.style.cssText = 'color:#fff;font-size:10px;font-weight:bold;margin-left:3px;';
+  actionBar.appendChild(heightLabel);
+
+  const heightInput = document.createElement('input');
+  heightInput.type = 'number';
+  heightInput.step = '0.01';
+  heightInput.min = '0.01';
+  heightInput.max = '3.0';
+  heightInput.value = getAncestryLegInch(el).toFixed(2);
+  heightInput.title = 'इंचामध्ये थेट उंची टाका (उदा. 0.01, 0.05, 0.20)';
+  heightInput.style.cssText = 'width:46px;padding:1px 3px;font-size:10px;font-weight:bold;border:1px solid #000;background:#fff;color:#000;';
+  const applyHeightInputVal = (ev) => {
+    ev.stopPropagation();
+    const raw = heightInput.value;
+    if (raw === '' || raw === '.' || raw === '0.') return;
+    const val = parseFloat(raw);
+    if (!isNaN(val) && val > 0) {
+      setAncestryLegInch(el, val);
+    }
+  };
+  heightInput.addEventListener('pointerdown', (ev) => {
+    ev.stopPropagation();
+  });
+  heightInput.addEventListener('input', applyHeightInputVal);
+  heightInput.addEventListener('change', (ev) => {
+    applyHeightInputVal(ev);
+    heightInput.value = getAncestryLegInch(el).toFixed(2);
+  });
+
+  actionBar.appendChild(makeActionBtn('-0.01"', 'सर्व उभ्या टोकांची उंची 0.01" ने कमी करा', () => {
+    const curInch = getAncestryLegInch(el);
+    const nextInch = Math.max(0.01, Number((curInch - ANCESTRY_STEP_INCH).toFixed(2)));
+    heightInput.value = nextInch.toFixed(2);
+    setAncestryLegInch(el, nextInch);
+  }));
+
+  actionBar.appendChild(heightInput);
+
+  actionBar.appendChild(makeActionBtn('+0.01"', 'सर्व उभ्या टोकांची उंची 0.01" ने वाढवा', () => {
+    const curInch = getAncestryLegInch(el);
+    const nextInch = Math.min(3.0, Number((curInch + ANCESTRY_STEP_INCH).toFixed(2)));
+    heightInput.value = nextInch.toFixed(2);
+    setAncestryLegInch(el, nextInch);
+  }));
+
+  pageEl.appendChild(actionBar);
+  syncAncestryFloatingBar(el);
+}
+
 function spawnBorderlessNameAt(x, y, defaultLabel = 'नाव') {
   const boxW = 140;
   const boxH = 32;
@@ -803,6 +983,13 @@ function renderAncestryConnectorShape(el) {
   el.appendChild(svgNode);
 
   renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropXs);
+  if (el.classList.contains('selected')) {
+    if (!document.getElementById('anc-floating-action-bar')) {
+      renderAncestryFloatingBar(el);
+    } else {
+      syncAncestryFloatingBar(el);
+    }
+  }
 }
 
 function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropXs) {
@@ -817,107 +1004,6 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
 
   const isSel = el.classList.contains('selected');
   if (!isSel) return;
-
-  const actionBar = document.createElement('div');
-  actionBar.style.cssText = 'position:absolute;top:-32px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:3px;background:#0a246a;padding:2px 5px;border:1px solid #fff;pointer-events:auto;white-space:nowrap;z-index:40;';
-
-  const makeActionBtn = (label, titleText, fn) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = label;
-    b.title = titleText;
-    b.style.cssText = 'background:#ffffff;color:#000000;border:1px solid #000;padding:2px 5px;font-size:10px;font-weight:bold;cursor:pointer;touch-action:manipulation;';
-    b.addEventListener('pointerdown', (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      fn();
-    });
-    return b;
-  };
-
-  actionBar.appendChild(makeActionBtn('+ टोक', 'खाली नवीन टोक जोडा', () => {
-    const curCount = Math.max(1, parseInt(el.dataset.dropCount) || 2);
-    const nextCount = curCount + 1;
-    el.dataset.dropCount = String(nextCount);
-    el.dataset.autoEqual = '1';
-    el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(nextCount));
-    renderAncestryConnectorShape(el);
-    saveCurrentActivePageIntoData();
-    showQuickToast(`खाली ${nextCount} टोके (समान अंतरावर)`);
-  }));
-
-  actionBar.appendChild(makeActionBtn('- टोक', 'शेवटचे टोक काढून टाका', () => {
-    const curCount = Math.max(1, parseInt(el.dataset.dropCount) || 2);
-    if (curCount <= 1) {
-      showQuickToast('किमान १ टोक आवश्यक आहे.');
-      return;
-    }
-    const nextCount = curCount - 1;
-    el.dataset.dropCount = String(nextCount);
-    el.dataset.autoEqual = '1';
-    el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(nextCount));
-    renderAncestryConnectorShape(el);
-    saveCurrentActivePageIntoData();
-    showQuickToast(`खाली ${nextCount} टोके (समान अंतरावर)`);
-  }));
-
-  actionBar.appendChild(makeActionBtn('समान अंतर', 'सर्व खालची टोके समान अंतरावर करा', () => {
-    const curCount = Math.max(1, parseInt(el.dataset.dropCount) || 2);
-    el.dataset.autoEqual = '1';
-    el.dataset.dropRatios = JSON.stringify(computeEqualDropRatios(curCount));
-    renderAncestryConnectorShape(el);
-    saveCurrentActivePageIntoData();
-    showQuickToast('सर्व टोके समान अंतरावर केली.');
-  }));
-
-  const heightLabel = document.createElement('span');
-  heightLabel.textContent = 'उंची:';
-  heightLabel.style.cssText = 'color:#fff;font-size:10px;font-weight:bold;margin-left:3px;';
-  actionBar.appendChild(heightLabel);
-
-  const heightInput = document.createElement('input');
-  heightInput.type = 'number';
-  heightInput.step = '0.01';
-  heightInput.min = '0.01';
-  heightInput.max = '3.0';
-  heightInput.value = getAncestryLegInch(el).toFixed(2);
-  heightInput.title = 'इंचामध्ये थेट उंची टाका (उदा. 0.01, 0.05, 0.20)';
-  heightInput.style.cssText = 'width:46px;padding:1px 3px;font-size:10px;font-weight:bold;border:1px solid #000;background:#fff;color:#000;';
-  const applyHeightInputVal = (ev) => {
-    ev.stopPropagation();
-    const raw = heightInput.value;
-    if (raw === '' || raw === '.' || raw === '0.') return;
-    const val = parseFloat(raw);
-    if (!isNaN(val) && val > 0) {
-      setAncestryLegInch(el, val);
-    }
-  };
-  heightInput.addEventListener('pointerdown', (ev) => {
-    ev.stopPropagation();
-  });
-  heightInput.addEventListener('input', applyHeightInputVal);
-  heightInput.addEventListener('change', (ev) => {
-    applyHeightInputVal(ev);
-    heightInput.value = getAncestryLegInch(el).toFixed(2);
-  });
-
-  actionBar.appendChild(makeActionBtn('-0.01"', 'सर्व उभ्या टोकांची उंची 0.01" ने कमी करा', () => {
-    const curInch = getAncestryLegInch(el);
-    const nextInch = Math.max(0.01, Number((curInch - ANCESTRY_STEP_INCH).toFixed(2)));
-    heightInput.value = nextInch.toFixed(2);
-    setAncestryLegInch(el, nextInch);
-  }));
-
-  actionBar.appendChild(heightInput);
-
-  actionBar.appendChild(makeActionBtn('+0.01"', 'सर्व उभ्या टोकांची उंची 0.01" ने वाढवा', () => {
-    const curInch = getAncestryLegInch(el);
-    const nextInch = Math.min(3.0, Number((curInch + ANCESTRY_STEP_INCH).toFixed(2)));
-    heightInput.value = nextInch.toFixed(2);
-    setAncestryLegInch(el, nextInch);
-  }));
-
-  uiLayer.appendChild(actionBar);
 
   const leftHandle = document.createElement('div');
   leftHandle.title = 'डावीकडे ओढून लांबी वाढवा';
@@ -1097,7 +1183,7 @@ function pmInsertAncestryTreePrompt(e) {
   const defaultLegPx = Math.max(1, Math.round(0.2 * ANCESTRY_PX_PER_INCH));
   const baseH = Math.max(6, defaultLegPx * 2 + 4);
   const startX = m.left + 20;
-  const startY = m.top + 36;
+  const startY = m.top + 56;
 
   const el = createPMElement(startX, startY, baseW, baseH);
   el.style.minHeight = '0px';
@@ -1699,6 +1785,7 @@ function initDrag(e, el) {
     const snapped = snapBoxPosition(rawX, rawY, w, h);
     el.style.left = snapped.x + 'px';
     el.style.top = snapped.y + 'px';
+    if (isAncestryElement(el)) syncAncestryFloatingBar(el);
     updateControlPaletteInputs();
   }
   function onUp() {
@@ -1769,7 +1856,10 @@ function selectElement(el) {
   el.classList.add('selected');
   if (currentTool === 'crop') el.classList.add('crop-mode');
   selectedEl = el;
-  if (isAncestryElement(el)) renderAncestryConnectorShape(el);
+  if (isAncestryElement(el)) {
+    renderAncestryConnectorShape(el);
+    renderAncestryFloatingBar(el);
+  }
   updateControlPaletteInputs();
 }
 
@@ -1785,6 +1875,7 @@ function deselectAllElements() {
     if (isAncestryElement(i)) renderAncestryConnectorShape(i);
   });
   selectedEl = null;
+  removeAncestryFloatingBar();
 }
 
 function deselectAll(e) {
@@ -2124,7 +2215,7 @@ function exportPageAsPNG() {
     const w = parseInt(pageEl.style.width) || 816;
     const h = parseInt(pageEl.style.height) || 1056;
     const clone = pageEl.cloneNode(true);
-    ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer'].forEach(sel => {
+    ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer', '.anc-floating-bar'].forEach(sel => {
       clone.querySelectorAll(sel).forEach(n => n.remove());
     });
     clone.querySelectorAll('.pm-element').forEach(el => {
@@ -2203,7 +2294,7 @@ function sendBackward() {
     saveCurrentActivePageIntoData();
   }
 }
-function deleteSelected() { if (selectedEl) { selectedEl.remove(); selectedEl = null; saveCurrentActivePageIntoData(); } }
+function deleteSelected() { if (selectedEl) { selectedEl.remove(); selectedEl = null; removeAncestryFloatingBar(); saveCurrentActivePageIntoData(); } }
 
 function insertPageNumberBox() {
   const curId = window.activePageId || 1;
