@@ -283,6 +283,7 @@ function checkTextOverflow(el) {
   }
 }
 
+/* टेक्स्ट बॉक्सच्या निळ्या रेषेच्या आत कुठेही दाबून ओढल्यास उचलून मांडण्याची आणि साध्या टॅपवर टाइप करण्याची सोय */
 function attachElementEvents(el) {
   el.querySelectorAll('.handle').forEach(h => {
     const dir = h.className.replace('handle', '').trim();
@@ -299,18 +300,68 @@ function attachElementEvents(el) {
   const tc = el.querySelector('.text-content');
   if (tc) {
     tc.contentEditable = 'true';
-    tc.style.touchAction = 'manipulation';
+    tc.style.touchAction = 'none';
     tc.style.webkitUserSelect = 'text';
     tc.style.userSelect = 'text';
     tc.style.pointerEvents = 'auto';
 
     tc.addEventListener('pointerdown', (ev) => {
-      selectElement(el);
-      tc.contentEditable = 'true';
+      if (currentTool === 'hand' || currentTool === 'zoom') return;
       ev.stopPropagation();
-      setTimeout(() => {
-        tc.focus();
-      }, 0);
+      selectElement(el);
+
+      if (currentTool === 'rotate') {
+        ev.preventDefault();
+        saveState();
+        initRotate(ev, el);
+        return;
+      }
+
+      const startX = ev.clientX;
+      const startY = ev.clientY;
+      const ox = parseInt(el.style.left) || 0;
+      const oy = parseInt(el.style.top) || 0;
+      const { w, h } = getElementExactSize(el);
+      let draggingBox = false;
+      let stateSaved = false;
+
+      function onMove(mEv) {
+        const moveDist = Math.hypot(mEv.clientX - startX, mEv.clientY - startY);
+        if (!draggingBox && moveDist >= 8) {
+          draggingBox = true;
+          if (!stateSaved) {
+            saveState();
+            stateSaved = true;
+          }
+          if (document.activeElement === tc) {
+            tc.blur();
+          }
+        }
+        if (draggingBox) {
+          mEv.preventDefault();
+          const rawX = Math.round(ox + (mEv.clientX - startX) / zoomLevel);
+          const rawY = Math.round(oy + (mEv.clientY - startY) / zoomLevel);
+          const snapped = snapBoxPosition(rawX, rawY, w, h);
+          el.style.left = snapped.x + 'px';
+          el.style.top = snapped.y + 'px';
+          updateControlPaletteInputs();
+        }
+      }
+
+      function onUp() {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+
+        if (!draggingBox) {
+          tc.contentEditable = 'true';
+          setTimeout(() => tc.focus(), 0);
+        }
+      }
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
     });
 
     tc.addEventListener('input', () => {
@@ -324,12 +375,7 @@ function attachElementEvents(el) {
   el.onpointerdown = (e) => {
     if (currentTool === 'hand' || currentTool === 'zoom') return;
     if (e.target.classList.contains('handle') || e.target.classList.contains('overflow-badge')) return;
-
-    const clickedText = e.target.classList && e.target.classList.contains('text-content');
-    if (clickedText && currentTool === 'text') {
-      selectElement(el);
-      return;
-    }
+    if (e.target.classList && e.target.classList.contains('text-content')) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -439,7 +485,7 @@ function handlePagePointerDown(e) {
     const content = document.createElement('div');
     content.className = 'text-content';
     content.contentEditable = 'true';
-    content.style.touchAction = 'manipulation';
+    content.style.touchAction = 'none';
     content.style.webkitUserSelect = 'text';
     content.style.userSelect = 'text';
     content.style.pointerEvents = 'auto';
