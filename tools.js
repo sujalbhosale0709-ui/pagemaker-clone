@@ -86,7 +86,7 @@ function getPageElementsOnlyHtml() {
   const pageEl = document.getElementById('page');
   if (!pageEl) return '';
   const clone = pageEl.cloneNode(true);
-  ['#margin-guide', '#master-layer', '#guides-layer', '.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer', '.anc-floating-bar'].forEach(sel => {
+  ['#margin-guide', '#master-layer', '#guides-layer', '.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer', '.anc-floating-bar', '.pm-lock-badge'].forEach(sel => {
     clone.querySelectorAll(sel).forEach(n => n.remove());
   });
   clone.querySelectorAll('.pm-element').forEach(el => {
@@ -637,6 +637,112 @@ function selectTool(tool) {
 }
 
 /* =========================================================
+   PixelLab सारखे Lock / Unlock आणि सिलेक्टेड मजकुरावर बारीक स्टाईल
+   ========================================================= */
+function isElementLocked(el) {
+  return !!(el && el.dataset && el.dataset.locked === '1');
+}
+
+function renderElementLockBadge(el) {
+  if (!el) return;
+  let badge = el.querySelector('.pm-lock-badge');
+  if (isElementLocked(el)) {
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'pm-lock-badge';
+      badge.title = 'Locked — Click to Unlock';
+      badge.textContent = '🔒';
+      badge.style.cssText = 'position:absolute;top:-10px;right:-10px;width:20px;height:20px;background:#8b0000;color:#fff;border:1.5px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;z-index:45;cursor:pointer;pointer-events:auto;';
+      badge.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        toggleLockElement(el);
+      });
+      el.appendChild(badge);
+    }
+  } else if (badge) {
+    badge.remove();
+  }
+}
+
+function toggleLockElement(el) {
+  if (!el) return;
+  const nextLocked = !isElementLocked(el);
+  el.dataset.locked = nextLocked ? '1' : '0';
+  renderElementLockBadge(el);
+  if (isAncestryElement(el) && el.classList.contains('selected')) {
+    renderAncestryFloatingBar(el);
+  }
+  saveCurrentActivePageIntoData();
+  showQuickToast(nextLocked ? 'घटक Lock केला (हलणार नाही)' : 'घटक Unlock केला');
+}
+
+function toggleLockSelected() {
+  if (!selectedEl) {
+    alert('प्रथम कोणताही घटक किंवा टेक्स्ट बॉक्स निवडा.');
+    return;
+  }
+  toggleLockElement(selectedEl);
+}
+
+function applyStyleToSelectionOrContainer(tc, styleProp, styleVal, isLineBlock = false) {
+  if (!tc) return false;
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+    const range = sel.getRangeAt(0);
+    if (tc.contains(range.commonAncestorContainer)) {
+      if (isLineBlock) {
+        const linesContainer = document.createElement('div');
+        linesContainer.style[styleProp] = styleVal;
+        linesContainer.style.display = 'inline-block';
+        linesContainer.style.width = '100%';
+        try {
+          range.surroundContents(linesContainer);
+        } catch (err) {
+          const frag = range.extractContents();
+          linesContainer.appendChild(frag);
+          range.insertNode(linesContainer);
+        }
+      } else {
+        const span = document.createElement('span');
+        span.style[styleProp] = styleVal;
+        try {
+          range.surroundContents(span);
+        } catch (err) {
+          const frag = range.extractContents();
+          span.appendChild(frag);
+          range.insertNode(span);
+        }
+      }
+      return true;
+    }
+  }
+  tc.style[styleProp] = styleVal;
+  return false;
+}
+
+function applyFontFamily(fontVal) {
+  if (!fontVal) return;
+  const selectEl = document.getElementById('font-family');
+  if (selectEl && selectEl.value !== fontVal) {
+    selectEl.value = fontVal;
+  }
+  if (!selectedEl) return;
+  const tc = selectedEl.querySelector('.text-content');
+  if (!tc) return;
+
+  const didRange = applyStyleToSelectionOrContainer(tc, 'fontFamily', fontVal, false);
+  if (!didRange) {
+    const lType = getLegacyFontType(fontVal);
+    if (lType && tc.dataset.unicodeSource) {
+      tc.innerText = unicodeToLegacyDevanagari(tc.dataset.unicodeSource, lType);
+    }
+  }
+  checkTextOverflow(selectedEl);
+  saveCurrentActivePageIntoData();
+}
+
+/* =========================================================
    वंशावळ कनेक्टर शेप टूल (Ancestry Connector Shape Tool)
    ========================================================= */
 function computeEqualDropRatios(count) {
@@ -701,11 +807,16 @@ function syncAncestryFloatingBar(el) {
     const elLeft = parseInt(el.style.left) || 0;
     const elTop = parseInt(el.style.top) || 0;
     const { w } = getElementExactSize(el);
-    const barW = bar.offsetWidth || 290;
+    const barW = bar.offsetWidth || 320;
     const centerLeft = Math.max(6, Math.round(elLeft + w / 2 - barW / 2));
     const fixedTop = Math.max(6, elTop - 64);
     bar.style.left = centerLeft + 'px';
     bar.style.top = fixedTop + 'px';
+  }
+
+  const lockBtn = bar.querySelector('[data-role="lock-toggle"]');
+  if (lockBtn) {
+    lockBtn.textContent = isElementLocked(el) ? '🔓 Unlock' : '🔒 Lock';
   }
 
   const hInput = bar.querySelector('input[type="number"]');
@@ -855,6 +966,12 @@ function renderAncestryFloatingBar(el) {
     setAncestryLegInch(el, nextInch);
   }));
 
+  const lockBtn = makeActionBtn(isElementLocked(el) ? '🔓 Unlock' : '🔒 Lock', 'घटक लॉक / अनलॉक करा', () => {
+    toggleLockElement(el);
+  });
+  lockBtn.dataset.role = 'lock-toggle';
+  actionBar.appendChild(lockBtn);
+
   pageEl.appendChild(actionBar);
   syncAncestryFloatingBar(el);
 }
@@ -983,6 +1100,7 @@ function renderAncestryConnectorShape(el) {
   el.appendChild(svgNode);
 
   renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropXs);
+  renderElementLockBadge(el);
   if (el.classList.contains('selected')) {
     if (!document.getElementById('anc-floating-action-bar')) {
       renderAncestryFloatingBar(el);
@@ -1005,6 +1123,8 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   const isSel = el.classList.contains('selected');
   if (!isSel) return;
 
+  const locked = isElementLocked(el);
+
   const leftHandle = document.createElement('div');
   leftHandle.title = 'डावीकडे ओढून लांबी वाढवा';
   leftHandle.style.cssText = `position:absolute;left:-14px;top:${Math.max(4, barY - 14)}px;width:28px;height:28px;background:#0a246a;color:#fff;border:2px solid #fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;box-shadow:0 1px 4px rgba(0,0,0,0.4);`;
@@ -1013,6 +1133,10 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
     ev.preventDefault();
     ev.stopPropagation();
     selectElement(el);
+    if (isElementLocked(el)) {
+      showQuickToast('घटक Lock आहे · आधी Unlock करा');
+      return;
+    }
     const startX = ev.clientX;
     const origLeft = parseInt(el.style.left) || 0;
     const origW = getElementExactSize(el).w;
@@ -1048,6 +1172,10 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
     ev.preventDefault();
     ev.stopPropagation();
     selectElement(el);
+    if (isElementLocked(el)) {
+      showQuickToast('घटक Lock आहे · आधी Unlock करा');
+      return;
+    }
     const startX = ev.clientX;
     const origW = getElementExactSize(el).w;
 
@@ -1071,7 +1199,6 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   });
   uiLayer.appendChild(rightHandle);
 
-  // वरच्या १ टोकाचे हँडल (डावी/उजवी ड्रॅग) + त्याखाली '+' टायपिंग आयकॉन
   const topHandle = document.createElement('div');
   topHandle.title = 'वरचे टोक डावीकडे/उजवीकडे सरकवा';
   topHandle.style.cssText = `position:absolute;left:${topX - 11}px;top:-11px;width:22px;height:22px;background:#8b0000;color:#fff;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;`;
@@ -1080,6 +1207,10 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
     ev.preventDefault();
     ev.stopPropagation();
     selectElement(el);
+    if (isElementLocked(el)) {
+      showQuickToast('घटक Lock आहे · आधी Unlock करा');
+      return;
+    }
 
     function onMove(mEv) {
       mEv.preventDefault();
@@ -1115,7 +1246,6 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   });
   uiLayer.appendChild(topPlusBtn);
 
-  // खालच्या प्रत्येक टोकाचे हँडल (डावी/उजवी ड्रॅग) + त्याखाली '+' टायपिंग आयकॉन
   dropXs.forEach((dx, idx) => {
     const dHandle = document.createElement('div');
     dHandle.title = `टोक ${idx + 1} डावीकडे/उजवीकडे सरकवा`;
@@ -1125,6 +1255,10 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
       ev.preventDefault();
       ev.stopPropagation();
       selectElement(el);
+      if (isElementLocked(el)) {
+        showQuickToast('घटक Lock आहे · आधी Unlock करा');
+        return;
+      }
 
       function onMove(mEv) {
         mEv.preventDefault();
@@ -1167,6 +1301,10 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
     });
     uiLayer.appendChild(dPlusBtn);
   });
+
+  if (locked) {
+    renderElementLockBadge(el);
+  }
 }
 
 function pmInsertAncestryTreePrompt(e) {
@@ -1415,6 +1553,10 @@ function attachElementEvents(el) {
       e.preventDefault();
       e.stopPropagation();
       selectElement(el);
+      if (isElementLocked(el)) {
+        showQuickToast('घटक Lock आहे · आधी Unlock करा');
+        return;
+      }
       if (currentTool === 'crop') initCrop(e, el, dir);
       else initResize(e, el, dir);
     };
@@ -1432,6 +1574,10 @@ function attachElementEvents(el) {
       if (currentTool === 'hand' || currentTool === 'zoom') return;
       ev.stopPropagation();
       selectElement(el);
+
+      if (isElementLocked(el)) {
+        return;
+      }
 
       if (currentTool === 'rotate') {
         ev.preventDefault();
@@ -1494,13 +1640,19 @@ function attachElementEvents(el) {
 
   el.onpointerdown = (e) => {
     if (currentTool === 'hand' || currentTool === 'zoom') return;
-    if (e.target.classList.contains('handle') || e.target.classList.contains('overflow-badge')) return;
+    if (e.target.classList.contains('handle') || e.target.classList.contains('overflow-badge') || e.target.classList.contains('pm-lock-badge')) return;
     if (e.target.closest && e.target.closest('.anc-ui-layer')) return;
     if (e.target.classList && e.target.classList.contains('text-content')) return;
 
     e.preventDefault();
     e.stopPropagation();
     selectElement(el);
+
+    if (isElementLocked(el)) {
+      showQuickToast('घटक Lock आहे');
+      return;
+    }
+
     if (currentTool === 'rotate') {
       initRotate(e, el);
     } else {
@@ -1511,6 +1663,7 @@ function attachElementEvents(el) {
   if (isAncestryElement(el)) {
     renderAncestryConnectorShape(el);
   }
+  renderElementLockBadge(el);
   checkTextOverflow(el);
 }
 
@@ -1728,6 +1881,7 @@ function handlePasteboardDown(e) {
 }
 
 function initRotate(e, el) {
+  if (isElementLocked(el)) return;
   const r = el.getBoundingClientRect();
   const cx = r.left + r.width / 2;
   const cy = r.top + r.height / 2;
@@ -1750,6 +1904,7 @@ function initRotate(e, el) {
 
 function initCrop(e, el, dir) {
   e.stopPropagation();
+  if (isElementLocked(el)) return;
   const img = el.querySelector('.pm-image');
   if (!img) { initResize(e, el, dir); return; }
   let sx = e.clientX, sy = e.clientY;
@@ -1774,6 +1929,7 @@ function initCrop(e, el, dir) {
 }
 
 function initDrag(e, el) {
+  if (isElementLocked(el)) return;
   let sx = e.clientX, sy = e.clientY;
   let ox = parseInt(el.style.left) || 0;
   let oy = parseInt(el.style.top) || 0;
@@ -1802,6 +1958,7 @@ function initDrag(e, el) {
 function initResize(e, el, dir) {
   e.preventDefault();
   e.stopPropagation();
+  if (isElementLocked(el)) return;
   let sx = e.clientX, sy = e.clientY;
   const { w: ow, h: oh } = getElementExactSize(el);
   let ox = parseInt(el.style.left) || 0;
@@ -1859,7 +2016,10 @@ function selectElement(el) {
   if (isAncestryElement(el)) {
     renderAncestryConnectorShape(el);
     renderAncestryFloatingBar(el);
+  } else {
+    removeAncestryFloatingBar();
   }
+  renderElementLockBadge(el);
   updateControlPaletteInputs();
 }
 
@@ -1893,6 +2053,10 @@ function copySelected() {
 
 function cutSelected() {
   if (!selectedEl) return;
+  if (isElementLocked(selectedEl)) {
+    showQuickToast('घटक Lock आहे · आधी Unlock करा');
+    return;
+  }
   copySelected();
   deleteSelected();
 }
@@ -1902,6 +2066,7 @@ function pasteCopied() {
   const temp = document.createElement('div');
   temp.innerHTML = clipboardElementHTML;
   const newEl = temp.firstElementChild;
+  newEl.dataset.locked = '0';
   newEl.style.left = ((parseInt(newEl.style.left) || 40) + 18) + 'px';
   newEl.style.top = ((parseInt(newEl.style.top) || 40) + 18) + 'px';
   attachElementEvents(newEl);
@@ -1932,6 +2097,7 @@ function pasteMultiple() {
   for (let i = 1; i <= count; i++) {
     const c = selectedEl.cloneNode(true);
     c.classList.remove('selected', 'crop-mode');
+    c.dataset.locked = '0';
     c.style.left = (baseX + dx * i) + 'px';
     c.style.top = (baseY + dy * i) + 'px';
     attachElementEvents(c);
@@ -1954,6 +2120,11 @@ function updateControlPaletteInputs() {
 
 function updateBoxGeometry() {
   if (!selectedEl) return;
+  if (isElementLocked(selectedEl)) {
+    showQuickToast('घटक Lock आहे · आधी Unlock करा');
+    updateControlPaletteInputs();
+    return;
+  }
   selectedEl.style.left = (parseInt(document.getElementById('pos-x').value) || 0) + 'px';
   selectedEl.style.top = (parseInt(document.getElementById('pos-y').value) || 0) + 'px';
   selectedEl.style.width = (parseInt(document.getElementById('box-w').value) || 10) + 'px';
@@ -1965,6 +2136,10 @@ function updateBoxGeometry() {
 
 function updateBoxRotation() {
   if (!selectedEl) return;
+  if (isElementLocked(selectedEl)) {
+    showQuickToast('घटक Lock आहे · आधी Unlock करा');
+    return;
+  }
   const d = parseInt(document.getElementById('box-rot').value) || 0;
   selectedEl.dataset.rotation = d;
   selectedEl.style.transform = `rotate(${d}deg)`;
@@ -1972,17 +2147,33 @@ function updateBoxRotation() {
 }
 
 function applyStyle(cmd, val = null) {
-  if (selectedEl) {
-    const tc = selectedEl.querySelector('.text-content');
+  if (!selectedEl) return;
+  const tc = selectedEl.querySelector('.text-content');
+  if (!tc) return;
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0 && !sel.isCollapsed && tc.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+    if (cmd === 'bold') {
+      applyStyleToSelectionOrContainer(tc, 'fontWeight', 'bold', false);
+    } else if (cmd === 'italic') {
+      applyStyleToSelectionOrContainer(tc, 'fontStyle', 'italic', false);
+    } else if (cmd === 'underline') {
+      applyStyleToSelectionOrContainer(tc, 'textDecoration', 'underline', false);
+    } else if (cmd === 'fontName' && val) {
+      applyFontFamily(val);
+      return;
+    } else {
+      document.execCommand(cmd, false, val);
+    }
+  } else {
     if (tc && document.activeElement !== tc) {
       tc.focus();
     }
+    document.execCommand(cmd, false, val);
+    if (cmd === 'fontName') {
+      applyFontFamily(val);
+    }
   }
-  document.execCommand(cmd, false, val);
-  if (selectedEl && cmd === 'fontName') {
-    applyFontFamily(val);
-  }
-  if (selectedEl) checkTextOverflow(selectedEl);
+  checkTextOverflow(selectedEl);
   saveCurrentActivePageIntoData();
 }
 
@@ -1991,13 +2182,9 @@ function toggleReverseText() {
   const tc = selectedEl.querySelector('.text-content');
   if (!tc) return;
   const isRev = tc.dataset.reversed === '1';
-  if (isRev) {
-    tc.dataset.reversed = '0';
-    tc.style.color = '#000000';
-  } else {
-    tc.dataset.reversed = '1';
-    tc.style.color = '#ffffff';
-  }
+  const nextCol = isRev ? '#000000' : '#ffffff';
+  tc.dataset.reversed = isRev ? '0' : '1';
+  applyStyleToSelectionOrContainer(tc, 'color', nextCol, false);
   saveCurrentActivePageIntoData();
 }
 
@@ -2009,9 +2196,10 @@ function setLetterTrackingPrompt() {
   const tc = selectedEl.querySelector('.text-content');
   if (!tc) return;
   const cur = parseFloat(tc.style.letterSpacing) || 0;
-  const valStr = prompt('अक्षरांमधील अंतर (Letter Spacing px मध्ये, उदा. -1, 0, 1, 2, 4):', cur);
+  const valStr = prompt('निवडलेल्या शब्दातील/मजकुरातील अक्षरांमधील आडवे अंतर (Letter Spacing px मध्ये, उदा. -1, 0, 1, 2, 4):', cur);
   if (valStr === null) return;
-  tc.style.letterSpacing = (parseFloat(valStr) || 0) + 'px';
+  const nextVal = (parseFloat(valStr) || 0) + 'px';
+  applyStyleToSelectionOrContainer(tc, 'letterSpacing', nextVal, false);
   checkTextOverflow(selectedEl);
   saveCurrentActivePageIntoData();
 }
@@ -2026,7 +2214,8 @@ function setWordSpacingPrompt() {
   const cur = parseFloat(tc.style.wordSpacing) || 0;
   const valStr = prompt('दोन शब्दांमधील अंतर (Word Spacing px मध्ये, उदा. 0, 3, 6, 12):', cur);
   if (valStr === null) return;
-  tc.style.wordSpacing = (parseFloat(valStr) || 0) + 'px';
+  const nextVal = (parseFloat(valStr) || 0) + 'px';
+  applyStyleToSelectionOrContainer(tc, 'wordSpacing', nextVal, false);
   checkTextOverflow(selectedEl);
   saveCurrentActivePageIntoData();
 }
@@ -2039,20 +2228,21 @@ function setLineSpacingPrompt() {
   const tc = selectedEl.querySelector('.text-content');
   if (!tc) return;
   const cur = parseFloat(tc.style.lineHeight) || parseFloat(document.getElementById('line-leading').value) || 1.4;
-  const valStr = prompt('ओळींमधील / उभे अंतर (Line Leading, उदा. 1.1, 1.4, 1.8, 2.2):', cur);
+  const valStr = prompt('निवडलेल्या ओळींमधील / उभे अंतर (Line Leading, उदा. 1.1, 1.4, 1.8, 2.2):', cur);
   if (valStr === null) return;
   const nextVal = parseFloat(valStr) || 1.4;
   document.getElementById('line-leading').value = nextVal;
-  tc.style.lineHeight = nextVal;
+  applyStyleToSelectionOrContainer(tc, 'lineHeight', String(nextVal), true);
   checkTextOverflow(selectedEl);
   saveCurrentActivePageIntoData();
 }
 
 function changeFontSize(s) {
+  const sizeVal = (parseInt(s) || 16) + 'px';
   if (selectedEl) {
     const tc = selectedEl.querySelector('.text-content');
     if (tc) {
-      tc.style.fontSize = (parseInt(s) || 16) + 'px';
+      applyStyleToSelectionOrContainer(tc, 'fontSize', sizeVal, false);
       checkTextOverflow(selectedEl);
       saveCurrentActivePageIntoData();
     }
@@ -2065,7 +2255,7 @@ function setLineHeight(lh) {
   if (selectedEl) {
     const tc = selectedEl.querySelector('.text-content');
     if (tc) {
-      tc.style.lineHeight = val;
+      applyStyleToSelectionOrContainer(tc, 'lineHeight', String(val), true);
       checkTextOverflow(selectedEl);
       saveCurrentActivePageIntoData();
     }
@@ -2076,7 +2266,9 @@ function applyColor(c) {
   document.getElementById('picker-color').value = c;
   if (!selectedEl) return;
   const tc = selectedEl.querySelector('.text-content');
-  if (tc) tc.style.color = c;
+  if (tc) {
+    applyStyleToSelectionOrContainer(tc, 'color', c, false);
+  }
   if (isAncestryElement(selectedEl)) {
     selectedEl.dataset.strokeColor = c;
     renderAncestryConnectorShape(selectedEl);
@@ -2132,9 +2324,9 @@ function changeStrokeWidth(w) {
 }
 
 function alignObjects(mode) {
-  const els = Array.from(document.querySelectorAll('#page > .pm-element.selected'));
+  const els = Array.from(document.querySelectorAll('#page > .pm-element.selected')).filter(el => !isElementLocked(el));
   if (els.length < 2) {
-    alert('Align Objects साठी Select All किंवा एकापेक्षा जास्त घटक निवडा.');
+    alert('Align Objects साठी Select All किंवा एकापेक्षा जास्त अनलॉक घटक निवडा.');
     return;
   }
   const rects = els.map(el => {
@@ -2215,7 +2407,7 @@ function exportPageAsPNG() {
     const w = parseInt(pageEl.style.width) || 816;
     const h = parseInt(pageEl.style.height) || 1056;
     const clone = pageEl.cloneNode(true);
-    ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer', '.anc-floating-bar'].forEach(sel => {
+    ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge', '.anc-ui-layer', '.anc-floating-bar', '.pm-lock-badge'].forEach(sel => {
       clone.querySelectorAll(sel).forEach(n => n.remove());
     });
     clone.querySelectorAll('.pm-element').forEach(el => {
@@ -2270,6 +2462,7 @@ function exportPageAsPNG() {
 function duplicateSelected() {
   if (!selectedEl) return;
   const c = selectedEl.cloneNode(true);
+  c.dataset.locked = '0';
   c.style.left = ((parseInt(selectedEl.style.left) || 0) + 20) + 'px';
   c.style.top = ((parseInt(selectedEl.style.top) || 0) + 20) + 'px';
   attachElementEvents(c);
@@ -2294,7 +2487,17 @@ function sendBackward() {
     saveCurrentActivePageIntoData();
   }
 }
-function deleteSelected() { if (selectedEl) { selectedEl.remove(); selectedEl = null; removeAncestryFloatingBar(); saveCurrentActivePageIntoData(); } }
+function deleteSelected() {
+  if (!selectedEl) return;
+  if (isElementLocked(selectedEl)) {
+    showQuickToast('घटक Lock आहे · आधी Unlock करा');
+    return;
+  }
+  selectedEl.remove();
+  selectedEl = null;
+  removeAncestryFloatingBar();
+  saveCurrentActivePageIntoData();
+}
 
 function insertPageNumberBox() {
   const curId = window.activePageId || 1;
