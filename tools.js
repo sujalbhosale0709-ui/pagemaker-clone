@@ -1,5 +1,6 @@
 let clipboardElementHTML = null;
 const SAVED_FILES_STORAGE_KEY = 'pm_saved_files_v1';
+const ACTIVE_DOC_STORAGE_KEY = 'pm_active_doc_v1';
 
 function showQuickToast(msg) {
   let toast = document.getElementById('pm-quick-toast');
@@ -43,16 +44,77 @@ function getPageElementsOnlyHtml() {
   return clone.innerHTML;
 }
 
-function saveCurrentActivePageIntoData() {
-  if (typeof pagesData === 'undefined') return;
-  const curId = typeof activePageId !== 'undefined' ? activePageId : 1;
+function ensureDocStore() {
   const { w, h } = getCurrentPageDims();
-  if (!pagesData[curId]) {
-    pagesData[curId] = { html: '', width: w, height: h };
+  if (typeof window.pageOrder === 'undefined' || !Array.isArray(window.pageOrder) || !window.pageOrder.length) {
+    window.pageOrder = [1];
   }
-  pagesData[curId].html = getPageElementsOnlyHtml();
-  pagesData[curId].width = w;
-  pagesData[curId].height = h;
+  if (typeof window.pagesData === 'undefined' || !window.pagesData || typeof window.pagesData !== 'object') {
+    window.pagesData = { 1: { html: '', width: w, height: h } };
+  }
+  if (typeof window.activePageId === 'undefined' || !window.activePageId) {
+    window.activePageId = 1;
+  }
+  const cur = window.activePageId;
+  if (!window.pagesData[cur]) {
+    window.pagesData[cur] = { html: '', width: w, height: h };
+  }
+}
+
+function saveCurrentActivePageIntoData() {
+  ensureDocStore();
+  const curId = window.activePageId;
+  const { w, h } = getCurrentPageDims();
+  const currentHtml = getPageElementsOnlyHtml();
+  if (currentHtml.trim() !== '' || !window.pagesData[curId] || !window.pagesData[curId].html) {
+    window.pagesData[curId] = { html: currentHtml, width: w, height: h };
+  }
+  persistActiveSession();
+}
+
+function persistActiveSession() {
+  try {
+    ensureDocStore();
+    const { m } = getCurrentPageDims();
+    const sessionObj = {
+      activePageId: window.activePageId,
+      pageOrder: window.pageOrder.slice(),
+      pagesData: window.pagesData,
+      margins: Object.assign({}, m)
+    };
+    const serialized = JSON.stringify(sessionObj);
+    localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, serialized);
+    window.name = 'PM_SESSION:' + serialized;
+  } catch (err) {}
+}
+
+function restoreActiveSessionIfPresent() {
+  try {
+    let raw = localStorage.getItem(ACTIVE_DOC_STORAGE_KEY);
+    if (!raw && window.name && window.name.startsWith('PM_SESSION:')) {
+      raw = window.name.slice('PM_SESSION:'.length);
+    }
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.pageOrder) || !parsed.pagesData) return false;
+
+    window.pageOrder = parsed.pageOrder.slice();
+    window.pagesData = parsed.pagesData;
+    window.activePageId = parsed.activePageId || window.pageOrder[0] || 1;
+
+    if (parsed.margins && typeof pageMargins !== 'undefined') {
+      window.pageOrder.forEach(pNo => {
+        pageMargins[pNo] = Object.assign({}, parsed.margins);
+      });
+    }
+
+    const startPage = window.pagesData[window.activePageId] || { html: '' };
+    renderPageElementsIntoCanvas(startPage.html || '');
+    refreshPageBarTabs();
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
 function renderPageElementsIntoCanvas(htmlStr) {
@@ -85,19 +147,10 @@ function renderPageElementsIntoCanvas(htmlStr) {
 function refreshPageBarTabs() {
   const bar = document.getElementById('page-bar');
   if (!bar) return;
-  if (typeof pageOrder === 'undefined') {
-    window.pageOrder = [1];
-  }
-  if (typeof pagesData === 'undefined') {
-    const { w, h } = getCurrentPageDims();
-    window.pagesData = { 1: { html: '', width: w, height: h } };
-  }
-  if (typeof activePageId === 'undefined') {
-    window.activePageId = 1;
-  }
+  ensureDocStore();
 
-  const normalPages = pageOrder.filter(p => p !== 'M');
-  const curId = activePageId;
+  const normalPages = window.pageOrder.filter(p => p !== 'M');
+  const curId = window.activePageId;
 
   let html = `<div class="page-tab master ${curId === 'M' ? 'active' : ''}" id="tab-M" onclick="pmSwitchToPage('M')">M</div>`;
   normalPages.forEach(pNum => {
@@ -115,41 +168,43 @@ function refreshPageBarTabs() {
 
 function pmSwitchToPage(targetId) {
   saveCurrentActivePageIntoData();
-  activePageId = targetId;
+  window.activePageId = targetId;
   const { w, h } = getCurrentPageDims();
-  const pData = (pagesData && pagesData[targetId]) ? pagesData[targetId] : { html: '', width: w, height: h };
+  const pData = window.pagesData[targetId] || { html: '', width: w, height: h };
   renderPageElementsIntoCanvas(pData.html || '');
   refreshPageBarTabs();
+  persistActiveSession();
 }
 
-/* + Page: जुने पान सेव्ह होऊन याच जागी नवीन कोरे पान */
+/* १. + Page: सध्याचे पान सेव्ह करून पुढील नवे कोरे (पांढरे) पान त्याच जागी दाखवणे */
 function pmActionAddPage(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  if (typeof pageOrder === 'undefined') window.pageOrder = [1];
-  if (typeof pagesData === 'undefined') window.pagesData = {};
-
+  ensureDocStore();
   saveCurrentActivePageIntoData();
 
-  const normalPages = pageOrder.filter(p => p !== 'M');
+  const normalPages = window.pageOrder.filter(p => p !== 'M');
   const nextPageNo = (normalPages.length ? Math.max(...normalPages) : 0) + 1;
   const { w, h, m } = getCurrentPageDims();
 
   if (typeof pageMargins !== 'undefined') {
     pageMargins[nextPageNo] = Object.assign({}, m);
   }
-  pagesData[nextPageNo] = { html: '', width: w, height: h };
-  pageOrder.push(nextPageNo);
-  activePageId = nextPageNo;
+  window.pagesData[nextPageNo] = { html: '', width: w, height: h };
+  if (!window.pageOrder.includes(nextPageNo)) {
+    window.pageOrder.push(nextPageNo);
+  }
+  window.activePageId = nextPageNo;
 
   renderPageElementsIntoCanvas('');
   refreshPageBarTabs();
+  persistActiveSession();
   showQuickToast(`Page ${nextPageNo} तयार (कोरे पान)`);
 }
 
-/* Save: सर्व पेजेस एकत्र PDF स्वरूपात सेव्ह करण्यासाठी प्रिंट/PDF */
+/* २. Save: सर्व पेजेस एकत्र PDF स्वरूपात सेव्ह करण्यासाठी प्रिंट/PDF */
 function pmActionSave(e) {
   if (e) {
     e.preventDefault();
@@ -159,11 +214,11 @@ function pmActionSave(e) {
 
   const printContainer = document.getElementById('print-all-container');
   const { w, h } = getCurrentPageDims();
-  const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
+  const normalPages = window.pageOrder.filter(p => p !== 'M');
 
   let pagesHtml = '';
   normalPages.forEach(pNo => {
-    const pData = (typeof pagesData !== 'undefined' && pagesData[pNo]) ? pagesData[pNo] : null;
+    const pData = window.pagesData[pNo] || null;
     const rawHtml = pData && pData.html ? pData.html : '';
     pagesHtml += `
       <div class="print-page" style="width:${w}px;height:${h}px;position:relative;background:#ffffff;page-break-after:always;break-after:page;overflow:hidden;">
@@ -178,9 +233,14 @@ function pmActionSave(e) {
   window.print();
 }
 
+/* ३. New व Saved Files: स्टोरेजमध्ये फाईल टिकवून ठेवणे आणि टच करताच उघडणे */
 function getSavedFilesFromStorage() {
   try {
-    const raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
+    let raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
+    if (!raw && window.name && window.name.includes('PM_FILES:')) {
+      const idx = window.name.indexOf('PM_FILES:');
+      raw = window.name.slice(idx + 'PM_FILES:'.length);
+    }
     const list = raw ? JSON.parse(raw) : [];
     return Array.isArray(list) ? list : [];
   } catch (err) {
@@ -188,14 +248,22 @@ function getSavedFilesFromStorage() {
   }
 }
 
+function saveSavedFilesList(list) {
+  try {
+    const serialized = JSON.stringify(list);
+    localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized);
+  } catch (err) {}
+}
+
 function persistSnapshotToStorage() {
+  ensureDocStore();
   saveCurrentActivePageIntoData();
-  const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
+  const normalPages = window.pageOrder.filter(p => p !== 'M');
   const { w, h, m } = getCurrentPageDims();
 
   const clonedPages = {};
   normalPages.forEach(pNo => {
-    const d = (typeof pagesData !== 'undefined' && pagesData[pNo]) ? pagesData[pNo] : { html: '', width: w, height: h };
+    const d = window.pagesData[pNo] || { html: '', width: w, height: h };
     clonedPages[pNo] = { html: d.html || '', width: d.width || w, height: d.height || h };
   });
 
@@ -213,7 +281,7 @@ function persistSnapshotToStorage() {
   };
 
   existing.push(record);
-  localStorage.setItem(SAVED_FILES_STORAGE_KEY, JSON.stringify(existing));
+  saveSavedFilesList(existing);
   renderSavedFilesDrawerList();
   return record;
 }
@@ -234,8 +302,13 @@ function renderSavedFilesDrawerList() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'page-tab';
-    btn.style.cssText = 'padding:5px 10px;font-size:11px;touch-action:manipulation;cursor:pointer;';
+    btn.style.cssText = 'padding:6px 10px;font-size:11px;touch-action:manipulation;cursor:pointer;background:#ffffff;border:1px solid #000;';
     btn.textContent = `${num}. ${f.title || ('File ' + num)} [${pCount} Page]`;
+    btn.addEventListener('pointerup', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openStoredFileById(f.id);
+    });
     btn.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -263,17 +336,13 @@ function openStoredFileById(fileId) {
   const found = files.find(f => f.id === fileId);
   if (!found) return;
 
-  if (typeof pageOrder === 'undefined') window.pageOrder = [1];
-  if (typeof pagesData === 'undefined') window.pagesData = {};
-
   const orderList = Array.isArray(found.pageOrder) && found.pageOrder.length ? found.pageOrder.slice() : [1];
-  pageOrder.length = 0;
-  orderList.forEach(p => pageOrder.push(p));
+  window.pageOrder = orderList;
+  window.pagesData = {};
 
-  Object.keys(pagesData).forEach(k => delete pagesData[k]);
   orderList.forEach(pNo => {
     const src = found.pagesData && found.pagesData[pNo] ? found.pagesData[pNo] : { html: '', width: 816, height: 1056 };
-    pagesData[pNo] = { html: src.html || '', width: src.width || 816, height: src.height || 1056 };
+    window.pagesData[pNo] = { html: src.html || '', width: src.width || 816, height: src.height || 1056 };
   });
 
   if (found.margins && typeof pageMargins !== 'undefined') {
@@ -282,11 +351,12 @@ function openStoredFileById(fileId) {
     });
   }
 
-  activePageId = orderList[0];
+  window.activePageId = orderList[0];
 
-  const firstHtml = pagesData[orderList[0]] ? pagesData[orderList[0]].html : '';
+  const firstHtml = window.pagesData[orderList[0]] ? window.pagesData[orderList[0]].html : '';
   renderPageElementsIntoCanvas(firstHtml);
   refreshPageBarTabs();
+  persistActiveSession();
 
   const drawer = document.getElementById('saved-files-drawer');
   if (drawer) drawer.style.display = 'none';
@@ -302,23 +372,27 @@ function pmActionNew(e) {
   const savedRec = persistSnapshotToStorage();
 
   const { w, h } = getCurrentPageDims();
-  if (typeof pageOrder === 'undefined') window.pageOrder = [1];
-  if (typeof pagesData === 'undefined') window.pagesData = {};
-
-  pageOrder.length = 0;
-  pageOrder.push(1);
-  Object.keys(pagesData).forEach(k => delete pagesData[k]);
-  pagesData[1] = { html: '', width: w, height: h };
-  activePageId = 1;
+  window.pageOrder = [1];
+  window.pagesData = { 1: { html: '', width: w, height: h } };
+  window.activePageId = 1;
 
   renderPageElementsIntoCanvas('');
   refreshPageBarTabs();
+  persistActiveSession();
   showQuickToast(`File ${savedRec.no} सेव्ह झाली · नवीन कोरे पान (Page 1)`);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  ensureDocStore();
+  restoreActiveSessionIfPresent();
   refreshPageBarTabs();
   renderSavedFilesDrawerList();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    saveCurrentActivePageIntoData();
+  }
 });
 
 function toggleMenu(e, id) {
@@ -399,17 +473,18 @@ function selectTool(tool) {
 }
 
 function getMagnetTargets(axis) {
-  if (typeof ensurePageState === 'function') ensurePageState(activePageId);
+  ensureDocStore();
+  if (typeof ensurePageState === 'function') ensurePageState(window.activePageId);
   const { w: pageW, h: pageH, m } = getCurrentPageDims();
 
-  const vGuides = (typeof pageGuides !== 'undefined' && pageGuides[activePageId] && pageGuides[activePageId].v) || [];
-  const hGuides = (typeof pageGuides !== 'undefined' && pageGuides[activePageId] && pageGuides[activePageId].h) || [];
+  const vGuides = (typeof pageGuides !== 'undefined' && pageGuides[window.activePageId] && pageGuides[window.activePageId].v) || [];
+  const hGuides = (typeof pageGuides !== 'undefined' && pageGuides[window.activePageId] && pageGuides[window.activePageId].h) || [];
 
   const targets = axis === 'v'
     ? [m.left, pageW - m.right, ...vGuides]
     : [m.top, pageH - m.bottom, ...hGuides];
 
-  const colCfg = (typeof pageColumns !== 'undefined') ? pageColumns[activePageId] : null;
+  const colCfg = (typeof pageColumns !== 'undefined') ? pageColumns[window.activePageId] : null;
   if (axis === 'v' && colCfg && colCfg.count > 1) {
     const usableW = Math.max(40, pageW - m.left - m.right);
     const totalGutter = colCfg.gutter * (colCfg.count - 1);
@@ -566,10 +641,10 @@ function convertSelectedToLegacyFont() {
     alert('कृपया आधी SHREE-DEV7, Kruti Dev, किंवा Shivaji फॉन्ट निवडा.');
     return;
   }
-  if (typeof saveState === 'function') saveState();
   if (!tc.dataset.unicodeSource) tc.dataset.unicodeSource = tc.innerText;
   tc.innerText = unicodeToLegacyDevanagari(tc.dataset.unicodeSource, legacyType);
   checkTextOverflow(selectedEl);
+  saveCurrentActivePageIntoData();
 }
 
 function checkTextOverflow(el) {
@@ -609,7 +684,6 @@ function attachElementEvents(el) {
       e.preventDefault();
       e.stopPropagation();
       selectElement(el);
-      if (typeof saveState === 'function') saveState();
       if (currentTool === 'crop') initCrop(e, el, dir);
       else initResize(e, el, dir);
     };
@@ -630,7 +704,6 @@ function attachElementEvents(el) {
 
       if (currentTool === 'rotate') {
         ev.preventDefault();
-        if (typeof saveState === 'function') saveState();
         initRotate(ev, el);
         return;
       }
@@ -641,16 +714,11 @@ function attachElementEvents(el) {
       const oy = parseInt(el.style.top) || 0;
       const { w, h } = getElementExactSize(el);
       let draggingBox = false;
-      let stateSaved = false;
 
       function onMove(mEv) {
         const moveDist = Math.hypot(mEv.clientX - startX, mEv.clientY - startY);
         if (!draggingBox && moveDist >= 3) {
           draggingBox = true;
-          if (!stateSaved && typeof saveState === 'function') {
-            saveState();
-            stateSaved = true;
-          }
           if (document.activeElement === tc) {
             tc.blur();
           }
@@ -674,6 +742,8 @@ function attachElementEvents(el) {
         if (!draggingBox) {
           tc.contentEditable = 'true';
           setTimeout(() => tc.focus(), 0);
+        } else {
+          saveCurrentActivePageIntoData();
         }
       }
 
@@ -687,6 +757,7 @@ function attachElementEvents(el) {
         tc.dataset.unicodeSource = tc.innerText;
       }
       checkTextOverflow(el);
+      saveCurrentActivePageIntoData();
     });
   }
 
@@ -699,10 +770,8 @@ function attachElementEvents(el) {
     e.stopPropagation();
     selectElement(el);
     if (currentTool === 'rotate') {
-      if (typeof saveState === 'function') saveState();
       initRotate(e, el);
     } else {
-      if (typeof saveState === 'function') saveState();
       initDrag(e, el);
     }
   };
@@ -711,7 +780,6 @@ function attachElementEvents(el) {
 }
 
 function createPMElement(x, y, w, h) {
-  if (typeof saveState === 'function') saveState();
   const el = document.createElement('div');
   el.className = 'pm-element selected';
   el.style.left = Math.round(x) + 'px';
@@ -730,6 +798,7 @@ function createPMElement(x, y, w, h) {
   attachElementEvents(el);
   document.getElementById('page').appendChild(el);
   selectElement(el);
+  saveCurrentActivePageIntoData();
   return el;
 }
 
@@ -832,6 +901,7 @@ function handlePagePointerDown(e) {
     attachElementEvents(el);
     checkTextOverflow(el);
     selectElement(el);
+    saveCurrentActivePageIntoData();
     setTimeout(() => {
       content.focus();
     }, 0);
@@ -866,6 +936,7 @@ function handlePagePointerDown(e) {
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
     selectTool('pointer');
+    saveCurrentActivePageIntoData();
   }
 
   window.addEventListener('pointermove', onMove);
@@ -891,6 +962,7 @@ function placeImage(event) {
     w.appendChild(img);
     el.appendChild(w);
     selectTool('pointer');
+    saveCurrentActivePageIntoData();
   };
   reader.readAsDataURL(file);
   event.target.value = '';
@@ -930,6 +1002,7 @@ function initRotate(e, el) {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
+    saveCurrentActivePageIntoData();
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -954,6 +1027,7 @@ function initCrop(e, el, dir) {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
+    saveCurrentActivePageIntoData();
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -978,6 +1052,7 @@ function initDrag(e, el) {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
+    saveCurrentActivePageIntoData();
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -1023,6 +1098,7 @@ function initResize(e, el, dir) {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
+    saveCurrentActivePageIntoData();
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -1069,7 +1145,6 @@ function cutSelected() {
 
 function pasteCopied() {
   if (!clipboardElementHTML) return;
-  if (typeof saveState === 'function') saveState();
   const temp = document.createElement('div');
   temp.innerHTML = clipboardElementHTML;
   const newEl = temp.firstElementChild;
@@ -1078,6 +1153,7 @@ function pasteCopied() {
   attachElementEvents(newEl);
   document.getElementById('page').appendChild(newEl);
   selectElement(newEl);
+  saveCurrentActivePageIntoData();
 }
 
 function pasteMultiple() {
@@ -1095,7 +1171,6 @@ function pasteMultiple() {
   const dx = parseInt(dxStr) || 0;
   const dy = parseInt(dyStr) || 0;
 
-  if (typeof saveState === 'function') saveState();
   let baseX = parseInt(selectedEl.style.left) || 40;
   let baseY = parseInt(selectedEl.style.top) || 40;
   let lastEl = selectedEl;
@@ -1110,6 +1185,7 @@ function pasteMultiple() {
     lastEl = c;
   }
   selectElement(lastEl);
+  saveCurrentActivePageIntoData();
 }
 
 function updateControlPaletteInputs() {
@@ -1124,20 +1200,20 @@ function updateControlPaletteInputs() {
 
 function updateBoxGeometry() {
   if (!selectedEl) return;
-  if (typeof saveState === 'function') saveState();
   selectedEl.style.left = (parseInt(document.getElementById('pos-x').value) || 0) + 'px';
   selectedEl.style.top = (parseInt(document.getElementById('pos-y').value) || 0) + 'px';
   selectedEl.style.width = (parseInt(document.getElementById('box-w').value) || 10) + 'px';
   selectedEl.style.height = (parseInt(document.getElementById('box-h').value) || 10) + 'px';
   checkTextOverflow(selectedEl);
+  saveCurrentActivePageIntoData();
 }
 
 function updateBoxRotation() {
   if (!selectedEl) return;
-  if (typeof saveState === 'function') saveState();
   const d = parseInt(document.getElementById('box-rot').value) || 0;
   selectedEl.dataset.rotation = d;
   selectedEl.style.transform = `rotate(${d}deg)`;
+  saveCurrentActivePageIntoData();
 }
 
 function applyStyle(cmd, val = null) {
@@ -1152,13 +1228,13 @@ function applyStyle(cmd, val = null) {
     applyFontFamily(val);
   }
   if (selectedEl) checkTextOverflow(selectedEl);
+  saveCurrentActivePageIntoData();
 }
 
 function toggleReverseText() {
   if (!selectedEl) return;
   const tc = selectedEl.querySelector('.text-content');
   if (!tc) return;
-  if (typeof saveState === 'function') saveState();
   const isRev = tc.dataset.reversed === '1';
   if (isRev) {
     tc.dataset.reversed = '0';
@@ -1167,6 +1243,7 @@ function toggleReverseText() {
     tc.dataset.reversed = '1';
     tc.style.color = '#ffffff';
   }
+  saveCurrentActivePageIntoData();
 }
 
 function setLetterTrackingPrompt() {
@@ -1179,9 +1256,9 @@ function setLetterTrackingPrompt() {
   const cur = parseFloat(tc.style.letterSpacing) || 0;
   const valStr = prompt('अक्षरांमधील अंतर (Letter Spacing px मध्ये, उदा. -1, 0, 1, 2, 4):', cur);
   if (valStr === null) return;
-  if (typeof saveState === 'function') saveState();
   tc.style.letterSpacing = (parseFloat(valStr) || 0) + 'px';
   checkTextOverflow(selectedEl);
+  saveCurrentActivePageIntoData();
 }
 
 function setWordSpacingPrompt() {
@@ -1194,9 +1271,9 @@ function setWordSpacingPrompt() {
   const cur = parseFloat(tc.style.wordSpacing) || 0;
   const valStr = prompt('दोन शब्दांमधील अंतर (Word Spacing px मध्ये, उदा. 0, 3, 6, 12):', cur);
   if (valStr === null) return;
-  if (typeof saveState === 'function') saveState();
   tc.style.wordSpacing = (parseFloat(valStr) || 0) + 'px';
   checkTextOverflow(selectedEl);
+  saveCurrentActivePageIntoData();
 }
 
 function setLineSpacingPrompt() {
@@ -1211,18 +1288,18 @@ function setLineSpacingPrompt() {
   if (valStr === null) return;
   const nextVal = parseFloat(valStr) || 1.4;
   document.getElementById('line-leading').value = nextVal;
-  if (typeof saveState === 'function') saveState();
   tc.style.lineHeight = nextVal;
   checkTextOverflow(selectedEl);
+  saveCurrentActivePageIntoData();
 }
 
 function changeFontSize(s) {
   if (selectedEl) {
-    if (typeof saveState === 'function') saveState();
     const tc = selectedEl.querySelector('.text-content');
     if (tc) {
       tc.style.fontSize = (parseInt(s) || 16) + 'px';
       checkTextOverflow(selectedEl);
+      saveCurrentActivePageIntoData();
     }
   }
 }
@@ -1231,11 +1308,11 @@ function setLineHeight(lh) {
   const val = parseFloat(lh) || 1.4;
   document.getElementById('line-leading').value = val;
   if (selectedEl) {
-    if (typeof saveState === 'function') saveState();
     const tc = selectedEl.querySelector('.text-content');
     if (tc) {
       tc.style.lineHeight = val;
       checkTextOverflow(selectedEl);
+      saveCurrentActivePageIntoData();
     }
   }
 }
@@ -1243,17 +1320,17 @@ function setLineHeight(lh) {
 function applyColor(c) {
   document.getElementById('picker-color').value = c;
   if (!selectedEl) return;
-  if (typeof saveState === 'function') saveState();
   const tc = selectedEl.querySelector('.text-content');
   if (tc) tc.style.color = c;
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke', c));
+  saveCurrentActivePageIntoData();
 }
 
 function applyFillColor() {
   if (!selectedEl) return;
-  if (typeof saveState === 'function') saveState();
   const c = document.getElementById('picker-color').value;
   selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => s.setAttribute('fill', c));
+  saveCurrentActivePageIntoData();
 }
 
 function applyFillStrokePrompt() {
@@ -1268,7 +1345,6 @@ function applyFillStrokePrompt() {
   const strokeW = prompt('Stroke Width (pt/px मध्ये, उदा. 1, 2, 4):', '2');
   if (strokeW === null) return;
 
-  if (typeof saveState === 'function') saveState();
   selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => {
     s.setAttribute('fill', fillCol.trim() || 'none');
     s.setAttribute('stroke', strokeCol.trim() || '#000000');
@@ -1278,12 +1354,13 @@ function applyFillStrokePrompt() {
     s.setAttribute('stroke', strokeCol.trim() || '#000000');
     s.setAttribute('stroke-width', parseFloat(strokeW) || 1);
   });
+  saveCurrentActivePageIntoData();
 }
 
 function changeStrokeWidth(w) {
   if (!selectedEl) return;
-  if (typeof saveState === 'function') saveState();
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke-width', w));
+  saveCurrentActivePageIntoData();
 }
 
 function alignObjects(mode) {
@@ -1292,7 +1369,6 @@ function alignObjects(mode) {
     alert('Align Objects साठी Select All किंवा एकापेक्षा जास्त घटक निवडा.');
     return;
   }
-  if (typeof saveState === 'function') saveState();
   const rects = els.map(el => {
     const { w, h } = getElementExactSize(el);
     return {
@@ -1328,11 +1404,11 @@ function alignObjects(mode) {
     rects.forEach(r => { r.el.style.top = Math.round(midY - r.h / 2) + 'px'; });
   }
   updateControlPaletteInputs();
+  saveCurrentActivePageIntoData();
 }
 
 function toggleTextWrap() {
   if (!selectedEl) return;
-  if (typeof saveState === 'function') saveState();
   const wrapped = selectedEl.dataset.textWrap === '1';
   if (wrapped) {
     selectedEl.dataset.textWrap = '0';
@@ -1341,6 +1417,7 @@ function toggleTextWrap() {
     selectedEl.dataset.textWrap = '1';
     selectedEl.style.boxShadow = '0 0 0 6px rgba(0,168,232,0.18)';
   }
+  saveCurrentActivePageIntoData();
 }
 
 function openStoryEditor() {
@@ -1356,11 +1433,11 @@ function openStoryEditor() {
   const baseText = tc.dataset.unicodeSource || tc.innerText;
   const updated = prompt('Story Editor — मराठी मजकूर बदला:', baseText);
   if (updated !== null) {
-    if (typeof saveState === 'function') saveState();
     tc.dataset.unicodeSource = updated;
     const lType = getLegacyFontType(tc.style.fontFamily || document.getElementById('font-family').value);
     tc.innerText = lType ? unicodeToLegacyDevanagari(updated, lType) : updated;
     checkTextOverflow(selectedEl);
+    saveCurrentActivePageIntoData();
   }
 }
 
@@ -1404,7 +1481,7 @@ function exportPageAsPNG() {
         const pngUrl = canvas.toDataURL('image/png');
         const a = document.createElement('a');
         a.href = pngUrl;
-        a.download = `Page_${activePageId}.png`;
+        a.download = `Page_${window.activePageId || 1}.png`;
         a.click();
       } catch (err) {
         alert('PNG तयार करताना अडचण आली; Save / PDF पर्याय वापरून पहा.');
@@ -1424,35 +1501,36 @@ function exportPageAsPNG() {
 
 function duplicateSelected() {
   if (!selectedEl) return;
-  if (typeof saveState === 'function') saveState();
   const c = selectedEl.cloneNode(true);
   c.style.left = ((parseInt(selectedEl.style.left) || 0) + 20) + 'px';
   c.style.top = ((parseInt(selectedEl.style.top) || 0) + 20) + 'px';
   attachElementEvents(c);
   document.getElementById('page').appendChild(c);
   selectElement(c);
+  saveCurrentActivePageIntoData();
 }
 
-function bringToFront() { if (selectedEl) { if (typeof saveState === 'function') saveState(); selectedEl.style.zIndex = 50; } }
-function sendToBack() { if (selectedEl) { if (typeof saveState === 'function') saveState(); selectedEl.style.zIndex = 5; } }
+function bringToFront() { if (selectedEl) { selectedEl.style.zIndex = 50; saveCurrentActivePageIntoData(); } }
+function sendToBack() { if (selectedEl) { selectedEl.style.zIndex = 5; saveCurrentActivePageIntoData(); } }
 function bringForward() {
   if (selectedEl) {
-    if (typeof saveState === 'function') saveState();
     const cur = parseInt(selectedEl.style.zIndex) || 10;
     selectedEl.style.zIndex = Math.min(80, cur + 1);
+    saveCurrentActivePageIntoData();
   }
 }
 function sendBackward() {
   if (selectedEl) {
-    if (typeof saveState === 'function') saveState();
     const cur = parseInt(selectedEl.style.zIndex) || 10;
     selectedEl.style.zIndex = Math.max(3, cur - 1);
+    saveCurrentActivePageIntoData();
   }
 }
-function deleteSelected() { if (selectedEl) { if (typeof saveState === 'function') saveState(); selectedEl.remove(); selectedEl = null; } }
+function deleteSelected() { if (selectedEl) { selectedEl.remove(); selectedEl = null; saveCurrentActivePageIntoData(); } }
 
 function insertPageNumberBox() {
-  const label = (activePageId === 'M') ? '#' : String(activePageId);
+  const curId = window.activePageId || 1;
+  const label = (curId === 'M') ? '#' : String(curId);
   const el = createPMElement(275, 800, 50, 24);
   const c = document.createElement('div');
   c.className = 'text-content';
@@ -1460,6 +1538,7 @@ function insertPageNumberBox() {
   c.style.textAlign = 'center';
   c.innerText = label;
   el.appendChild(c);
+  saveCurrentActivePageIntoData();
 }
 
 function findAndReplaceText() {
@@ -1467,8 +1546,8 @@ function findAndReplaceText() {
   if (!findVal) return;
   const repVal = prompt(`"${findVal}" ऐवजी कोणता शब्द टाकायचा आहे?`, '');
   if (repVal === null) return;
-  if (typeof saveState === 'function') saveState();
   document.querySelectorAll('.text-content').forEach(tc => {
     tc.innerHTML = tc.innerHTML.split(findVal).join(repVal);
   });
+  saveCurrentActivePageIntoData();
 }
