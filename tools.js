@@ -1,6 +1,51 @@
 let clipboardElementHTML = null;
 const SAVED_FILES_STORAGE_KEY = 'pm_saved_files_v1';
 const ACTIVE_DOC_STORAGE_KEY = 'pm_active_doc_v1';
+const IDB_NAME = 'PageMakerDTP_DB';
+const IDB_STORE = 'store';
+
+function openIDB() {
+  return new Promise((resolve) => {
+    try {
+      if (!window.indexedDB) return resolve(null);
+      const req = window.indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = (ev) => {
+        const db = ev.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = (ev) => resolve(ev.target.result);
+      req.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+async function writeToIDB(key, value) {
+  const db = await openIDB();
+  if (!db) return;
+  try {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, key);
+  } catch (e) {}
+}
+
+async function readFromIDB(key) {
+  const db = await openIDB();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
 
 function showQuickToast(msg) {
   let toast = document.getElementById('pm-quick-toast');
@@ -82,30 +127,40 @@ function persistActiveSession() {
     };
     const serialized = JSON.stringify(sessionObj);
     localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, serialized);
+    writeToIDB(ACTIVE_DOC_STORAGE_KEY, serialized);
   } catch (err) {}
 }
 
-function restoreActiveSessionIfPresent() {
+function applyRestoredSessionObject(parsed) {
+  if (!parsed || !Array.isArray(parsed.pageOrder) || !parsed.pagesData) return false;
+  window.pageOrder = parsed.pageOrder.slice();
+  window.pagesData = parsed.pagesData;
+  window.activePageId = parsed.activePageId || window.pageOrder[0] || 1;
+
+  if (parsed.margins && typeof pageMargins !== 'undefined') {
+    window.pageOrder.forEach(pNo => {
+      pageMargins[pNo] = Object.assign({}, parsed.margins);
+    });
+  }
+
+  const startPage = window.pagesData[window.activePageId] || { html: '' };
+  renderPageElementsIntoCanvas(startPage.html || '');
+  refreshPageBarTabs();
+  return true;
+}
+
+async function restoreActiveSessionIfPresent() {
   try {
-    const raw = localStorage.getItem(ACTIVE_DOC_STORAGE_KEY);
+    let raw = localStorage.getItem(ACTIVE_DOC_STORAGE_KEY);
+    if (!raw) {
+      raw = await readFromIDB(ACTIVE_DOC_STORAGE_KEY);
+      if (raw) {
+        try { localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, raw); } catch (e) {}
+      }
+    }
     if (!raw) return false;
     const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.pageOrder) || !parsed.pagesData) return false;
-
-    window.pageOrder = parsed.pageOrder.slice();
-    window.pagesData = parsed.pagesData;
-    window.activePageId = parsed.activePageId || window.pageOrder[0] || 1;
-
-    if (parsed.margins && typeof pageMargins !== 'undefined') {
-      window.pageOrder.forEach(pNo => {
-        pageMargins[pNo] = Object.assign({}, parsed.margins);
-      });
-    }
-
-    const startPage = window.pagesData[window.activePageId] || { html: '' };
-    renderPageElementsIntoCanvas(startPage.html || '');
-    refreshPageBarTabs();
-    return true;
+    return applyRestoredSessionObject(parsed);
   } catch (err) {
     return false;
   }
@@ -237,8 +292,26 @@ function getSavedFilesFromStorage() {
 
 function saveSavedFilesList(list) {
   try {
-    localStorage.setItem(SAVED_FILES_STORAGE_KEY, JSON.stringify(list));
+    const serialized = JSON.stringify(list);
+    localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized);
+    writeToIDB(SAVED_FILES_STORAGE_KEY, serialized);
   } catch (err) {}
+}
+
+async function hydrateSavedFilesOnLoad() {
+  try {
+    let raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
+    if (!raw || raw === '[]') {
+      const idbRaw = await readFromIDB(SAVED_FILES_STORAGE_KEY);
+      if (idbRaw) {
+        raw = idbRaw;
+        try { localStorage.setItem(SAVED_FILES_STORAGE_KEY, idbRaw); } catch (e) {}
+      }
+    }
+    renderSavedFilesDrawerList();
+  } catch (e) {
+    renderSavedFilesDrawerList();
+  }
 }
 
 function persistSnapshotToStorage() {
@@ -433,7 +506,7 @@ window.addEventListener('DOMContentLoaded', () => {
   ensureDocStore();
   restoreActiveSessionIfPresent();
   refreshPageBarTabs();
-  renderSavedFilesDrawerList();
+  hydrateSavedFilesOnLoad();
 });
 
 document.addEventListener('visibilitychange', () => {
