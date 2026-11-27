@@ -654,21 +654,23 @@ function isAncestryElement(el) {
 
 function getAncestryLegInch(el) {
   const rawPx = parseFloat(el.dataset.legHeightPx);
-  if (!isNaN(rawPx) && rawPx > 0) {
+  if (!isNaN(rawPx) && rawPx >= 0) {
     return Number((rawPx / ANCESTRY_PX_PER_INCH).toFixed(2));
   }
   const { h } = getElementExactSize(el);
-  const inferredPx = Math.max(10, Math.round((Math.max(24, h) - 2) * 0.36));
+  const inferredPx = Math.max(1, Math.round((Math.max(6, h) - 2) * 0.36));
   return Number((inferredPx / ANCESTRY_PX_PER_INCH).toFixed(2));
 }
 
 function setAncestryLegInch(el, nextInch) {
   if (!el || !isAncestryElement(el)) return;
-  const clampedInch = Math.max(0.05, Math.min(3.0, Number(parseFloat(nextInch).toFixed(2)) || 0.2));
-  const legPx = Math.max(6, Math.round(clampedInch * ANCESTRY_PX_PER_INCH));
+  const parsed = parseFloat(nextInch);
+  const safeVal = isNaN(parsed) ? 0.01 : parsed;
+  const clampedInch = Math.max(0.01, Math.min(3.0, Number(safeVal.toFixed(2))));
+  const legPx = Math.max(1, Math.round(clampedInch * ANCESTRY_PX_PER_INCH));
   el.dataset.legHeightPx = String(legPx);
 
-  const neededH = Math.max(32, legPx * 2 + 8);
+  const neededH = Math.max(8, legPx * 2 + 6);
   el.style.height = neededH + 'px';
   renderAncestryConnectorShape(el);
   updateControlPaletteInputs();
@@ -682,13 +684,13 @@ function renderAncestryConnectorShape(el) {
   const cw = Math.max(40, w);
 
   let legPx = parseFloat(el.dataset.legHeightPx);
-  if (isNaN(legPx) || legPx <= 0) {
+  if (isNaN(legPx) || legPx < 0) {
     legPx = 20;
     el.dataset.legHeightPx = String(legPx);
   }
-  legPx = Math.max(6, Math.round(legPx));
+  legPx = Math.max(1, Math.round(legPx));
 
-  const ch = Math.max(32, legPx * 2 + 8);
+  const ch = Math.max(8, legPx * 2 + 6);
   if ((parseInt(el.style.height) || 0) !== ch) {
     el.style.height = ch + 'px';
   }
@@ -822,10 +824,10 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   const heightInput = document.createElement('input');
   heightInput.type = 'number';
   heightInput.step = '0.01';
-  heightInput.min = '0.05';
+  heightInput.min = '0.01';
   heightInput.max = '3.0';
   heightInput.value = getAncestryLegInch(el).toFixed(2);
-  heightInput.title = 'इंचामध्ये थेट उंची टाका (उदा. 0.15, 0.25, 0.50)';
+  heightInput.title = 'इंचामध्ये थेट उंची टाका (उदा. 0.01, 0.05, 0.20)';
   heightInput.style.cssText = 'width:46px;padding:1px 3px;font-size:10px;font-weight:bold;border:1px solid #000;background:#fff;color:#000;';
   heightInput.addEventListener('pointerdown', (ev) => {
     ev.stopPropagation();
@@ -842,7 +844,7 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
 
   actionBar.appendChild(makeActionBtn('-0.01"', 'सर्व उभ्या टोकांची उंची 0.01" ने कमी करा', () => {
     const curInch = getAncestryLegInch(el);
-    const nextInch = Math.max(0.05, Number((curInch - ANCESTRY_STEP_INCH).toFixed(2)));
+    const nextInch = Math.max(0.01, Number((curInch - ANCESTRY_STEP_INCH).toFixed(2)));
     heightInput.value = nextInch.toFixed(2);
     setAncestryLegInch(el, nextInch);
   }));
@@ -1003,8 +1005,8 @@ function pmInsertAncestryTreePrompt(e) {
 
   const { m } = getCurrentPageDims();
   const baseW = Math.max(220, Math.min(520, count * 95));
-  const defaultLegPx = Math.max(6, Math.round(0.2 * ANCESTRY_PX_PER_INCH));
-  const baseH = Math.max(32, defaultLegPx * 2 + 8);
+  const defaultLegPx = Math.max(1, Math.round(0.2 * ANCESTRY_PX_PER_INCH));
+  const baseH = Math.max(8, defaultLegPx * 2 + 6);
   const startX = m.left + 20;
   const startY = m.top + 36;
 
