@@ -4,11 +4,30 @@ const ACTIVE_DOC_STORAGE_KEY = 'pm_active_doc_v1';
 const IDB_NAME = 'PageMakerDTP_DB';
 const IDB_STORE = 'store';
 
-/* =========================================================
-   JSONBin.io Cloud Sync Credentials (Set)
-   ========================================================= */
 const JSONBIN_BIN_ID = '6b0907173957a11c13b5e85d';
 const JSONBIN_MASTER_KEY = '$2a$10$WS8gsXLYxq4YKMARH79PouG08rREafo9OlEyALVhnr3aBNAeEMsR.';
+
+let lastCloudStatusMsg = 'Cloud ready';
+
+function showQuickToast(msg) {
+  lastCloudStatusMsg = msg;
+  const bar = document.getElementById('cloud-status-bar');
+  if (bar) bar.textContent = msg;
+
+  let toast = document.getElementById('pm-quick-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'pm-quick-toast';
+    toast.style.cssText = 'position:fixed;top:54px;left:50%;transform:translateX(-50%);background:#0a246a;color:#fff;padding:6px 12px;border:1px solid #fff;z-index:9999;font-size:11px;box-shadow:2px 2px 6px rgba(0,0,0,0.4);max-width:90vw;text-align:center;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.style.display = 'none';
+  }, 3000);
+}
 
 function isCloudSyncConfigured() {
   return typeof JSONBIN_BIN_ID === 'string'
@@ -22,28 +41,39 @@ function getCloudBinUrl() {
 }
 
 async function fetchFilesFromCloud() {
-  if (!isCloudSyncConfigured()) return [];
+  if (!isCloudSyncConfigured()) {
+    lastCloudStatusMsg = 'Cloud Error: Bin ID / Key missing';
+    return [];
+  }
   try {
-    const res = await fetch(`${getCloudBinUrl()}/latest`, {
+    const res = await fetch(`${getCloudBinUrl()}/latest?v=${Date.now()}`, {
       method: 'GET',
       cache: 'no-store',
       headers: {
         'X-Master-Key': JSONBIN_MASTER_KEY.trim()
       }
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      lastCloudStatusMsg = `Cloud Read Error (${res.status})`;
+      return [];
+    }
     const json = await res.json();
     const rec = json && json.record ? json.record : null;
+    lastCloudStatusMsg = 'Cloud Read OK';
     if (Array.isArray(rec)) return rec.filter(Boolean);
     if (rec && Array.isArray(rec.files)) return rec.files.filter(Boolean);
     return [];
   } catch (err) {
+    lastCloudStatusMsg = `Cloud Network Error: ${err.message || err}`;
     return [];
   }
 }
 
 async function syncAllFilesToCloud(list) {
-  if (!isCloudSyncConfigured()) return false;
+  if (!isCloudSyncConfigured()) {
+    showQuickToast('Cloud Error: Bin ID / Key missing');
+    return false;
+  }
   try {
     const cleanList = (Array.isArray(list) ? list : []).map((item, idx) =>
       Object.assign({}, item, { no: idx + 1 })
@@ -56,8 +86,14 @@ async function syncAllFilesToCloud(list) {
       },
       body: JSON.stringify({ files: cleanList })
     });
-    return res.ok;
+    if (!res.ok) {
+      showQuickToast(`Cloud Save Error (${res.status})`);
+      return false;
+    }
+    showQuickToast(`Cloud OK (${cleanList.length} files saved)`);
+    return true;
   } catch (err) {
+    showQuickToast(`Cloud Save Failed: ${err.message || err}`);
     return false;
   }
 }
@@ -110,22 +146,6 @@ function readFromIDB(key) {
       resolve(null);
     }
   });
-}
-
-function showQuickToast(msg) {
-  let toast = document.getElementById('pm-quick-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'pm-quick-toast';
-    toast.style.cssText = 'position:fixed;top:54px;left:50%;transform:translateX(-50%);background:#0a246a;color:#fff;padding:6px 12px;border:1px solid #fff;z-index:9999;font-size:11px;box-shadow:2px 2px 6px rgba(0,0,0,0.4);';
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.style.display = 'block';
-  clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => {
-    toast.style.display = 'none';
-  }, 2200);
 }
 
 function getCurrentPageDims() {
@@ -489,12 +509,49 @@ function renderSavedFilesDrawerList() {
   container.style.webkitOverflowScrolling = 'touch';
 
   const files = getSavedFilesFromStorage();
-  if (!files.length) {
-    container.innerHTML = `<div style="padding:8px;color:#000;">अजून कोणतीही फाईल सेव्ह झालेली नाही.</div>`;
-    return;
+
+  let topBar = document.getElementById('saved-files-cloud-toolbar');
+  if (!topBar) {
+    topBar = document.createElement('div');
+    topBar.id = 'saved-files-cloud-toolbar';
+    topBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:6px;background:#c0bcb4;padding:4px 6px;border:1px solid #808080;flex-shrink:0;';
+
+    const statusSpan = document.createElement('span');
+    statusSpan.id = 'cloud-status-bar';
+    statusSpan.style.cssText = 'font-size:10px;color:#000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    statusSpan.textContent = lastCloudStatusMsg;
+
+    const syncBtn = document.createElement('button');
+    syncBtn.type = 'button';
+    syncBtn.className = 'btn';
+    syncBtn.style.cssText = 'padding:3px 8px;font-size:10px;cursor:pointer;flex-shrink:0;';
+    syncBtn.textContent = 'Sync Now';
+    syncBtn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      statusSpan.textContent = 'Syncing...';
+      await hydrateSavedFilesOnLoad();
+      statusSpan.textContent = lastCloudStatusMsg;
+    });
+
+    topBar.appendChild(statusSpan);
+    topBar.appendChild(syncBtn);
+  } else {
+    const st = topBar.querySelector('#cloud-status-bar');
+    if (st) st.textContent = lastCloudStatusMsg;
   }
 
   container.innerHTML = '';
+  container.appendChild(topBar);
+
+  if (!files.length) {
+    const emptyDiv = document.createElement('div');
+    emptyDiv.style.cssText = 'padding:8px;color:#000;';
+    emptyDiv.textContent = 'अजून कोणतीही फाईल सेव्ह झालेली नाही.';
+    container.appendChild(emptyDiv);
+    return;
+  }
+
   files.forEach((f, idx) => {
     const num = f.no || (idx + 1);
     const pCount = Array.isArray(f.pageOrder) ? f.pageOrder.length : 1;
