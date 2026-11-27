@@ -23,15 +23,15 @@
 
   <!-- Menus -->
   <div id="menu-file" class="dropdown" style="left: 4px;">
-    <div class="dropdown-item" onclick="newDocument()"><span>New Publication</span><span>Ctrl+N</span></div>
-    <div class="dropdown-item" onclick="document.getElementById('project-input').click()"><span>Open (.json)...</span><span>Ctrl+O</span></div>
-    <div class="dropdown-item" onclick="saveProject()"><span>Save Project (.json)</span><span>Ctrl+S</span></div>
+    <div class="dropdown-item" onclick="pmActionNew(event)"><span>New Publication</span><span>Ctrl+N</span></div>
+    <div class="dropdown-item" onclick="document.getElementById('project-input').click()"><span>Open Document...</span><span>Ctrl+O</span></div>
+    <div class="dropdown-item" onclick="pmActionSave(event)"><span>Save All Pages</span><span>Ctrl+S</span></div>
     <div class="dropdown-item" onclick="openDocumentSetup()"><span>Document Setup...</span><span></span></div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place Image...</span><span>Ctrl+D</span></div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item" onclick="exportPageAsPNG()"><span>Export Current Page (PNG)</span><span>Img</span></div>
-    <div class="dropdown-item" onclick="printAllPages()"><span>Export / Print (PDF)</span><span>Ctrl+P</span></div>
+    <div class="dropdown-item" onclick="exportAllPagesToPDFPrint()"><span>Export / Print (PDF)</span><span>Ctrl+P</span></div>
   </div>
 
   <div id="menu-edit" class="dropdown" style="left: 34px;">
@@ -51,7 +51,7 @@
 
   <div id="menu-layout" class="dropdown" style="left: 66px;">
     <div class="dropdown-item" onclick="goToPagePrompt()"><span>Go To Page...</span><span></span></div>
-    <div class="dropdown-item" onclick="insertNewPage()"><span>Insert Page</span><span></span></div>
+    <div class="dropdown-item" onclick="pmActionAddPage(event)"><span>Insert Page (+1.5" Gap)</span><span></span></div>
     <div class="dropdown-item" onclick="insertMultiplePages()"><span>Insert Multiple Pages...</span><span></span></div>
     <div class="dropdown-item" onclick="removeCurrentPage()"><span>Remove Page</span><span></span></div>
     <div class="dropdown-item" onclick="removePageRangePrompt()"><span>Remove Page Range...</span><span></span></div>
@@ -135,12 +135,12 @@
   </div>
 
   <input type="file" id="image-input" accept="image/*" style="display:none" onchange="placeImage(event)">
-  <input type="file" id="project-input" accept=".json" style="display:none" onchange="loadProject(event)">
+  <input type="file" id="project-input" accept=".html,.json" style="display:none" onchange="openSavedFileCleanly(event)">
 
   <!-- Quick Top Bar -->
   <div class="toolbar">
-    <button type="button" class="btn" onclick="newDocument()">New</button>
-    <button type="button" class="btn" onclick="saveProject()">Save</button>
+    <button type="button" class="btn" id="btn-new-doc" onclick="pmActionNew(event)">New</button>
+    <button type="button" class="btn" id="btn-save-doc" onclick="pmActionSave(event)">Save</button>
     <button type="button" class="btn" onclick="undo()">Undo</button>
     <button type="button" class="btn" onclick="redo()">Redo</button>
     <button type="button" class="btn" onclick="triggerPlaceImage()">Place</button>
@@ -148,7 +148,7 @@
     <button type="button" class="btn" onclick="pasteCopied()">Paste</button>
     <button type="button" class="btn" onclick="deleteSelected()">Del</button>
     <button type="button" class="btn" onclick="exportPageAsPNG()">PNG</button>
-    <button type="button" class="btn" onclick="printAllPages()">PDF/Print</button>
+    <button type="button" class="btn" onclick="exportAllPagesToPDFPrint()">PDF/Print</button>
     <span id="page-indicator" style="font-weight:bold; color:#8b0000; margin-left:4px;">[Page 1 of 1]</span>
   </div>
 
@@ -298,7 +298,7 @@
     <div class="page-bar" id="page-bar">
       <div class="page-tab master" id="tab-M" onclick="switchPage('M')">M</div>
       <div class="page-tab active" id="tab-1" onclick="switchPage(1)">1</div>
-      <button type="button" class="add-page-btn" onclick="insertNewPage()">+ Page</button>
+      <button type="button" class="add-page-btn" id="add-page-btn" onclick="pmActionAddPage(event)">+ Page</button>
     </div>
   </div>
 
