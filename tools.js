@@ -283,7 +283,6 @@ function checkTextOverflow(el) {
   }
 }
 
-/* टेक्स्ट बॉक्सच्या निळ्या रेषेच्या आत कुठेही दाबून ओढल्यास उचलून मांडण्याची आणि साध्या टॅपवर टाइप करण्याची सोय */
 function attachElementEvents(el) {
   el.querySelectorAll('.handle').forEach(h => {
     const dir = h.className.replace('handle', '').trim();
@@ -327,7 +326,7 @@ function attachElementEvents(el) {
 
       function onMove(mEv) {
         const moveDist = Math.hypot(mEv.clientX - startX, mEv.clientY - startY);
-        if (!draggingBox && moveDist >= 8) {
+        if (!draggingBox && moveDist >= 3) {
           draggingBox = true;
           if (!stateSaved) {
             saveState();
