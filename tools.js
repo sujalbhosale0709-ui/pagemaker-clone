@@ -383,9 +383,20 @@ function deleteStoredFileById(fileId) {
 function renderSavedFilesDrawerList() {
   const container = document.getElementById('saved-files-list');
   if (!container) return;
+
+  /* एकाखाली एक (vertical column) आणि 100-200 फाइल्स सहज वर-खाली स्क्रोल होण्यासाठी स्टाइल */
+  container.style.display = 'flex';
+  container.style.flexDirection = 'column';
+  container.style.flexWrap = 'nowrap';
+  container.style.gap = '6px';
+  container.style.maxHeight = '65vh';
+  container.style.overflowY = 'auto';
+  container.style.overflowX = 'hidden';
+  container.style.webkitOverflowScrolling = 'touch';
+
   const files = getSavedFilesFromStorage();
   if (!files.length) {
-    container.innerHTML = '<div style="padding:6px;color:#000;">अजून कोणतीही फाईल सेव्ह झालेली नाही.</div>';
+    container.innerHTML = '<div style="padding:8px;color:#000;">अजून कोणतीही फाईल सेव्ह झालेली नाही.</div>';
     return;
   }
 
@@ -396,12 +407,12 @@ function renderSavedFilesDrawerList() {
     const displayTitle = f.title || (`File ${num}`);
 
     const itemRow = document.createElement('div');
-    itemRow.style.cssText = 'display:flex;align-items:center;gap:4px;background:#e0ded8;border:1px solid #808080;padding:3px 5px;';
+    itemRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box;gap:6px;background:#e0ded8;border:1px solid #808080;padding:5px 6px;flex-shrink:0;';
 
     const openBtn = document.createElement('button');
     openBtn.type = 'button';
     openBtn.className = 'page-tab';
-    openBtn.style.cssText = 'padding:5px 8px;font-size:11px;touch-action:manipulation;cursor:pointer;background:#ffffff;border:1px solid #000;';
+    openBtn.style.cssText = 'flex:1;min-width:0;text-align:left;padding:6px 8px;font-size:11px;touch-action:manipulation;cursor:pointer;background:#ffffff;border:1px solid #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
     openBtn.textContent = `${num}. ${displayTitle} [${pCount} Page]`;
     openBtn.addEventListener('click', (ev) => {
       ev.preventDefault();
@@ -409,10 +420,13 @@ function renderSavedFilesDrawerList() {
       openStoredFileById(f.id);
     });
 
+    const btnGroup = document.createElement('div');
+    btnGroup.style.cssText = 'display:flex;align-items:center;gap:4px;flex-shrink:0;';
+
     const renameBtn = document.createElement('button');
     renameBtn.type = 'button';
     renameBtn.className = 'btn';
-    renameBtn.style.cssText = 'padding:4px 7px;font-size:10px;touch-action:manipulation;cursor:pointer;';
+    renameBtn.style.cssText = 'padding:5px 8px;font-size:10px;touch-action:manipulation;cursor:pointer;';
     renameBtn.textContent = 'Rename';
     renameBtn.addEventListener('click', (ev) => {
       ev.preventDefault();
@@ -423,7 +437,7 @@ function renderSavedFilesDrawerList() {
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'btn';
-    delBtn.style.cssText = 'padding:4px 7px;font-size:10px;touch-action:manipulation;cursor:pointer;color:#8b0000;font-weight:bold;';
+    delBtn.style.cssText = 'padding:5px 8px;font-size:10px;touch-action:manipulation;cursor:pointer;color:#8b0000;font-weight:bold;';
     delBtn.textContent = 'Delete';
     delBtn.addEventListener('click', (ev) => {
       ev.preventDefault();
@@ -431,9 +445,11 @@ function renderSavedFilesDrawerList() {
       deleteStoredFileById(f.id);
     });
 
+    btnGroup.appendChild(renameBtn);
+    btnGroup.appendChild(delBtn);
+
     itemRow.appendChild(openBtn);
-    itemRow.appendChild(renameBtn);
-    itemRow.appendChild(delBtn);
+    itemRow.appendChild(btnGroup);
     container.appendChild(itemRow);
   });
 }
