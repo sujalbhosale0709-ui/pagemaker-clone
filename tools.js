@@ -50,6 +50,26 @@ function persistAllPagesAutoSave() {
   }
 }
 
+function refreshPageBarTabs() {
+  const bar = document.getElementById('page-bar');
+  if (!bar || typeof pageOrder === 'undefined') return;
+  const normalPages = pageOrder.filter(p => p !== 'M');
+  const curId = typeof activePageId !== 'undefined' ? activePageId : 1;
+
+  let html = `<div class="page-tab master ${curId === 'M' ? 'active' : ''}" id="tab-M" onclick="switchPage('M')">M</div>`;
+  normalPages.forEach(pNum => {
+    html += `<div class="page-tab ${curId === pNum ? 'active' : ''}" id="tab-${pNum}" onclick="switchPage(${pNum})">${pNum}</div>`;
+  });
+  html += `<button type="button" class="add-page-btn" onclick="addBondPageBelow(event)">+ Page</button>`;
+  bar.innerHTML = html;
+
+  const ind = document.getElementById('page-indicator');
+  if (ind) {
+    const activeLabel = curId === 'M' ? 'Master' : curId;
+    ind.textContent = `[Page ${activeLabel} of ${normalPages.length}]`;
+  }
+}
+
 function updateStackedPagesLayout() {
   const pageEl = document.getElementById('page');
   if (!pageEl || typeof pageOrder === 'undefined') return;
@@ -150,16 +170,9 @@ function addBondPageBelow(e) {
   }
   pageOrder.push(nextPageNo);
 
-  if (typeof renderPageTabs === 'function') {
-    renderPageTabs();
-  }
+  refreshPageBarTabs();
   updateStackedPagesLayout();
   persistAllPagesAutoSave();
-
-  const ind = document.getElementById('page-indicator');
-  if (ind) {
-    ind.textContent = `[Page ${nextPageNo} of ${normalPages.length + 1}]`;
-  }
 
   showQuickToast(`Page ${nextPageNo} खाली (1.5" गॅपसह) जोडले गेले.`);
 
@@ -259,8 +272,7 @@ ${renderedPagesHtml}
 
 function startFreshDocumentKeepSaved() {
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-  const savedOk = saveAllPagesAsViewableDoc(`Bond_Saved_${stamp}.html`);
-  if (!savedOk) return;
+  saveAllPagesAsViewableDoc(`Bond_Saved_${stamp}.html`);
 
   if (typeof saveState === 'function') saveState();
 
@@ -274,16 +286,22 @@ function startFreshDocumentKeepSaved() {
   }
   if (typeof pagesData !== 'undefined') {
     const { w, h } = getCurrentPageDims();
+    Object.keys(pagesData).forEach(k => delete pagesData[k]);
     pagesData[1] = { html: '', width: w, height: h };
   }
+  if (typeof activePageId !== 'undefined') {
+    activePageId = 1;
+  }
   selectedEl = null;
-  if (typeof renderPageTabs === 'function') renderPageTabs();
+
+  refreshPageBarTabs();
   updateStackedPagesLayout();
+  persistAllPagesAutoSave();
 
-  const ind = document.getElementById('page-indicator');
-  if (ind) ind.textContent = '[Page 1 of 1]';
+  const pb = document.getElementById('pasteboard');
+  if (pb) pb.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
 
-  showQuickToast('सगळी पेजेस फाईलमध्ये सेव्ह झाली आणि नवीन कोरे पान सुरू झाले.');
+  showQuickToast('जुनी पेजेस फाईलमध्ये सेव्ह झाली; स्क्रीनवर नवीन कोरे पान (Page 1) तयार आहे.');
 }
 
 function openSavedFileCleanly(event) {
@@ -330,7 +348,8 @@ function openSavedFileCleanly(event) {
           }
         }
 
-        if (typeof renderPageTabs === 'function') renderPageTabs();
+        if (typeof activePageId !== 'undefined') activePageId = orderList[0] || 1;
+        refreshPageBarTabs();
         updateStackedPagesLayout();
         persistAllPagesAutoSave();
         showQuickToast('सेव्ह केलेले पान व मजकूर थेट ओपन झाले.');
@@ -355,6 +374,7 @@ function openSavedFileCleanly(event) {
           selectElement(el);
         }
       }
+      refreshPageBarTabs();
       showQuickToast('फाईल पानावर उघडली.');
     } catch (err) {
       alert('ही फाईल उघडताना अडचण आली.');
@@ -475,6 +495,7 @@ function wireBondPageButtons() {
 
 window.addEventListener('DOMContentLoaded', () => {
   wireBondPageButtons();
+  refreshPageBarTabs();
   updateStackedPagesLayout();
   setInterval(persistAllPagesAutoSave, 4000);
 });
