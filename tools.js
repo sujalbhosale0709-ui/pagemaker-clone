@@ -670,7 +670,8 @@ function setAncestryLegInch(el, nextInch) {
   const legPx = Math.max(1, Math.round(clampedInch * ANCESTRY_PX_PER_INCH));
   el.dataset.legHeightPx = String(legPx);
 
-  const neededH = Math.max(8, legPx * 2 + 6);
+  const neededH = Math.max(6, legPx * 2 + 4);
+  el.style.minHeight = '0px';
   el.style.height = neededH + 'px';
   renderAncestryConnectorShape(el);
   updateControlPaletteInputs();
@@ -680,6 +681,7 @@ function setAncestryLegInch(el, nextInch) {
 
 function renderAncestryConnectorShape(el) {
   if (!el || !isAncestryElement(el)) return;
+  el.style.minHeight = '0px';
   const { w } = getElementExactSize(el);
   const cw = Math.max(40, w);
 
@@ -690,7 +692,7 @@ function renderAncestryConnectorShape(el) {
   }
   legPx = Math.max(1, Math.round(legPx));
 
-  const ch = Math.max(8, legPx * 2 + 6);
+  const ch = Math.max(6, legPx * 2 + 4);
   if ((parseInt(el.style.height) || 0) !== ch) {
     el.style.height = ch + 'px';
   }
@@ -829,17 +831,22 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   heightInput.value = getAncestryLegInch(el).toFixed(2);
   heightInput.title = 'इंचामध्ये थेट उंची टाका (उदा. 0.01, 0.05, 0.20)';
   heightInput.style.cssText = 'width:46px;padding:1px 3px;font-size:10px;font-weight:bold;border:1px solid #000;background:#fff;color:#000;';
+  const applyHeightInputVal = (ev) => {
+    ev.stopPropagation();
+    const raw = heightInput.value;
+    if (raw === '' || raw === '.' || raw === '0.') return;
+    const val = parseFloat(raw);
+    if (!isNaN(val) && val > 0) {
+      setAncestryLegInch(el, val);
+    }
+  };
   heightInput.addEventListener('pointerdown', (ev) => {
     ev.stopPropagation();
   });
+  heightInput.addEventListener('input', applyHeightInputVal);
   heightInput.addEventListener('change', (ev) => {
-    ev.stopPropagation();
-    const val = parseFloat(heightInput.value);
-    if (!isNaN(val) && val > 0) {
-      setAncestryLegInch(el, val);
-    } else {
-      heightInput.value = getAncestryLegInch(el).toFixed(2);
-    }
+    applyHeightInputVal(ev);
+    heightInput.value = getAncestryLegInch(el).toFixed(2);
   });
 
   actionBar.appendChild(makeActionBtn('-0.01"', 'सर्व उभ्या टोकांची उंची 0.01" ने कमी करा', () => {
@@ -1006,11 +1013,12 @@ function pmInsertAncestryTreePrompt(e) {
   const { m } = getCurrentPageDims();
   const baseW = Math.max(220, Math.min(520, count * 95));
   const defaultLegPx = Math.max(1, Math.round(0.2 * ANCESTRY_PX_PER_INCH));
-  const baseH = Math.max(8, defaultLegPx * 2 + 6);
+  const baseH = Math.max(6, defaultLegPx * 2 + 4);
   const startX = m.left + 20;
   const startY = m.top + 36;
 
   const el = createPMElement(startX, startY, baseW, baseH);
+  el.style.minHeight = '0px';
   el.dataset.ancestryTree = '1';
   el.dataset.dropCount = String(count);
   el.dataset.autoEqual = '1';
