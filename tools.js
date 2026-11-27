@@ -84,9 +84,20 @@ function renderPageElementsIntoCanvas(htmlStr) {
 
 function refreshPageBarTabs() {
   const bar = document.getElementById('page-bar');
-  if (!bar || typeof pageOrder === 'undefined') return;
+  if (!bar) return;
+  if (typeof pageOrder === 'undefined') {
+    window.pageOrder = [1];
+  }
+  if (typeof pagesData === 'undefined') {
+    const { w, h } = getCurrentPageDims();
+    window.pagesData = { 1: { html: '', width: w, height: h } };
+  }
+  if (typeof activePageId === 'undefined') {
+    window.activePageId = 1;
+  }
+
   const normalPages = pageOrder.filter(p => p !== 'M');
-  const curId = typeof activePageId !== 'undefined' ? activePageId : 1;
+  const curId = activePageId;
 
   let html = `<div class="page-tab master ${curId === 'M' ? 'active' : ''}" id="tab-M" onclick="pmSwitchToPage('M')">M</div>`;
   normalPages.forEach(pNum => {
@@ -104,23 +115,21 @@ function refreshPageBarTabs() {
 
 function pmSwitchToPage(targetId) {
   saveCurrentActivePageIntoData();
-  if (typeof activePageId !== 'undefined') {
-    activePageId = targetId;
-  }
+  activePageId = targetId;
   const { w, h } = getCurrentPageDims();
-  const pData = (typeof pagesData !== 'undefined' && pagesData[targetId]) ? pagesData[targetId] : { html: '', width: w, height: h };
+  const pData = (pagesData && pagesData[targetId]) ? pagesData[targetId] : { html: '', width: w, height: h };
   renderPageElementsIntoCanvas(pData.html || '');
   refreshPageBarTabs();
 }
 
-/* १. + Page: जुने पान सेव्ह होऊन याच जागी नवीन कोरे (पांढरे) पान येते */
+/* + Page: जुने पान सेव्ह होऊन याच जागी नवीन कोरे पान */
 function pmActionAddPage(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  if (typeof pageOrder === 'undefined' || typeof pagesData === 'undefined') return;
-  if (typeof saveState === 'function') saveState();
+  if (typeof pageOrder === 'undefined') window.pageOrder = [1];
+  if (typeof pagesData === 'undefined') window.pagesData = {};
 
   saveCurrentActivePageIntoData();
 
@@ -133,17 +142,14 @@ function pmActionAddPage(e) {
   }
   pagesData[nextPageNo] = { html: '', width: w, height: h };
   pageOrder.push(nextPageNo);
-
-  if (typeof activePageId !== 'undefined') {
-    activePageId = nextPageNo;
-  }
+  activePageId = nextPageNo;
 
   renderPageElementsIntoCanvas('');
   refreshPageBarTabs();
   showQuickToast(`Page ${nextPageNo} तयार (कोरे पान)`);
 }
 
-/* २. Save: सर्व पेजेस एकत्र PDF स्वरूपात सेव्ह करण्यासाठी प्रिंट/PDF */
+/* Save: सर्व पेजेस एकत्र PDF स्वरूपात सेव्ह करण्यासाठी प्रिंट/PDF */
 function pmActionSave(e) {
   if (e) {
     e.preventDefault();
@@ -172,7 +178,6 @@ function pmActionSave(e) {
   window.print();
 }
 
-/* ३. New: सर्व पेजेस स्टोरेजमध्ये सेव्ह करून नवीन कोरे पान सुरू करणे */
 function getSavedFilesFromStorage() {
   try {
     const raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
@@ -222,11 +227,22 @@ function renderSavedFilesDrawerList() {
     return;
   }
 
-  container.innerHTML = files.map((f, idx) => {
+  container.innerHTML = '';
+  files.forEach((f, idx) => {
     const num = f.no || (idx + 1);
     const pCount = Array.isArray(f.pageOrder) ? f.pageOrder.length : 1;
-    return `<button type="button" class="page-tab" style="padding:4px 8px;font-size:10px;" onclick="openStoredFileById('${f.id}')">${num}. ${f.title || ('File ' + num)} [${pCount} Page]</button>`;
-  }).join('');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'page-tab';
+    btn.style.cssText = 'padding:5px 10px;font-size:11px;touch-action:manipulation;cursor:pointer;';
+    btn.textContent = `${num}. ${f.title || ('File ' + num)} [${pCount} Page]`;
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openStoredFileById(f.id);
+    });
+    container.appendChild(btn);
+  });
 }
 
 function toggleSavedFilesDrawer(e) {
@@ -245,7 +261,10 @@ function toggleSavedFilesDrawer(e) {
 function openStoredFileById(fileId) {
   const files = getSavedFilesFromStorage();
   const found = files.find(f => f.id === fileId);
-  if (!found || typeof pageOrder === 'undefined' || typeof pagesData === 'undefined') return;
+  if (!found) return;
+
+  if (typeof pageOrder === 'undefined') window.pageOrder = [1];
+  if (typeof pagesData === 'undefined') window.pagesData = {};
 
   const orderList = Array.isArray(found.pageOrder) && found.pageOrder.length ? found.pageOrder.slice() : [1];
   pageOrder.length = 0;
@@ -263,9 +282,7 @@ function openStoredFileById(fileId) {
     });
   }
 
-  if (typeof activePageId !== 'undefined') {
-    activePageId = orderList[0];
-  }
+  activePageId = orderList[0];
 
   const firstHtml = pagesData[orderList[0]] ? pagesData[orderList[0]].html : '';
   renderPageElementsIntoCanvas(firstHtml);
@@ -282,21 +299,17 @@ function pmActionNew(e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  if (typeof saveState === 'function') saveState();
   const savedRec = persistSnapshotToStorage();
 
   const { w, h } = getCurrentPageDims();
-  if (typeof pageOrder !== 'undefined') {
-    pageOrder.length = 0;
-    pageOrder.push(1);
-  }
-  if (typeof pagesData !== 'undefined') {
-    Object.keys(pagesData).forEach(k => delete pagesData[k]);
-    pagesData[1] = { html: '', width: w, height: h };
-  }
-  if (typeof activePageId !== 'undefined') {
-    activePageId = 1;
-  }
+  if (typeof pageOrder === 'undefined') window.pageOrder = [1];
+  if (typeof pagesData === 'undefined') window.pagesData = {};
+
+  pageOrder.length = 0;
+  pageOrder.push(1);
+  Object.keys(pagesData).forEach(k => delete pagesData[k]);
+  pagesData[1] = { html: '', width: w, height: h };
+  activePageId = 1;
 
   renderPageElementsIntoCanvas('');
   refreshPageBarTabs();
@@ -386,14 +399,17 @@ function selectTool(tool) {
 }
 
 function getMagnetTargets(axis) {
-  ensurePageState(activePageId);
+  if (typeof ensurePageState === 'function') ensurePageState(activePageId);
   const { w: pageW, h: pageH, m } = getCurrentPageDims();
 
-  const targets = axis === 'v'
-    ? [m.left, pageW - m.right, ...(pageGuides[activePageId].v || [])]
-    : [m.top, pageH - m.bottom, ...(pageGuides[activePageId].h || [])];
+  const vGuides = (typeof pageGuides !== 'undefined' && pageGuides[activePageId] && pageGuides[activePageId].v) || [];
+  const hGuides = (typeof pageGuides !== 'undefined' && pageGuides[activePageId] && pageGuides[activePageId].h) || [];
 
-  const colCfg = pageColumns[activePageId];
+  const targets = axis === 'v'
+    ? [m.left, pageW - m.right, ...vGuides]
+    : [m.top, pageH - m.bottom, ...hGuides];
+
+  const colCfg = (typeof pageColumns !== 'undefined') ? pageColumns[activePageId] : null;
   if (axis === 'v' && colCfg && colCfg.count > 1) {
     const usableW = Math.max(40, pageW - m.left - m.right);
     const totalGutter = colCfg.gutter * (colCfg.count - 1);
@@ -550,7 +566,7 @@ function convertSelectedToLegacyFont() {
     alert('कृपया आधी SHREE-DEV7, Kruti Dev, किंवा Shivaji फॉन्ट निवडा.');
     return;
   }
-  saveState();
+  if (typeof saveState === 'function') saveState();
   if (!tc.dataset.unicodeSource) tc.dataset.unicodeSource = tc.innerText;
   tc.innerText = unicodeToLegacyDevanagari(tc.dataset.unicodeSource, legacyType);
   checkTextOverflow(selectedEl);
@@ -593,7 +609,7 @@ function attachElementEvents(el) {
       e.preventDefault();
       e.stopPropagation();
       selectElement(el);
-      saveState();
+      if (typeof saveState === 'function') saveState();
       if (currentTool === 'crop') initCrop(e, el, dir);
       else initResize(e, el, dir);
     };
@@ -614,7 +630,7 @@ function attachElementEvents(el) {
 
       if (currentTool === 'rotate') {
         ev.preventDefault();
-        saveState();
+        if (typeof saveState === 'function') saveState();
         initRotate(ev, el);
         return;
       }
@@ -631,7 +647,7 @@ function attachElementEvents(el) {
         const moveDist = Math.hypot(mEv.clientX - startX, mEv.clientY - startY);
         if (!draggingBox && moveDist >= 3) {
           draggingBox = true;
-          if (!stateSaved) {
+          if (!stateSaved && typeof saveState === 'function') {
             saveState();
             stateSaved = true;
           }
@@ -683,10 +699,10 @@ function attachElementEvents(el) {
     e.stopPropagation();
     selectElement(el);
     if (currentTool === 'rotate') {
-      saveState();
+      if (typeof saveState === 'function') saveState();
       initRotate(e, el);
     } else {
-      saveState();
+      if (typeof saveState === 'function') saveState();
       initDrag(e, el);
     }
   };
@@ -695,7 +711,7 @@ function attachElementEvents(el) {
 }
 
 function createPMElement(x, y, w, h) {
-  saveState();
+  if (typeof saveState === 'function') saveState();
   const el = document.createElement('div');
   el.className = 'pm-element selected';
   el.style.left = Math.round(x) + 'px';
@@ -1053,7 +1069,7 @@ function cutSelected() {
 
 function pasteCopied() {
   if (!clipboardElementHTML) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   const temp = document.createElement('div');
   temp.innerHTML = clipboardElementHTML;
   const newEl = temp.firstElementChild;
@@ -1079,7 +1095,7 @@ function pasteMultiple() {
   const dx = parseInt(dxStr) || 0;
   const dy = parseInt(dyStr) || 0;
 
-  saveState();
+  if (typeof saveState === 'function') saveState();
   let baseX = parseInt(selectedEl.style.left) || 40;
   let baseY = parseInt(selectedEl.style.top) || 40;
   let lastEl = selectedEl;
@@ -1108,7 +1124,7 @@ function updateControlPaletteInputs() {
 
 function updateBoxGeometry() {
   if (!selectedEl) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   selectedEl.style.left = (parseInt(document.getElementById('pos-x').value) || 0) + 'px';
   selectedEl.style.top = (parseInt(document.getElementById('pos-y').value) || 0) + 'px';
   selectedEl.style.width = (parseInt(document.getElementById('box-w').value) || 10) + 'px';
@@ -1118,7 +1134,7 @@ function updateBoxGeometry() {
 
 function updateBoxRotation() {
   if (!selectedEl) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   const d = parseInt(document.getElementById('box-rot').value) || 0;
   selectedEl.dataset.rotation = d;
   selectedEl.style.transform = `rotate(${d}deg)`;
@@ -1142,7 +1158,7 @@ function toggleReverseText() {
   if (!selectedEl) return;
   const tc = selectedEl.querySelector('.text-content');
   if (!tc) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   const isRev = tc.dataset.reversed === '1';
   if (isRev) {
     tc.dataset.reversed = '0';
@@ -1163,7 +1179,7 @@ function setLetterTrackingPrompt() {
   const cur = parseFloat(tc.style.letterSpacing) || 0;
   const valStr = prompt('अक्षरांमधील अंतर (Letter Spacing px मध्ये, उदा. -1, 0, 1, 2, 4):', cur);
   if (valStr === null) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   tc.style.letterSpacing = (parseFloat(valStr) || 0) + 'px';
   checkTextOverflow(selectedEl);
 }
@@ -1178,7 +1194,7 @@ function setWordSpacingPrompt() {
   const cur = parseFloat(tc.style.wordSpacing) || 0;
   const valStr = prompt('दोन शब्दांमधील अंतर (Word Spacing px मध्ये, उदा. 0, 3, 6, 12):', cur);
   if (valStr === null) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   tc.style.wordSpacing = (parseFloat(valStr) || 0) + 'px';
   checkTextOverflow(selectedEl);
 }
@@ -1195,14 +1211,14 @@ function setLineSpacingPrompt() {
   if (valStr === null) return;
   const nextVal = parseFloat(valStr) || 1.4;
   document.getElementById('line-leading').value = nextVal;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   tc.style.lineHeight = nextVal;
   checkTextOverflow(selectedEl);
 }
 
 function changeFontSize(s) {
   if (selectedEl) {
-    saveState();
+    if (typeof saveState === 'function') saveState();
     const tc = selectedEl.querySelector('.text-content');
     if (tc) {
       tc.style.fontSize = (parseInt(s) || 16) + 'px';
@@ -1215,7 +1231,7 @@ function setLineHeight(lh) {
   const val = parseFloat(lh) || 1.4;
   document.getElementById('line-leading').value = val;
   if (selectedEl) {
-    saveState();
+    if (typeof saveState === 'function') saveState();
     const tc = selectedEl.querySelector('.text-content');
     if (tc) {
       tc.style.lineHeight = val;
@@ -1227,7 +1243,7 @@ function setLineHeight(lh) {
 function applyColor(c) {
   document.getElementById('picker-color').value = c;
   if (!selectedEl) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   const tc = selectedEl.querySelector('.text-content');
   if (tc) tc.style.color = c;
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke', c));
@@ -1235,7 +1251,7 @@ function applyColor(c) {
 
 function applyFillColor() {
   if (!selectedEl) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   const c = document.getElementById('picker-color').value;
   selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => s.setAttribute('fill', c));
 }
@@ -1252,7 +1268,7 @@ function applyFillStrokePrompt() {
   const strokeW = prompt('Stroke Width (pt/px मध्ये, उदा. 1, 2, 4):', '2');
   if (strokeW === null) return;
 
-  saveState();
+  if (typeof saveState === 'function') saveState();
   selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => {
     s.setAttribute('fill', fillCol.trim() || 'none');
     s.setAttribute('stroke', strokeCol.trim() || '#000000');
@@ -1266,7 +1282,7 @@ function applyFillStrokePrompt() {
 
 function changeStrokeWidth(w) {
   if (!selectedEl) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke-width', w));
 }
 
@@ -1276,7 +1292,7 @@ function alignObjects(mode) {
     alert('Align Objects साठी Select All किंवा एकापेक्षा जास्त घटक निवडा.');
     return;
   }
-  saveState();
+  if (typeof saveState === 'function') saveState();
   const rects = els.map(el => {
     const { w, h } = getElementExactSize(el);
     return {
@@ -1316,7 +1332,7 @@ function alignObjects(mode) {
 
 function toggleTextWrap() {
   if (!selectedEl) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   const wrapped = selectedEl.dataset.textWrap === '1';
   if (wrapped) {
     selectedEl.dataset.textWrap = '0';
@@ -1340,7 +1356,7 @@ function openStoryEditor() {
   const baseText = tc.dataset.unicodeSource || tc.innerText;
   const updated = prompt('Story Editor — मराठी मजकूर बदला:', baseText);
   if (updated !== null) {
-    saveState();
+    if (typeof saveState === 'function') saveState();
     tc.dataset.unicodeSource = updated;
     const lType = getLegacyFontType(tc.style.fontFamily || document.getElementById('font-family').value);
     tc.innerText = lType ? unicodeToLegacyDevanagari(updated, lType) : updated;
@@ -1391,14 +1407,14 @@ function exportPageAsPNG() {
         a.download = `Page_${activePageId}.png`;
         a.click();
       } catch (err) {
-        alert('PNG तयार करताना अडचण आली; PDF / Print पर्याय वापरून पहा.');
+        alert('PNG तयार करताना अडचण आली; Save / PDF पर्याय वापरून पहा.');
       } finally {
         URL.revokeObjectURL(url);
       }
     };
     img.onerror = function() {
       URL.revokeObjectURL(url);
-      alert('PNG एक्सपोर्ट शक्य झाले नाही; PDF / Print पर्याय वापरून पहा.');
+      alert('PNG एक्सपोर्ट शक्य झाले नाही; Save / PDF पर्याय वापरून पहा.');
     };
     img.src = url;
   } catch (e) {
@@ -1408,7 +1424,7 @@ function exportPageAsPNG() {
 
 function duplicateSelected() {
   if (!selectedEl) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   const c = selectedEl.cloneNode(true);
   c.style.left = ((parseInt(selectedEl.style.left) || 0) + 20) + 'px';
   c.style.top = ((parseInt(selectedEl.style.top) || 0) + 20) + 'px';
@@ -1417,23 +1433,23 @@ function duplicateSelected() {
   selectElement(c);
 }
 
-function bringToFront() { if (selectedEl) { saveState(); selectedEl.style.zIndex = 50; } }
-function sendToBack() { if (selectedEl) { saveState(); selectedEl.style.zIndex = 5; } }
+function bringToFront() { if (selectedEl) { if (typeof saveState === 'function') saveState(); selectedEl.style.zIndex = 50; } }
+function sendToBack() { if (selectedEl) { if (typeof saveState === 'function') saveState(); selectedEl.style.zIndex = 5; } }
 function bringForward() {
   if (selectedEl) {
-    saveState();
+    if (typeof saveState === 'function') saveState();
     const cur = parseInt(selectedEl.style.zIndex) || 10;
     selectedEl.style.zIndex = Math.min(80, cur + 1);
   }
 }
 function sendBackward() {
   if (selectedEl) {
-    saveState();
+    if (typeof saveState === 'function') saveState();
     const cur = parseInt(selectedEl.style.zIndex) || 10;
     selectedEl.style.zIndex = Math.max(3, cur - 1);
   }
 }
-function deleteSelected() { if (selectedEl) { saveState(); selectedEl.remove(); selectedEl = null; } }
+function deleteSelected() { if (selectedEl) { if (typeof saveState === 'function') saveState(); selectedEl.remove(); selectedEl = null; } }
 
 function insertPageNumberBox() {
   const label = (activePageId === 'M') ? '#' : String(activePageId);
@@ -1451,7 +1467,7 @@ function findAndReplaceText() {
   if (!findVal) return;
   const repVal = prompt(`"${findVal}" ऐवजी कोणता शब्द टाकायचा आहे?`, '');
   if (repVal === null) return;
-  saveState();
+  if (typeof saveState === 'function') saveState();
   document.querySelectorAll('.text-content').forEach(tc => {
     tc.innerHTML = tc.innerHTML.split(findVal).join(repVal);
   });
