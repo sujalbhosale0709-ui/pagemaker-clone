@@ -3,319 +3,489 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Adobe PageMaker 7.0 - DTP Studio</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Annapurna+SIL:wght@400;700&family=Baloo+Bhaina+2:wght@400;600;700&family=Eczar:wght@400;600;700&family=Gotu&family=Hind:wght@400;600;700&family=Jaini&family=Jaini+Purva&family=Kalam:wght@400;700&family=Karma:wght@400;600;700&family=Khula:wght@400;600;700&family=Khand:wght@500;700&family=Laila:wght@400;600;700&family=Martel:wght@400;700&family=Martel+Sans:wght@400;700&family=Modak&family=Mukta:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Serif+Devanagari:wght@400;700&family=Palanquin:wght@400;600;700&family=Palanquin+Dark:wght@400;700&family=Poppins:wght@400;600;700&family=Pragati+Narrow:wght@400;700&family=Rajdhani:wght@500;700&family=Rozha+One&family=Sahitya:wght@400;700&family=Teko:wght@500;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Tiro+Devanagari+Marathi:ital@0;1&family=Yatra+One&display=swap" rel="stylesheet">
+<title>Adobe PageMaker 7.0 — Web DTP Studio</title>
 <link rel="stylesheet" href="style.css">
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; padding: 0; font-family: Tahoma, Arial, sans-serif; font-size: 11px; background: #808080; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+  #menubar { background: #d4d0c8; border-bottom: 1px solid #404040; display: flex; align-items: center; padding: 2px 4px; gap: 2px; z-index: 500; flex-wrap: wrap; }
+  .menu-item { position: relative; padding: 3px 7px; cursor: pointer; font-weight: bold; color: #000; }
+  .menu-item:hover, .menu-item:active { background: #0a246a; color: #fff; }
+  .dropdown { display: none; position: absolute; top: 100%; left: 0; background: #d4d0c8; border: 2px outset #fff; min-width: 195px; z-index: 999; box-shadow: 2px 2px 6px rgba(0,0,0,0.45); max-height: 78vh; overflow-y: auto; }
+  .dropdown.show { display: block; }
+  .dd-item { padding: 5px 10px; color: #000; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #c0bcb4; white-space: nowrap; }
+  .dd-item:hover { background: #0a246a; color: #fff; }
+  .dd-sep { height: 2px; background: #808080; border-bottom: 1px solid #fff; margin: 2px 0; }
+  .btn { background: #d4d0c8; border: 1px outset #fff; padding: 2px 6px; font-size: 10px; cursor: pointer; color: #000; }
+  .btn:active { border-style: inset; }
+
+  /* Control Palette */
+  #control-palette { background: #d4d0c8; border-bottom: 2px ridge #fff; padding: 3px 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; z-index: 400; font-size: 10px; }
+  #control-palette input, #control-palette select { font-size: 10px; padding: 1px 3px; border: 1px inset #fff; background: #fff; color: #000; }
+
+  /* Main Workspace */
+  #workspace { flex: 1; position: relative; display: flex; overflow: hidden; }
+  #pasteboard { flex: 1; background: #808080; overflow: auto; position: relative; display: flex; justify-content: center; align-items: flex-start; padding: 34px 28px 70px 28px; touch-action: pan-x pan-y; }
+  #page { width: 816px; height: 1056px; background: #ffffff; position: relative; box-shadow: 3px 3px 10px rgba(0,0,0,0.55); transform-origin: top center; flex-shrink: 0; }
+  #margin-guide { position: absolute; top: 72px; left: 96px; right: 72px; bottom: 72px; border: 1px solid #ff69b4; pointer-events: none; z-index: 2; }
+  #guides-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+
+  /* Floating Toolbox */
+  #toolbox { position: fixed; left: 6px; top: 82px; width: 62px; background: #d4d0c8; border: 2px outset #fff; z-index: 450; box-shadow: 2px 2px 6px rgba(0,0,0,0.4); }
+  .pal-header { background: #0a246a; color: #fff; padding: 2px 4px; font-size: 9px; font-weight: bold; display: flex; justify-content: space-between; cursor: move; }
+  .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; padding: 2px; }
+  .tool-btn { height: 26px; background: #d4d0c8; border: 1px outset #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; padding: 0; }
+  .tool-btn.active { border: 1px inset #fff; background: #b8b4ac; }
+
+  /* Floating Color Palette */
+  #color-palette { position: fixed; right: 6px; top: 82px; width: 148px; background: #d4d0c8; border: 2px outset #fff; z-index: 450; box-shadow: 2px 2px 6px rgba(0,0,0,0.4); }
+  .color-mode-bar { display: flex; gap: 2px; padding: 3px; background: #c4c0b8; border-bottom: 1px solid #808080; }
+  .cmode-btn { flex: 1; font-size: 9px; padding: 2px 1px; border: 1px outset #fff; background: #d4d0c8; cursor: pointer; font-weight: bold; }
+  .cmode-btn.active { border-style: inset; background: #0a246a; color: #fff; }
+  .swatch-list { max-height: 155px; overflow-y: auto; background: #fff; border: 1px inset #fff; margin: 3px; }
+  .swatch-row { display: flex; align-items: center; gap: 5px; padding: 3px 5px; cursor: pointer; font-size: 10px; border-bottom: 1px solid #eee; }
+  .swatch-row:hover { background: #0a246a; color: #fff; }
+  .swatch-box { width: 12px; height: 12px; border: 1px solid #000; flex-shrink: 0; }
+
+  /* Elements */
+  .pm-element { position: absolute; box-sizing: border-box; cursor: move; }
+  .pm-element.selected { outline: 1px dashed #0066cc; }
+  .text-content { width: 100%; height: 100%; outline: none; overflow: hidden; word-wrap: break-word; user-select: text; -webkit-user-select: text; }
+  .img-wrapper { width: 100%; height: 100%; overflow: hidden; position: relative; }
+  .pm-image { width: 100%; height: 100%; object-fit: fill; display: block; pointer-events: none; }
+  .shape-svg { width: 100%; height: 100%; display: block; pointer-events: none; }
+  .handle { display: none; position: absolute; width: 8px; height: 8px; background: #000; border: 1px solid #fff; z-index: 20; }
+  .pm-element.selected .handle { display: block; }
+  .handle.nw { top: -4px; left: -4px; cursor: nwse-resize; }
+  .handle.ne { top: -4px; right: -4px; cursor: nesw-resize; }
+  .handle.sw { bottom: -4px; left: -4px; cursor: nesw-resize; }
+  .handle.se { bottom: -4px; right: -4px; cursor: nwse-resize; }
+  .handle.n { top: -4px; left: 50%; margin-left: -4px; cursor: ns-resize; }
+  .handle.s { bottom: -4px; left: 50%; margin-left: -4px; cursor: ns-resize; }
+  .handle.w { top: 50%; left: -4px; margin-top: -4px; cursor: ew-resize; }
+  .handle.e { top: 50%; right: -4px; margin-top: -4px; cursor: ew-resize; }
+
+  /* Bottom Page Bar */
+  #page-bar-wrap { position: fixed; bottom: 0; left: 0; right: 0; background: #d4d0c8; border-top: 1px solid #404040; display: flex; align-items: center; justify-content: space-between; padding: 2px 6px; z-index: 460; font-size: 10px; }
+  #page-bar { display: flex; align-items: center; gap: 3px; overflow-x: auto; }
+  .page-tab { padding: 2px 7px; background: #d4d0c8; border: 1px outset #fff; cursor: pointer; font-weight: bold; }
+  .page-tab.active { background: #fff; border-style: inset; color: #0a246a; }
+  .add-page-btn { padding: 2px 6px; font-size: 10px; cursor: pointer; }
+
+  /* Modal Dialogs */
+  .pm-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; align-items: center; justify-content: center; }
+  .pm-modal-overlay.open { display: flex; }
+  .pm-dialog { background: #d4d0c8; border: 2px outset #fff; width: 330px; max-width: 94vw; box-shadow: 4px 4px 12px rgba(0,0,0,0.6); }
+  .pm-dialog-body { padding: 10px; display: flex; flex-direction: column; gap: 7px; font-size: 11px; }
+  .pm-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .pm-row input, .pm-row select { width: 120px; padding: 2px 4px; border: 1px inset #fff; background: #fff; }
+  .pm-dialog-footer { display: flex; justify-content: flex-end; gap: 6px; padding: 6px 10px; border-top: 1px solid #808080; }
+
+  @media print {
+    body * { visibility: hidden; }
+    #print-all-container, #print-all-container * { visibility: visible; }
+    #print-all-container { position: absolute; left: 0; top: 0; }
+  }
+</style>
 </head>
 <body onclick="closeMenus()">
-  <div class="menu-bar" id="menu-bar">
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-file')"><u>F</u>ile</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-edit')"><u>E</u>dit</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-layout')"><u>L</u>ayout</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-type')"><u>T</u>ype</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-element')"><u>E</u>lement</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-utilities')"><u>U</u>tilities</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-view')"><u>V</u>iew</div>
-    <div class="menu-item" onclick="toggleMenu(event, 'menu-window')"><u>W</u>indow</div>
-  </div>
 
-  <!-- Menus -->
-  <div id="menu-file" class="dropdown" style="left: 4px;">
-    <div class="dropdown-item" onclick="pmActionNew(event)"><span>New Publication</span><span>Ctrl+N</span></div>
-    <div class="dropdown-item" onclick="toggleSavedFilesDrawer(event)"><span>Saved Files List</span><span></span></div>
-    <div class="dropdown-item" onclick="pmActionSave(event)"><span>Save as PDF</span><span>Ctrl+S</span></div>
-    <div class="dropdown-item" onclick="openDocumentSetup()"><span>Document Setup...</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="triggerPlaceImage()"><span>Place Image...</span><span>Ctrl+D</span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="exportPageAsPNG()"><span>Export Current Page (PNG)</span><span>Img</span></div>
-    <div class="dropdown-item" onclick="pmActionSave(event)"><span>Export / Print (PDF)</span><span>Ctrl+P</span></div>
-  </div>
+<input type="file" id="image-input" accept="image/*" style="display:none" onchange="placeImage(event)">
 
-  <div id="menu-edit" class="dropdown" style="left: 34px;">
-    <div class="dropdown-item" onclick="undo()"><span>Undo</span><span>Ctrl+Z</span></div>
-    <div class="dropdown-item" onclick="redo()"><span>Redo</span><span>Ctrl+Y</span></div>
-    <div class="dropdown-item" onclick="cutSelected()"><span>Cut</span><span>Ctrl+X</span></div>
-    <div class="dropdown-item" onclick="copySelected()"><span>Copy</span><span>Ctrl+C</span></div>
-    <div class="dropdown-item" onclick="pasteCopied()"><span>Paste</span><span>Ctrl+V</span></div>
-    <div class="dropdown-item" onclick="pasteMultiple()"><span>Paste Multiple...</span><span></span></div>
-    <div class="dropdown-item" onclick="deleteSelected()"><span>Clear</span><span>Del</span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="selectAllOnPage()"><span>Select All</span><span>Ctrl+A</span></div>
-    <div class="dropdown-item" onclick="deselectAllElements()"><span>Deselect All</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="openStoryEditor()"><span>Edit Story</span><span>Ctrl+E</span></div>
-  </div>
-
-  <div id="menu-layout" class="dropdown" style="left: 66px;">
-    <div class="dropdown-item" onclick="goToPagePrompt()"><span>Go To Page...</span><span></span></div>
-    <div class="dropdown-item" onclick="pmActionAddPage(event)"><span>Add Blank Page</span><span></span></div>
-    <div class="dropdown-item" onclick="insertMultiplePages()"><span>Insert Multiple Pages...</span><span></span></div>
-    <div class="dropdown-item" onclick="removeCurrentPage()"><span>Remove Page</span><span></span></div>
-    <div class="dropdown-item" onclick="removePageRangePrompt()"><span>Remove Page Range...</span><span></span></div>
-    <div class="dropdown-item" onclick="goPageStep(-1)"><span>Go Back</span><span>Ctrl+PgUp</span></div>
-    <div class="dropdown-item" onclick="goPageStep(1)"><span>Go Forward</span><span>Ctrl+PgDn</span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="setColumnGuides()"><span>Column Guides...</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="setPageSize(816, 1056)"><span>Letter (8.5×11")</span><span></span></div>
-    <div class="dropdown-item" onclick="setPageSize(816, 1344)"><span>Legal (8.5×14")</span><span></span></div>
-    <div class="dropdown-item" onclick="setPageSize(794, 1123)"><span>A4 Portrait (8.27×11.69")</span><span></span></div>
-    <div class="dropdown-item" onclick="setPageSize(1123, 794)"><span>A4 Landscape</span><span></span></div>
-    <div class="dropdown-item" onclick="setPageSize(559, 794)"><span>A5 Card</span><span></span></div>
-    <div class="dropdown-item" onclick="setPageSize(336, 240)"><span>Visiting Card (3.5×2.5")</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="clearGuides()"><span>Clear All Guides</span><span></span></div>
-  </div>
-
-  <div id="menu-type" class="dropdown" style="left: 108px;">
-    <div class="dropdown-item" onclick="applyStyle('bold')"><span>Bold</span><span>Ctrl+B</span></div>
-    <div class="dropdown-item" onclick="applyStyle('italic')"><span>Italic</span><span>Ctrl+I</span></div>
-    <div class="dropdown-item" onclick="applyStyle('underline')"><span>Underline</span><span>Ctrl+U</span></div>
-    <div class="dropdown-item" onclick="applyStyle('strikeThrough')"><span>Strikethrough</span><span></span></div>
-    <div class="dropdown-item" onclick="toggleReverseText()"><span>Reverse (White Text)</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="setLineSpacingPrompt()"><span>Line Spacing / Leading...</span><span></span></div>
-    <div class="dropdown-item" onclick="setWordSpacingPrompt()"><span>Word Spacing (शब्दातील अंतर)...</span><span></span></div>
-    <div class="dropdown-item" onclick="setLetterTrackingPrompt()"><span>Letter Spacing (अक्षरातील अंतर)...</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="setLineHeight(1.15)"><span>Leading: Tight (1.15)</span><span></span></div>
-    <div class="dropdown-item" onclick="setLineHeight(1.4)"><span>Leading: Normal (1.4)</span><span></span></div>
-    <div class="dropdown-item" onclick="setLineHeight(1.8)"><span>Leading: Loose (1.8)</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="applyStyle('justifyLeft')"><span>Align Left</span><span></span></div>
-    <div class="dropdown-item" onclick="applyStyle('justifyCenter')"><span>Align Center</span><span></span></div>
-    <div class="dropdown-item" onclick="applyStyle('justifyRight')"><span>Align Right</span><span></span></div>
-    <div class="dropdown-item" onclick="applyStyle('justifyFull')"><span>Align Justify</span><span></span></div>
-  </div>
-
-  <div id="menu-element" class="dropdown" style="left: 142px;">
-    <div class="dropdown-item" onclick="applyFillStrokePrompt()"><span>Fill & Stroke...</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="bringToFront()"><span>Bring to Front</span><span></span></div>
-    <div class="dropdown-item" onclick="bringForward()"><span>Bring Forward</span><span></span></div>
-    <div class="dropdown-item" onclick="sendBackward()"><span>Send Backward</span><span></span></div>
-    <div class="dropdown-item" onclick="sendToBack()"><span>Send to Back</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="alignObjects('left')"><span>Align Objects: Left</span><span></span></div>
-    <div class="dropdown-item" onclick="alignObjects('center')"><span>Align Objects: Center</span><span></span></div>
-    <div class="dropdown-item" onclick="alignObjects('right')"><span>Align Objects: Right</span><span></span></div>
-    <div class="dropdown-item" onclick="alignObjects('top')"><span>Align Objects: Top</span><span></span></div>
-    <div class="dropdown-item" onclick="alignObjects('middle')"><span>Align Objects: Middle</span><span></span></div>
-    <div class="dropdown-item" onclick="alignObjects('bottom')"><span>Align Objects: Bottom</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="toggleTextWrap()"><span>Text Wrap Toggle</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="changeStrokeWidth(1)"><span>Line: 1pt</span><span></span></div>
-    <div class="dropdown-item" onclick="changeStrokeWidth(2)"><span>Line: 2pt</span><span></span></div>
-    <div class="dropdown-item" onclick="changeStrokeWidth(5)"><span>Line: 5pt</span><span></span></div>
-  </div>
-
-  <div id="menu-utilities" class="dropdown" style="left: 190px;">
-    <div class="dropdown-item" onclick="insertPageNumberBox()"><span>Insert Page Number (#)</span><span></span></div>
-    <div class="dropdown-item" onclick="findAndReplaceText()"><span>Find & Replace...</span><span></span></div>
-    <div class="dropdown-item" onclick="convertSelectedToLegacyFont()"><span>Convert to Selected Legacy Font</span><span></span></div>
-  </div>
-
-  <div id="menu-view" class="dropdown" style="left: 242px;">
-    <div class="dropdown-item" onclick="setZoom(0.5)"><span>50%</span><span></span></div>
-    <div class="dropdown-item" onclick="setZoom(0.75)"><span>75%</span><span></span></div>
-    <div class="dropdown-item" onclick="setZoom(1)"><span>Actual Size (100%)</span><span></span></div>
-    <div class="dropdown-item" onclick="setZoom(2)"><span>200%</span><span></span></div>
-    <div class="dropdown-divider"></div>
-    <div class="dropdown-item" onclick="toggleMargins()"><span>Show/Hide Guides</span><span></span></div>
-  </div>
-
-  <div id="menu-window" class="dropdown" style="left: 280px;">
-    <div class="dropdown-item" onclick="toggleToolbox()"><span>Show/Hide Tools</span><span></span></div>
-    <div class="dropdown-item" onclick="toggleControlPalette()"><span>Show/Hide Control Palette</span><span></span></div>
-    <div class="dropdown-item" onclick="toggleColorPalette()"><span>Show/Hide Colors</span><span></span></div>
-  </div>
-
-  <input type="file" id="image-input" accept="image/*" style="display:none" onchange="placeImage(event)">
-  <input type="file" id="project-input" accept=".html,.json" style="display:none" onchange="openSavedFileCleanly(event)">
-
-  <!-- Quick Top Bar -->
-  <div class="toolbar">
-    <button type="button" class="btn" id="btn-new-doc" onclick="pmActionNew(event)">New</button>
-    <button type="button" class="btn" id="btn-save-doc" onclick="pmActionSave(event)">Save</button>
-    <button type="button" class="btn" id="btn-saved-files" onclick="toggleSavedFilesDrawer(event)">Saved Files</button>
-    <button type="button" class="btn" onclick="undo()">Undo</button>
-    <button type="button" class="btn" onclick="redo()">Redo</button>
-    <button type="button" class="btn" onclick="triggerPlaceImage()">Place</button>
-    <button type="button" class="btn" onclick="copySelected()">Copy</button>
-    <button type="button" class="btn" onclick="pasteCopied()">Paste</button>
-    <button type="button" class="btn" onclick="deleteSelected()">Del</button>
-    <button type="button" class="btn" onclick="exportPageAsPNG()">PNG</button>
-    <span id="page-indicator" style="font-weight:bold; color:#8b0000; margin-left:4px;">[Page 1 of 1]</span>
-  </div>
-
-  <!-- Saved Files Panel on Screen -->
-  <div id="saved-files-drawer" style="display:none; position:fixed; top:52px; left:24px; right:24px; max-width:680px; background:#d4d0c8; border:2px solid; border-color:#ffffff #808080 #808080 #ffffff; z-index:950; box-shadow:2px 2px 8px rgba(0,0,0,0.45);">
-    <div class="palette-header">
-      <span>Saved Files (स्टोरेजमधील सेव्ह फाइल्स)</span>
-      <span style="cursor:pointer;padding:0 4px;" onclick="toggleSavedFilesDrawer(event)">×</span>
+<!-- TOP MENU BAR -->
+<div id="menubar">
+  <div class="menu-item" onclick="toggleMenu(event,'m-file')">File
+    <div class="dropdown" id="m-file">
+      <div class="dd-item" onclick="openDocumentSetupModal()">New / Document Setup... <span>Ctrl+N</span></div>
+      <div class="dd-item" onclick="pmActionNew(event)">Save Snapshot &amp; New</div>
+      <div class="dd-item" onclick="toggleSavedFilesDrawer(event)">Open Saved Files...</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="triggerPlaceImage()">Place Image... <span>Ctrl+D</span></div>
+      <div class="dd-item" onclick="pmActionSave(event)">Print / Save PDF... <span>Ctrl+P</span></div>
+      <div class="dd-item" onclick="exportPageAsPNG()">Export Page as PNG</div>
     </div>
-    <div id="saved-files-list" style="padding:8px; display:flex; flex-wrap:wrap; gap:6px; max-height:220px; overflow-y:auto;"></div>
   </div>
 
-  <div class="workspace-container">
-    <div class="ruler-corner" title="Reset Zoom (100%)" onclick="setZoom(1)"></div>
-    <div class="ruler-h" id="ruler-h" title="Drag down to pull Horizontal Guide"></div>
-    <div class="ruler-v" id="ruler-v" title="Drag right to pull Vertical Guide"></div>
+  <div class="menu-item" onclick="toggleMenu(event,'m-edit')">Edit
+    <div class="dropdown" id="m-edit">
+      <div class="dd-item" onclick="pmUndoAction()">Undo <span>Ctrl+Z</span></div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="cutSelected()">Cut <span>Ctrl+X</span></div>
+      <div class="dd-item" onclick="copySelected()">Copy <span>Ctrl+C</span></div>
+      <div class="dd-item" onclick="pasteCopied()">Paste <span>Ctrl+V</span></div>
+      <div class="dd-item" onclick="deleteSelected()">Clear / Delete <span>Del</span></div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="selectAllOnPage()">Select All <span>Ctrl+A</span></div>
+      <div class="dd-item" onclick="deselectAllElements()">Deselect All</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="pasteMultiple()">Paste Multiple...</div>
+      <div class="dd-item" onclick="pasteSpecialPrompt()">Paste Special...</div>
+      <div class="dd-item" onclick="editOriginalImage()">Edit Original</div>
+      <div class="dd-item" onclick="insertExternalObjectPrompt()">Insert Object...</div>
+      <div class="dd-item" onclick="openStoryEditor()">Edit Story <span>Ctrl+E</span></div>
+    </div>
+  </div>
 
-    <!-- Compact PageMaker 7.0 Toolbox -->
-    <div class="toolbox" id="toolbox">
-      <div class="palette-header" id="toolbox-drag"><span>Tools</span></div>
-      <div class="tool-grid">
-        <button type="button" class="tool-btn" id="tool-pointer" onclick="selectTool('pointer')" title="Pointer (Esc)">↖</button>
-        <button type="button" class="tool-btn active" id="tool-text" onclick="selectTool('text')" title="Text (T)">T</button>
-        <button type="button" class="tool-btn" id="tool-rotate" onclick="selectTool('rotate')" title="Rotate (R)">↻</button>
-        <button type="button" class="tool-btn" id="tool-crop" onclick="selectTool('crop')" title="Crop (C)">◰</button>
-        <button type="button" class="tool-btn" id="tool-line" onclick="selectTool('line')" title="Diagonal Line">╲</button>
-        <button type="button" class="tool-btn" id="tool-cline" onclick="selectTool('cline')" title="Constrained Line">│</button>
-        <button type="button" class="tool-btn" id="tool-rect" onclick="selectTool('rect')" title="Rectangle">▭</button>
-        <button type="button" class="tool-btn" id="tool-rectframe" onclick="selectTool('rectframe')" title="Rectangle Frame">☒</button>
-        <button type="button" class="tool-btn" id="tool-ellipse" onclick="selectTool('ellipse')" title="Ellipse">○</button>
-        <button type="button" class="tool-btn" id="tool-ellipseframe" onclick="selectTool('ellipseframe')" title="Ellipse Frame">⊗</button>
-        <button type="button" class="tool-btn" id="tool-polygon" onclick="selectTool('polygon')" title="Polygon">⬠</button>
-        <button type="button" class="tool-btn" id="tool-polygonframe" onclick="selectTool('polygonframe')" title="Polygon Frame">⬡</button>
-        <button type="button" class="tool-btn" id="tool-hand" onclick="selectTool('hand')" title="Hand (H)">✋</button>
-        <button type="button" class="tool-btn" id="tool-zoom" onclick="selectTool('zoom')" title="Zoom (Z)">🔍</button>
-        <button type="button" class="tool-btn" id="tool-ancestry" title="वंशावळ कनेक्टर टूल" onclick="pmInsertAncestryTreePrompt(event)">╦</button>
+  <div class="menu-item" onclick="toggleMenu(event,'m-layout')">Layout
+    <div class="dropdown" id="m-layout">
+      <div class="dd-item" onclick="goToPagePrompt()">Go to Page... <span>Ctrl+G</span></div>
+      <div class="dd-item" onclick="insertMultiplePagesPrompt()">Insert Pages...</div>
+      <div class="dd-item" onclick="removePagesRangePrompt()">Remove Pages...</div>
+      <div class="dd-item" onclick="openSortPagesModal()">Sort Pages...</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="goPageRelative(-1)">Go Back <span>PgUp</span></div>
+      <div class="dd-item" onclick="goPageRelative(1)">Go Forward <span>PgDn</span></div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="openColumnGuidesPrompt()">Column Guides...</div>
+      <div class="dd-item" onclick="copyMasterGuides()">Copy Master Guides</div>
+    </div>
+  </div>
+
+  <div class="menu-item" onclick="toggleMenu(event,'m-type')">Type
+    <div class="dropdown" id="m-type">
+      <div class="dd-item" onclick="openCharacterSpecsModal()">Character... <span>Ctrl+T</span></div>
+      <div class="dd-item" onclick="openParagraphSpecsModal()">Paragraph... <span>Ctrl+M</span></div>
+      <div class="dd-item" onclick="openHyphenationModal()">Hyphenation...</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="setCustomFontSizePrompt()">Size &gt; Other...</div>
+      <div class="dd-item" onclick="setLineSpacingPrompt()">Leading &gt; Other...</div>
+      <div class="dd-item" onclick="openExpertTrackingModal()">Expert Tracking...</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="applyStyle('bold')">Type Style &gt; Bold</div>
+      <div class="dd-item" onclick="applyStyle('italic')">Type Style &gt; Italic</div>
+      <div class="dd-item" onclick="applyStyle('underline')">Type Style &gt; Underline</div>
+      <div class="dd-item" onclick="applyStyle('strikeThrough')">Type Style &gt; Strikethrough</div>
+      <div class="dd-item" onclick="toggleReverseText()">Type Style &gt; Reverse</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="setTextAlignment('left')">Alignment &gt; Align Left</div>
+      <div class="dd-item" onclick="setTextAlignment('center')">Alignment &gt; Align Center</div>
+      <div class="dd-item" onclick="setTextAlignment('right')">Alignment &gt; Align Right</div>
+      <div class="dd-item" onclick="setTextAlignment('justify')">Alignment &gt; Justify</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="openDefineStylesModal()">Define Styles... <span>Ctrl+3</span></div>
+      <div class="dd-item" onclick="openCharMapBorderModal()">Symbol / Border Charmap...</div>
+    </div>
+  </div>
+
+  <div class="menu-item" onclick="toggleMenu(event,'m-element')">Element
+    <div class="dropdown" id="m-element">
+      <div class="dd-item" onclick="openFillStrokeModal()">Fill and Stroke... <span>Ctrl+U</span></div>
+      <div class="dd-item" onclick="openPolygonSettingsModal()">Polygon Settings...</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="bringToFront()">Arrange &gt; Bring to Front</div>
+      <div class="dd-item" onclick="bringForward()">Arrange &gt; Bring Forward</div>
+      <div class="dd-item" onclick="sendBackward()">Arrange &gt; Send Backward</div>
+      <div class="dd-item" onclick="sendToBack()">Arrange &gt; Send to Back</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="alignObjects('left')">Align &gt; Left Edges</div>
+      <div class="dd-item" onclick="alignObjects('center')">Align &gt; Horizontal Center</div>
+      <div class="dd-item" onclick="alignObjects('right')">Align &gt; Right Edges</div>
+      <div class="dd-item" onclick="alignObjects('top')">Align &gt; Top Edges</div>
+      <div class="dd-item" onclick="alignObjects('middle')">Align &gt; Vertical Center</div>
+      <div class="dd-item" onclick="alignObjects('bottom')">Align &gt; Bottom Edges</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="toggleLockSelected()">Lock / Unlock Position <span>Ctrl+L</span></div>
+      <div class="dd-item" onclick="toggleTextWrap()">Text Wrap...</div>
+      <div class="dd-item" onclick="pmInsertAncestryTreePrompt(event)">वंशावळ शेप (Ancestry Tree)...</div>
+    </div>
+  </div>
+
+  <div class="menu-item" onclick="toggleMenu(event,'m-view')">View
+    <div class="dropdown" id="m-view">
+      <div class="dd-item" onclick="setZoom(1.0)">Actual Size (100%) <span>Ctrl+1</span></div>
+      <div class="dd-item" onclick="setZoom(0.75)">Fit in Window (75%) <span>Ctrl+0</span></div>
+      <div class="dd-item" onclick="setZoom(1.5)">Zoom In (150%)</div>
+      <div class="dd-item" onclick="setZoom(0.5)">Zoom Out (50%)</div>
+    </div>
+  </div>
+
+  <div class="menu-item" onclick="toggleMenu(event,'m-window')">Window
+    <div class="dropdown" id="m-window">
+      <div class="dd-item" onclick="toggleToolbox()">Show/Hide Tools</div>
+      <div class="dd-item" onclick="toggleControlPalette()">Show/Hide Control Palette</div>
+      <div class="dd-item" onclick="toggleColorPalette()">Show/Hide Colors <span>Ctrl+J</span></div>
+    </div>
+  </div>
+
+  <button type="button" class="btn" onclick="openCharMapBorderModal()">✦ Border Symbols</button>
+  <button type="button" class="btn" onclick="pmInsertAncestryTreePrompt(event)">╦ वंशावळ</button>
+  <button type="button" class="btn" id="btn-lock-toggle" onclick="toggleLockSelected()">🔒 Lock</button>
+</div>
+
+<!-- CONTROL PALETTE -->
+<div id="control-palette">
+  <span>X:</span><input type="number" id="pos-x" style="width:42px" onchange="updateBoxGeometry()">
+  <span>Y:</span><input type="number" id="pos-y" style="width:42px" onchange="updateBoxGeometry()">
+  <span>W:</span><input type="number" id="box-w" style="width:42px" onchange="updateBoxGeometry()">
+  <span>H:</span><input type="number" id="box-h" style="width:42px" onchange="updateBoxGeometry()">
+  <span>Rot°:</span><input type="number" id="box-rot" style="width:38px" value="0" onchange="updateBoxRotation()">
+  <button type="button" class="btn" onclick="flipSelectedElement('h')" title="Horizontal Flip">⇄</button>
+  <button type="button" class="btn" onclick="flipSelectedElement('v')" title="Vertical Flip">⇅</button>
+
+  <select id="font-family" onchange="applyFontFamily(this.value)" style="width:95px">
+    <option value="inherit">Default Font</option>
+    <option value="'Noto Sans Devanagari', sans-serif">Marathi Unicode</option>
+    <option value="'SHREE-DEV7-0714', sans-serif">SHREE-DEV7-0714</option>
+    <option value="'Kruti Dev 010', sans-serif">Kruti Dev 010</option>
+    <option value="'Shivaji01', sans-serif">Shivaji 01</option>
+    <option value="Arial, sans-serif">Arial</option>
+    <option value="'Times New Roman', serif">Times New Roman</option>
+    <option value="Wingdings, Webdings, sans-serif">Wingdings (Border)</option>
+  </select>
+
+  <span>Size:</span><input type="number" id="font-size" value="16" style="width:38px" onchange="changeFontSize(this.value)">
+  <span>Lead:</span><input type="number" id="line-leading" value="1.4" step="0.1" style="width:38px" onchange="setLineHeight(this.value)">
+
+  <button type="button" class="btn" onclick="applyStyle('bold')"><b>B</b></button>
+  <button type="button" class="btn" onclick="applyStyle('italic')"><i>I</i></button>
+  <button type="button" class="btn" onclick="applyStyle('underline')"><u>U</u></button>
+  <button type="button" class="btn" onclick="toggleReverseText()">Rev</button>
+  <button type="button" class="btn" onclick="setLetterTrackingPrompt()" title="Letter Tracking">AV↔</button>
+  <button type="button" class="btn" onclick="setLineSpacingPrompt()" title="Line Spacing">↕</button>
+  <button type="button" class="btn" onclick="findAndReplaceText()">Find</button>
+</div>
+
+<!-- FLOATING TOOLBOX -->
+<div id="toolbox">
+  <div class="pal-header" id="tb-handle"><span>Tools</span><span onclick="toggleToolbox()">×</span></div>
+  <div class="tool-grid">
+    <button type="button" class="tool-btn active" id="tool-pointer" onclick="selectTool('pointer')" title="Pointer Tool">↖</button>
+    <button type="button" class="tool-btn" id="tool-text" onclick="selectTool('text')" title="Text Tool">T</button>
+    <button type="button" class="tool-btn" id="tool-rotate" onclick="selectTool('rotate')" title="Rotate Tool">↻</button>
+    <button type="button" class="tool-btn" id="tool-crop" onclick="selectTool('crop')" title="Crop Tool">✂</button>
+    <button type="button" class="tool-btn" id="tool-line" onclick="selectTool('line')" title="Line Tool">╲</button>
+    <button type="button" class="tool-btn" id="tool-cline" onclick="selectTool('cline')" title="Constrained Line">—</button>
+    <button type="button" class="tool-btn" id="tool-rect" onclick="selectTool('rect')" title="Rectangle">▭</button>
+    <button type="button" class="tool-btn" id="tool-rectframe" onclick="selectTool('rectframe')" title="Rectangle Frame">⊠</button>
+    <button type="button" class="tool-btn" id="tool-ellipse" onclick="selectTool('ellipse')" title="Ellipse">◯</button>
+    <button type="button" class="tool-btn" id="tool-ellipseframe" onclick="selectTool('ellipseframe')" title="Ellipse Frame">⊗</button>
+    <button type="button" class="tool-btn" id="tool-polygon" onclick="selectTool('polygon')" title="Polygon">⬠</button>
+    <button type="button" class="tool-btn" id="tool-polygonframe" onclick="selectTool('polygonframe')" title="Polygon Frame">❂</button>
+    <button type="button" class="tool-btn" id="tool-hand" onclick="selectTool('hand')" title="Hand Tool">✋</button>
+    <button type="button" class="tool-btn" id="tool-zoom" onclick="selectTool('zoom')" title="Zoom Tool">🔍</button>
+  </div>
+</div>
+
+<!-- FLOATING COLOR PALETTE -->
+<div id="color-palette">
+  <div class="pal-header" id="cp-handle"><span>Colors</span><span onclick="toggleColorPalette()">×</span></div>
+  <div class="color-mode-bar">
+    <button type="button" class="cmode-btn" id="cmode-line" onclick="setColorTargetMode('line')">Line</button>
+    <button type="button" class="cmode-btn" id="cmode-fill" onclick="setColorTargetMode('fill')">Fill</button>
+    <button type="button" class="cmode-btn active" id="cmode-both" onclick="setColorTargetMode('both')">Both</button>
+  </div>
+  <div class="swatch-list" id="color-swatch-list">
+    <div class="swatch-row" onclick="applyPaletteColor('none')"><span class="swatch-box" style="background:repeating-linear-gradient(45deg,#fff,#fff 3px,#ccc 3px,#ccc 6px)"></span>[None]</div>
+    <div class="swatch-row" onclick="applyPaletteColor('#ffffff')"><span class="swatch-box" style="background:#ffffff"></span>[Paper]</div>
+    <div class="swatch-row" onclick="applyPaletteColor('#000000')"><span class="swatch-box" style="background:#000000"></span>[Black]</div>
+    <div class="swatch-row" onclick="applyPaletteColor('#ff0000')"><span class="swatch-box" style="background:#ff0000"></span>Red</div>
+    <div class="swatch-row" onclick="applyPaletteColor('#008000')"><span class="swatch-box" style="background:#008000"></span>Green</div>
+    <div class="swatch-row" onclick="applyPaletteColor('#0000ff')"><span class="swatch-box" style="background:#0000ff"></span>Blue</div>
+    <div class="swatch-row" onclick="applyPaletteColor('#00ffff')"><span class="swatch-box" style="background:#00ffff"></span>Cyan</div>
+    <div class="swatch-row" onclick="applyPaletteColor('#ff00ff')"><span class="swatch-box" style="background:#ff00ff"></span>Magenta</div>
+    <div class="swatch-row" onclick="applyPaletteColor('#ffff00')"><span class="swatch-box" style="background:#ffff00"></span>Yellow</div>
+    <div class="swatch-row" onclick="applyPaletteColor('#ff8c00')"><span class="swatch-box" style="background:#ff8c00"></span>Saffron</div>
+  </div>
+  <div style="padding:3px;display:flex;gap:3px;align-items:center;">
+    <input type="color" id="picker-color" value="#000000" onchange="applyPaletteColor(this.value)" style="width:36px;height:20px;padding:0;">
+    <button type="button" class="btn" style="flex:1" onclick="createCustomSwatchPrompt()">+ New Color</button>
+  </div>
+</div>
+
+<!-- SAVED FILES DRAWER -->
+<div id="saved-files-drawer" style="display:none;position:fixed;top:52px;left:50%;transform:translateX(-50%);width:340px;max-width:94vw;background:#d4d0c8;border:2px outset #fff;z-index:1800;padding:8px;box-shadow:3px 3px 10px rgba(0,0,0,0.5);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-weight:bold;">
+    <span>Saved Documents</span>
+    <button type="button" class="btn" onclick="toggleSavedFilesDrawer(event)">×</button>
+  </div>
+  <div id="saved-files-list"></div>
+</div>
+
+<!-- WORKSPACE -->
+<div id="workspace">
+  <div id="pasteboard" onpointerdown="handlePasteboardDown(event)" onclick="deselectAll(event)">
+    <div id="page" onpointerdown="handlePagePointerDown(event)">
+      <div id="margin-guide" class="margin-guide"></div>
+      <div id="guides-layer" class="guides-layer"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM PAGE BAR -->
+<div id="page-bar-wrap">
+  <div id="page-bar"></div>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <span id="page-indicator">[Page 1 of 1]</span>
+    <select id="zoom-select" onchange="setZoom(parseFloat(this.value))" style="font-size:10px;">
+      <option value="0.5">50%</option>
+      <option value="0.75">75%</option>
+      <option value="1" selected>100%</option>
+      <option value="1.5">150%</option>
+    </select>
+  </div>
+</div>
+
+<!-- DOCUMENT SETUP MODAL -->
+<div class="pm-modal-overlay" id="modal-doc-setup">
+  <div class="pm-dialog">
+    <div class="pal-header"><span>Document Setup</span><span onclick="closeAllModals()">×</span></div>
+    <div class="pm-dialog-body">
+      <div class="pm-row"><label>Page size:</label>
+        <select id="ds-preset" onchange="applyDocPresetDims()">
+          <option value="8.5x11">Letter (8.5 x 11 in)</option>
+          <option value="8.27x11.69">A4 (8.27 x 11.69 in)</option>
+          <option value="8.5x14">Legal (8.5 x 14 in)</option>
+          <option value="11.69x16.54">A3 (11.69 x 16.54 in)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="pm-row"><label>Dimensions (in):</label>
+        <div><input type="number" id="ds-w" value="8.5" step="0.01" style="width:54px"> × <input type="number" id="ds-h" value="11" step="0.01" style="width:54px"></div>
+      </div>
+      <div class="pm-row"><label>Orientation:</label>
+        <select id="ds-orient" onchange="swapDocOrientation()">
+          <option value="tall">Tall</option>
+          <option value="wide">Wide</option>
+        </select>
+      </div>
+      <div class="pm-row"><label>Number of pages:</label><input type="number" id="ds-pages" value="1" min="1" max="50"></div>
+      <div class="pm-row"><label>Margins Left / Right (in):</label>
+        <div><input type="number" id="ds-m-left" value="0.75" step="0.05" style="width:54px"> / <input type="number" id="ds-m-right" value="0.75" step="0.05" style="width:54px"></div>
+      </div>
+      <div class="pm-row"><label>Margins Top / Bottom (in):</label>
+        <div><input type="number" id="ds-m-top" value="0.75" step="0.05" style="width:54px"> / <input type="number" id="ds-m-bottom" value="0.75" step="0.05" style="width:54px"></div>
       </div>
     </div>
-
-    <!-- Colors Palette -->
-    <div class="color-palette" id="color-palette">
-      <div class="palette-header" id="colors-drag"><span>Colors</span><span style="cursor:pointer" onclick="toggleColorPalette()">×</span></div>
-      <div class="swatch-list">
-        <div class="swatch" onclick="applyColor('#000000')"><div class="swatch-box" style="background:#000000"></div>Black</div>
-        <div class="swatch" onclick="applyColor('#ff0000')"><div class="swatch-box" style="background:#ff0000"></div>Red</div>
-        <div class="swatch" onclick="applyColor('#0000ff')"><div class="swatch-box" style="background:#0000ff"></div>Blue</div>
-        <div class="swatch" onclick="applyColor('#008000')"><div class="swatch-box" style="background:#008000"></div>Green</div>
-        <div class="swatch" onclick="applyColor('#ff00ff')"><div class="swatch-box" style="background:#ff00ff"></div>Magenta</div>
-        <div class="swatch" onclick="applyColor('#00ffff')"><div class="swatch-box" style="background:#00ffff"></div>Cyan</div>
-        <div class="swatch" onclick="applyColor('#ffff00')"><div class="swatch-box" style="background:#ffff00"></div>Yellow</div>
-        <div class="swatch" onclick="applyColor('#ffffff')"><div class="swatch-box" style="background:#ffffff"></div>Paper</div>
-        <div class="swatch" onclick="applyFillColor()"><div class="swatch-box" style="background:#ffe4b5"></div>Fill Box</div>
-      </div>
-    </div>
-
-    <!-- Pasteboard & Active Page -->
-    <div class="pasteboard" id="pasteboard" onpointerdown="handlePasteboardDown(event)" onclick="deselectAll(event)">
-      <div class="page" id="page" onpointerdown="handlePagePointerDown(event)">
-        <div class="margin-guide" id="margin-guide"></div>
-        <div class="master-layer" id="master-layer"></div>
-        <div class="guides-layer" id="guides-layer"></div>
-      </div>
-    </div>
-
-    <!-- Compact PageMaker 7.0 Control Palette -->
-    <div class="control-palette" id="control-palette">
-      <div class="control-strip-bar" id="control-drag">Control</div>
-      <div class="control-body">
-        <div class="ctrl-row">
-          <select id="font-family" onchange="applyFontFamily(this.value)">
-            <optgroup label="SHREE-DEV7 (Local /fonts)">
-              <option value="'SHREE-DEV7-0702', 'Tiro Devanagari Marathi', serif" style="font-family:'SHREE-DEV7-0702','Tiro Devanagari Marathi',serif;">SHREE-DEV7-0702 Regular</option>
-              <option value="'SHREE-DEV7-0708', 'Tiro Devanagari Marathi', serif" style="font-family:'SHREE-DEV7-0708','Tiro Devanagari Marathi',serif;">SHREE-DEV7-0708 Regular</option>
-              <option value="'SHREE-DEV7-0714', 'Tiro Devanagari Marathi', serif" style="font-family:'SHREE-DEV7-0714','Tiro Devanagari Marathi',serif;">SHREE-DEV7-0714 Regular</option>
-              <option value="'SHREE-DEV7-0720', 'Tiro Devanagari Marathi', serif" style="font-family:'SHREE-DEV7-0720','Tiro Devanagari Marathi',serif;">SHREE-DEV7-0720 Regular</option>
-            </optgroup>
-            <optgroup label="Kruti Dev (Local /fonts)">
-              <option value="'Kruti Dev 010', 'Noto Serif Devanagari', serif" style="font-family:'Kruti Dev 010','Noto Serif Devanagari',serif;">Kruti Dev 010 Regular</option>
-              <option value="'Kruti Dev 020', 'Noto Serif Devanagari', serif" style="font-family:'Kruti Dev 020','Noto Serif Devanagari',serif;">Kruti Dev 020 Wide Regular</option>
-              <option value="'Kruti Dev 040', 'Noto Serif Devanagari', serif" style="font-family:'Kruti Dev 040','Noto Serif Devanagari',serif;">Kruti Dev 040 Regular</option>
-              <option value="'Kruti Dev 040 Bold', 'Noto Serif Devanagari', serif" style="font-family:'Kruti Dev 040 Bold','Noto Serif Devanagari',serif;">Kruti Dev 040 Bold</option>
-              <option value="'Kruti Dev 040 Italic', 'Noto Serif Devanagari', serif" style="font-family:'Kruti Dev 040 Italic','Noto Serif Devanagari',serif;">Kruti Dev 040 Italic</option>
-              <option value="'Kruti Dev 040 Bold Italic', 'Noto Serif Devanagari', serif" style="font-family:'Kruti Dev 040 Bold Italic','Noto Serif Devanagari',serif;">Kruti Dev 040 Bold Italic</option>
-              <option value="'Kruti Dev 040 Thin', 'Noto Serif Devanagari', serif" style="font-family:'Kruti Dev 040 Thin','Noto Serif Devanagari',serif;">Kruti Dev 040 Thin</option>
-              <option value="'Kruti Dev 050', 'Noto Serif Devanagari', serif" style="font-family:'Kruti Dev 050','Noto Serif Devanagari',serif;">Kruti Dev 050 Regular</option>
-              <option value="'Kruti Dev 055', 'Noto Serif Devanagari', serif" style="font-family:'Kruti Dev 055','Noto Serif Devanagari',serif;">Kruti Dev 055 Regular</option>
-            </optgroup>
-            <optgroup label="Shivaji Lipi (Local /fonts)">
-              <option value="'Shivaji01', 'Karma', serif" style="font-family:'Shivaji01','Karma',serif;">Shivaji01 Normal</option>
-              <option value="'Shivaji02', 'Karma', serif" style="font-family:'Shivaji02','Karma',serif;">Shivaji02 Normal</option>
-              <option value="'Shivaji05', 'Karma', serif" style="font-family:'Shivaji05','Karma',serif;">Shivaji05 Normal</option>
-            </optgroup>
-            <optgroup label="Court / Bond / Legal / Formal">
-              <option value="'Noto Serif Devanagari', serif" style="font-family:'Noto Serif Devanagari',serif;">Noto Serif Devanagari</option>
-              <option value="'Karma', serif" style="font-family:'Karma',serif;">Karma</option>
-              <option value="'Martel', serif" style="font-family:'Martel',serif;">Martel</option>
-              <option value="'Tiro Devanagari Marathi', serif" style="font-family:'Tiro Devanagari Marathi',serif;">Tiro Devanagari Marathi</option>
-              <option value="'Tiro Devanagari Hindi', serif" style="font-family:'Tiro Devanagari Hindi',serif;">Tiro Devanagari Hindi</option>
-              <option value="'Eczar', serif" style="font-family:'Eczar',serif;">Eczar</option>
-              <option value="'Sahitya', serif" style="font-family:'Sahitya',serif;">Sahitya</option>
-              <option value="'Annapurna SIL', serif" style="font-family:'Annapurna SIL',serif;">Annapurna SIL</option>
-            </optgroup>
-            <optgroup label="Marathi Typing & Body">
-              <option value="'Hind', sans-serif" style="font-family:'Hind',sans-serif;">Hind</option>
-              <option value="'Mukta', sans-serif" style="font-family:'Mukta',sans-serif;">Mukta</option>
-              <option value="'Noto Sans Devanagari', sans-serif" style="font-family:'Noto Sans Devanagari',sans-serif;">Noto Sans Devanagari</option>
-              <option value="'Khula', sans-serif" style="font-family:'Khula',sans-serif;">Khula</option>
-              <option value="'Martel Sans', sans-serif" style="font-family:'Martel Sans',sans-serif;">Martel Sans</option>
-              <option value="'Palanquin', sans-serif" style="font-family:'Palanquin',sans-serif;">Palanquin</option>
-              <option value="'Gotu', sans-serif" style="font-family:'Gotu',sans-serif;">Gotu</option>
-              <option value="'Laila', serif" style="font-family:'Laila',serif;">Laila</option>
-            </optgroup>
-            <optgroup label="Headings / Display / Calligraphy">
-              <option value="'Teko', sans-serif" style="font-family:'Teko',sans-serif;">Teko</option>
-              <option value="'Khand', sans-serif" style="font-family:'Khand',sans-serif;">Khand</option>
-              <option value="'Yatra One', cursive" style="font-family:'Yatra One',cursive;">Yatra One</option>
-              <option value="'Baloo Bhaina 2', cursive" style="font-family:'Baloo Bhaina 2',cursive;">Baloo Bhaina 2</option>
-              <option value="'Rozha One', serif" style="font-family:'Rozha One',serif;">Rozha One</option>
-              <option value="'Palanquin Dark', sans-serif" style="font-family:'Palanquin Dark',sans-serif;">Palanquin Dark</option>
-              <option value="'Kalam', cursive" style="font-family:'Kalam',cursive;">Kalam</option>
-              <option value="'Pragati Narrow', sans-serif" style="font-family:'Pragati Narrow',sans-serif;">Pragati Narrow</option>
-              <option value="'Rajdhani', sans-serif" style="font-family:'Rajdhani',sans-serif;">Rajdhani</option>
-              <option value="'Jaini', cursive" style="font-family:'Jaini',cursive;">Jaini</option>
-              <option value="'Jaini Purva', cursive" style="font-family:'Jaini Purva',cursive;">Jaini Purva</option>
-              <option value="'Modak', cursive" style="font-family:'Modak',cursive;">Modak</option>
-            </optgroup>
-            <optgroup label="English Fonts">
-              <option value="'Times New Roman', serif" style="font-family:'Times New Roman',serif;">Times New Roman</option>
-              <option value="'Poppins', sans-serif" style="font-family:'Poppins',sans-serif;">Poppins</option>
-              <option value="'Arial', sans-serif" style="font-family:'Arial',sans-serif;">Arial</option>
-            </optgroup>
-          </select>
-          <input type="number" id="font-size" value="16" min="6" max="150" style="width:38px;" title="Font Size" onchange="changeFontSize(this.value)">
-          <input type="number" id="line-leading" value="1.4" step="0.1" min="0.8" max="3" style="width:38px;" title="Leading" onchange="setLineHeight(this.value)">
-          <input type="color" id="picker-color" value="#000000" title="Color" onchange="applyColor(this.value)">
-          <button type="button" class="cbtn" title="Bold" onclick="applyStyle('bold')"><b>B</b></button>
-          <button type="button" class="cbtn" title="Italic" onclick="applyStyle('italic')"><i>I</i></button>
-          <button type="button" class="cbtn" title="Underline" onclick="applyStyle('underline')"><u>U</u></button>
-          <button type="button" class="cbtn" title="Align Left" onclick="applyStyle('justifyLeft')">L</button>
-          <button type="button" class="cbtn" title="Align Center" onclick="applyStyle('justifyCenter')">C</button>
-          <button type="button" class="cbtn" title="Align Right" onclick="applyStyle('justifyRight')">R</button>
-        </div>
-        <div class="ctrl-sep"></div>
-        <div class="ctrl-row">
-          <span class="ctrl-lbl">X</span><input type="number" id="pos-x" style="width:38px;" onchange="updateBoxGeometry()">
-          <span class="ctrl-lbl">Y</span><input type="number" id="pos-y" style="width:38px;" onchange="updateBoxGeometry()">
-          <span class="ctrl-lbl">W</span><input type="number" id="box-w" style="width:38px;" onchange="updateBoxGeometry()">
-          <span class="ctrl-lbl">H</span><input type="number" id="box-h" style="width:38px;" onchange="updateBoxGeometry()">
-          <span class="ctrl-lbl">↻</span><input type="number" id="box-rot" style="width:36px;" value="0" onchange="updateBoxRotation()">
-          <button type="button" class="cbtn" title="Zoom Out" onclick="setZoom(Math.max(0.4, +(zoomLevel - 0.1).toFixed(2)))">-</button>
-          <span id="zoom-lbl" class="ctrl-lbl">100%</span>
-          <button type="button" class="cbtn" title="Zoom In" onclick="setZoom(Math.min(2.5, +(zoomLevel + 0.1).toFixed(2)))">+</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="page-bar" id="page-bar">
-      <div class="page-tab master" id="tab-M" onclick="switchPage('M')">M</div>
-      <div class="page-tab active" id="tab-1" onclick="switchPage(1)">1</div>
-      <button type="button" class="add-page-btn" id="add-page-btn" onclick="pmActionAddPage(event)">+ Page</button>
+    <div class="pm-dialog-footer">
+      <button type="button" class="btn" onclick="applyDocumentSetup()">OK</button>
+      <button type="button" class="btn" onclick="closeAllModals()">Cancel</button>
     </div>
   </div>
+</div>
 
-  <div id="print-all-container"></div>
+<!-- FILL AND STROKE MODAL -->
+<div class="pm-modal-overlay" id="modal-fill-stroke">
+  <div class="pm-dialog">
+    <div class="pal-header"><span>Fill and Stroke</span><span onclick="closeAllModals()">×</span></div>
+    <div class="pm-dialog-body">
+      <div class="pm-row"><label>Fill Type:</label>
+        <select id="fs-fill-type"><option value="none">None</option><option value="solid" selected>Solid</option></select>
+      </div>
+      <div class="pm-row"><label>Fill Color:</label><input type="color" id="fs-fill-color" value="#ffe4b5"></div>
+      <div class="pm-row"><label>Stroke Weight (px):</label><input type="number" id="fs-stroke-w" value="2" min="0" max="30"></div>
+      <div class="pm-row"><label>Stroke Color:</label><input type="color" id="fs-stroke-color" value="#000000"></div>
+    </div>
+    <div class="pm-dialog-footer">
+      <button type="button" class="btn" onclick="applyFillStrokeModal()">OK</button>
+      <button type="button" class="btn" onclick="closeAllModals()">Cancel</button>
+    </div>
+  </div>
+</div>
 
-  <script src="pages.js"></script>
-  <script src="tools.js"></script>
-  <script src="history.js"></script>
+<!-- POLYGON SETTINGS MODAL -->
+<div class="pm-modal-overlay" id="modal-polygon">
+  <div class="pm-dialog">
+    <div class="pal-header"><span>Polygon Settings</span><span onclick="closeAllModals()">×</span></div>
+    <div class="pm-dialog-body">
+      <div class="pm-row"><label>Number of sides (3-40):</label><input type="number" id="poly-sides" value="6" min="3" max="40"></div>
+      <div class="pm-row"><label>Star inset (0-90%):</label><input type="number" id="poly-inset" value="0" min="0" max="90"></div>
+    </div>
+    <div class="pm-dialog-footer">
+      <button type="button" class="btn" onclick="applyPolygonSettingsModal()">OK</button>
+      <button type="button" class="btn" onclick="closeAllModals()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHARACTER / PARAGRAPH SPECIFICATIONS MODAL -->
+<div class="pm-modal-overlay" id="modal-char-para">
+  <div class="pm-dialog">
+    <div class="pal-header"><span>Character &amp; Paragraph Specs</span><span onclick="closeAllModals()">×</span></div>
+    <div class="pm-dialog-body">
+      <div class="pm-row"><label>Horizontal Scale (%):</label><input type="number" id="cp-hscale" value="100" min="25" max="300"></div>
+      <div class="pm-row"><label>Indent Left (in):</label><input type="number" id="cp-ind-left" value="0" step="0.1"></div>
+      <div class="pm-row"><label>Indent First Line (in):</label><input type="number" id="cp-ind-first" value="0" step="0.1"></div>
+      <div class="pm-row"><label>Indent Right (in):</label><input type="number" id="cp-ind-right" value="0" step="0.1"></div>
+      <div class="pm-row"><label>Space Before / After (px):</label>
+        <div><input type="number" id="cp-sp-before" value="0" style="width:54px"> / <input type="number" id="cp-sp-after" value="0" style="width:54px"></div>
+      </div>
+      <div class="pm-row"><label>Hyphenation:</label>
+        <select id="cp-hyph"><option value="none">Off</option><option value="auto">On (Auto)</option></select>
+      </div>
+    </div>
+    <div class="pm-dialog-footer">
+      <button type="button" class="btn" onclick="applyCharParaSpecsModal()">OK</button>
+      <button type="button" class="btn" onclick="closeAllModals()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHARACTER MAP BORDER SYMBOLS MODAL -->
+<div class="pm-modal-overlay" id="modal-charmap">
+  <div class="pm-dialog" style="width:360px;">
+    <div class="pal-header"><span>Character Map — Border Symbols</span><span onclick="closeAllModals()">×</span></div>
+    <div class="pm-dialog-body">
+      <div style="font-size:10px;">खालील नक्षी/सिम्बॉल निवडा आणि पानावर बॉर्डर पट्टी तयार करा:</div>
+      <div id="charmap-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;max-height:160px;overflow-y:auto;background:#fff;padding:6px;border:1px inset #fff;font-size:18px;text-align:center;"></div>
+      <div class="pm-row"><label>Selected Symbol:</label><input type="text" id="cm-selected-sym" value="❖" style="width:60px;text-align:center;font-size:16px;"></div>
+      <div class="pm-row"><label>Repeat Count (Border):</label><input type="number" id="cm-repeat-count" value="18" min="1" max="60"></div>
+    </div>
+    <div class="pm-dialog-footer">
+      <button type="button" class="btn" onclick="insertFullPageBorderFromSymbol()">4-Side Page Border</button>
+      <button type="button" class="btn" onclick="insertSymbolStripFromModal()">Insert Strip</button>
+      <button type="button" class="btn" onclick="closeAllModals()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- SORT PAGES MODAL -->
+<div class="pm-modal-overlay" id="modal-sort-pages">
+  <div class="pm-dialog" style="width:380px;">
+    <div class="pal-header"><span>Sort Pages (Thumbnail View)</span><span onclick="closeAllModals()">×</span></div>
+    <div class="pm-dialog-body">
+      <div id="sort-pages-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:240px;overflow-y:auto;background:#999;padding:8px;"></div>
+    </div>
+    <div class="pm-dialog-footer">
+      <button type="button" class="btn" onclick="closeAllModals()">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="print-all-container"></div>
+
+<script>
+  let currentTool = 'pointer';
+  let selectedEl = null;
+  let zoomLevel = 1.0;
+  let currentPageW = 816;
+  let currentPageH = 1056;
+  let pageMargins = { 1: { left: 96, right: 72, top: 72, bottom: 72 } };
+  let pageGuides = { 1: { v: [], h: [] } };
+  let pageColumns = {};
+  let pendingThreadSource = null;
+
+  function getPageMargins(w, h) {
+    const id = window.activePageId || 1;
+    return pageMargins[id] || { left: 96, right: 72, top: 72, bottom: 72 };
+  }
+  function ensurePageState(id) {
+    if (!pageMargins[id]) pageMargins[id] = { left: 96, right: 72, top: 72, bottom: 72 };
+    if (!pageGuides[id]) pageGuides[id] = { v: [], h: [] };
+  }
+  function setZoom(z) {
+    zoomLevel = Math.max(0.25, Math.min(3.0, z));
+    const p = document.getElementById('page');
+    if (p) p.style.transform = `scale(${zoomLevel})`;
+    const sel = document.getElementById('zoom-select');
+    if (sel) sel.value = String(zoomLevel);
+  }
+</script>
+<script src="tools.js"></script>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    makePaletteDraggable('toolbox', 'tb-handle');
+    makePaletteDraggable('color-palette', 'cp-handle');
+  });
+</script>
 </body>
 </html>
