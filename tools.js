@@ -23,19 +23,26 @@ function openIDB() {
   });
 }
 
-async function writeToIDB(key, value) {
-  const db = await openIDB();
-  if (!db) return;
-  try {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(value, key);
-  } catch (e) {}
+function writeToIDB(key, value) {
+  return new Promise(async (resolve) => {
+    const db = await openIDB();
+    if (!db) return resolve(false);
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch (e) {
+      resolve(false);
+    }
+  });
 }
 
-async function readFromIDB(key) {
-  const db = await openIDB();
-  if (!db) return null;
-  return new Promise((resolve) => {
+function readFromIDB(key) {
+  return new Promise(async (resolve) => {
+    const db = await openIDB();
+    if (!db) return resolve(null);
     try {
       const tx = db.transaction(IDB_STORE, 'readonly');
       const req = tx.objectStore(IDB_STORE).get(key);
@@ -152,11 +159,12 @@ function applyRestoredSessionObject(parsed) {
 async function restoreActiveSessionIfPresent() {
   try {
     let raw = localStorage.getItem(ACTIVE_DOC_STORAGE_KEY);
-    if (!raw) {
-      raw = await readFromIDB(ACTIVE_DOC_STORAGE_KEY);
-      if (raw) {
-        try { localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, raw); } catch (e) {}
-      }
+    const idbRaw = await readFromIDB(ACTIVE_DOC_STORAGE_KEY);
+    if (!raw && idbRaw) {
+      raw = idbRaw;
+      try { localStorage.setItem(ACTIVE_DOC_STORAGE_KEY, idbRaw); } catch (e) {}
+    } else if (raw && !idbRaw) {
+      await writeToIDB(ACTIVE_DOC_STORAGE_KEY, raw);
     }
     if (!raw) return false;
     const parsed = JSON.parse(raw);
@@ -280,33 +288,54 @@ function pmActionSave(e) {
   window.print();
 }
 
+function parseFilesListSafe(raw) {
+  try {
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function mergeFileLists(lsList, idbList) {
+  const map = new Map();
+  idbList.forEach((item, i) => {
+    if (item && item.id) map.set(item.id, Object.assign({ no: i + 1 }, item));
+  });
+  lsList.forEach((item, i) => {
+    if (item && item.id) {
+      const prev = map.get(item.id);
+      map.set(item.id, Object.assign({ no: i + 1 }, prev || {}, item));
+    }
+  });
+  return Array.from(map.values());
+}
+
 function getSavedFilesFromStorage() {
   try {
     const raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list : [];
+    return parseFilesListSafe(raw);
   } catch (err) {
     return [];
   }
 }
 
-function saveSavedFilesList(list) {
+async function saveSavedFilesList(list) {
   try {
     const serialized = JSON.stringify(list);
-    localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized);
-    writeToIDB(SAVED_FILES_STORAGE_KEY, serialized);
+    try { localStorage.setItem(SAVED_FILES_STORAGE_KEY, serialized); } catch (e) {}
+    await writeToIDB(SAVED_FILES_STORAGE_KEY, serialized);
   } catch (err) {}
 }
 
 async function hydrateSavedFilesOnLoad() {
   try {
-    let raw = localStorage.getItem(SAVED_FILES_STORAGE_KEY);
-    if (!raw || raw === '[]') {
-      const idbRaw = await readFromIDB(SAVED_FILES_STORAGE_KEY);
-      if (idbRaw) {
-        raw = idbRaw;
-        try { localStorage.setItem(SAVED_FILES_STORAGE_KEY, idbRaw); } catch (e) {}
-      }
+    const lsList = getSavedFilesFromStorage();
+    const idbRaw = await readFromIDB(SAVED_FILES_STORAGE_KEY);
+    const idbList = parseFilesListSafe(idbRaw);
+    const merged = mergeFileLists(lsList, idbList);
+    if (merged.length) {
+      await saveSavedFilesList(merged);
     }
     renderSavedFilesDrawerList();
   } catch (e) {
@@ -314,7 +343,7 @@ async function hydrateSavedFilesOnLoad() {
   }
 }
 
-function persistSnapshotToStorage() {
+async function persistSnapshotToStorage() {
   ensureDocStore();
   saveCurrentActivePageIntoData();
   const normalPages = window.pageOrder.filter(p => p !== 'M');
@@ -340,12 +369,12 @@ function persistSnapshotToStorage() {
   };
 
   existing.push(record);
-  saveSavedFilesList(existing);
+  await saveSavedFilesList(existing);
   renderSavedFilesDrawerList();
   return record;
 }
 
-function renameStoredFileById(fileId) {
+async function renameStoredFileById(fileId) {
   const files = getSavedFilesFromStorage();
   const found = files.find(f => f.id === fileId);
   if (!found) return;
@@ -361,12 +390,12 @@ function renameStoredFileById(fileId) {
   }
 
   found.title = trimmed;
-  saveSavedFilesList(files);
+  await saveSavedFilesList(files);
   renderSavedFilesDrawerList();
   showQuickToast('फाईलचे नाव बदलले.');
 }
 
-function deleteStoredFileById(fileId) {
+async function deleteStoredFileById(fileId) {
   const files = getSavedFilesFromStorage();
   const found = files.find(f => f.id === fileId);
   if (!found) return;
@@ -375,7 +404,7 @@ function deleteStoredFileById(fileId) {
   if (!confirm(`"${label}" ही फाईल डिलिट करायची का?`)) return;
 
   const updated = files.filter(f => f.id !== fileId);
-  saveSavedFilesList(updated);
+  await saveSavedFilesList(updated);
   renderSavedFilesDrawerList();
   showQuickToast('फाईल डिलिट झाली.');
 }
@@ -384,7 +413,6 @@ function renderSavedFilesDrawerList() {
   const container = document.getElementById('saved-files-list');
   if (!container) return;
 
-  /* एकाखाली एक (vertical column) आणि 100-200 फाइल्स सहज वर-खाली स्क्रोल होण्यासाठी स्टाइल */
   container.style.display = 'flex';
   container.style.flexDirection = 'column';
   container.style.flexWrap = 'nowrap';
@@ -454,7 +482,7 @@ function renderSavedFilesDrawerList() {
   });
 }
 
-function toggleSavedFilesDrawer(e) {
+async function toggleSavedFilesDrawer(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -463,7 +491,7 @@ function toggleSavedFilesDrawer(e) {
   const drawer = document.getElementById('saved-files-drawer');
   if (!drawer) return;
   const isOpen = drawer.style.display === 'block';
-  renderSavedFilesDrawerList();
+  await hydrateSavedFilesOnLoad();
   drawer.style.display = isOpen ? 'none' : 'block';
 }
 
@@ -500,12 +528,12 @@ function openStoredFileById(fileId) {
   showQuickToast(`File ${found.no || ''} ओपन झाली (${orderList.length} पेजेस)`);
 }
 
-function pmActionNew(e) {
+async function pmActionNew(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  const savedRec = persistSnapshotToStorage();
+  const savedRec = await persistSnapshotToStorage();
 
   const { w, h } = getCurrentPageDims();
   window.pageOrder = [1];
@@ -518,11 +546,11 @@ function pmActionNew(e) {
   showQuickToast(`File ${savedRec.no} सेव्ह झाली · नवीन कोरे पान (Page 1)`);
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   ensureDocStore();
-  restoreActiveSessionIfPresent();
+  await restoreActiveSessionIfPresent();
   refreshPageBarTabs();
-  hydrateSavedFilesOnLoad();
+  await hydrateSavedFilesOnLoad();
 });
 
 document.addEventListener('visibilitychange', () => {
