@@ -6,37 +6,6 @@ const IDB_STORE = 'store';
 const ANCESTRY_PX_PER_INCH = 96;
 const ANCESTRY_STEP_INCH = 0.01;
 
-let undoStack = [];
-let colorTargetMode = 'both'; // 'line' | 'fill' | 'both'
-let globalPolygonSides = 6;
-let globalPolygonInset = 0;
-let pendingPlaceTargetFrame = null;
-let customTextStyles = {
-  'Body text': { fontFamily: 'Arial, sans-serif', fontSize: '12px', fontWeight: 'normal', fontStyle: 'normal', color: '#000000' },
-  'Headline': { fontFamily: 'Arial, sans-serif', fontSize: '28px', fontWeight: 'bold', fontStyle: 'normal', color: '#000000' },
-  'Subhead 1': { fontFamily: 'Arial, sans-serif', fontSize: '18px', fontWeight: 'bold', fontStyle: 'normal', color: '#000000' },
-  'Caption': { fontFamily: 'Arial, sans-serif', fontSize: '10px', fontWeight: 'normal', fontStyle: 'italic', color: '#333333' }
-};
-
-function pushUndoSnapshot() {
-  try {
-    const html = getPageElementsOnlyHtml();
-    undoStack.push(html);
-    if (undoStack.length > 20) undoStack.shift();
-  } catch (e) {}
-}
-
-function pmUndoAction() {
-  if (!undoStack.length) {
-    showQuickToast('मागे जाण्यासाठी कोणतीही स्टेप नाही.');
-    return;
-  }
-  const prevHtml = undoStack.pop();
-  renderPageElementsIntoCanvas(prevHtml);
-  saveCurrentActivePageIntoData();
-  showQuickToast('Undo केले.');
-}
-
 function showQuickToast(msg) {
   let toast = document.getElementById('pm-quick-toast');
   if (!toast) {
@@ -262,15 +231,7 @@ function pmSwitchToPage(targetId) {
   window.activePageId = targetId;
   const { w, h } = getCurrentPageDims();
   const pData = window.pagesData[targetId] || { html: '', width: w, height: h };
-  if (pData.width && pData.height) {
-    const pageEl = document.getElementById('page');
-    if (pageEl) {
-      pageEl.style.width = pData.width + 'px';
-      pageEl.style.height = pData.height + 'px';
-    }
-  }
   renderPageElementsIntoCanvas(pData.html || '');
-  renderColumnGuidesOnPage();
   refreshPageBarTabs();
   persistActiveSession();
 }
@@ -330,606 +291,6 @@ function pmActionSave(e) {
   window.print();
 }
 
-/* =========================================================
-   Document Setup, Layout Menu & Column Guides (Class 1 & 8)
-   ========================================================= */
-function closeAllModals() {
-  document.querySelectorAll('.pm-modal-overlay').forEach(m => m.classList.remove('open'));
-}
-
-function openDocumentSetupModal() {
-  closeMenus();
-  const modal = document.getElementById('modal-doc-setup');
-  if (modal) modal.classList.add('open');
-}
-
-function applyDocPresetDims() {
-  const val = document.getElementById('ds-preset').value;
-  if (val === 'custom') return;
-  const parts = val.split('x');
-  if (parts.length === 2) {
-    document.getElementById('ds-w').value = parts[0];
-    document.getElementById('ds-h').value = parts[1];
-  }
-}
-
-function swapDocOrientation() {
-  const wEl = document.getElementById('ds-w');
-  const hEl = document.getElementById('ds-h');
-  const tmp = wEl.value;
-  wEl.value = hEl.value;
-  hEl.value = tmp;
-}
-
-function applyDocumentSetup() {
-  const wIn = Math.max(2, parseFloat(document.getElementById('ds-w').value) || 8.5);
-  const hIn = Math.max(2, parseFloat(document.getElementById('ds-h').value) || 11);
-  const numPages = Math.max(1, Math.min(50, parseInt(document.getElementById('ds-pages').value) || 1));
-  const mL = Math.round((parseFloat(document.getElementById('ds-m-left').value) || 0.5) * 96);
-  const mR = Math.round((parseFloat(document.getElementById('ds-m-right').value) || 0.5) * 96);
-  const mT = Math.round((parseFloat(document.getElementById('ds-m-top').value) || 0.5) * 96);
-  const mB = Math.round((parseFloat(document.getElementById('ds-m-bottom').value) || 0.5) * 96);
-
-  const wPx = Math.round(wIn * 96);
-  const hPx = Math.round(hIn * 96);
-  currentPageW = wPx;
-  currentPageH = hPx;
-
-  const pageEl = document.getElementById('page');
-  if (pageEl) {
-    pageEl.style.width = wPx + 'px';
-    pageEl.style.height = hPx + 'px';
-  }
-
-  window.pageOrder = [];
-  window.pagesData = {};
-  for (let i = 1; i <= numPages; i++) {
-    window.pageOrder.push(i);
-    window.pagesData[i] = { html: '', width: wPx, height: hPx };
-    if (typeof pageMargins !== 'undefined') {
-      pageMargins[i] = { left: mL, right: mR, top: mT, bottom: mB };
-    }
-  }
-  window.activePageId = 1;
-  renderPageElementsIntoCanvas('');
-  refreshPageBarTabs();
-  persistActiveSession();
-  closeAllModals();
-  showQuickToast(`Document Setup: ${wIn}" × ${hIn}" · ${numPages} Page(s)`);
-}
-
-function goToPagePrompt() {
-  closeMenus();
-  ensureDocStore();
-  const normalPages = window.pageOrder.filter(p => p !== 'M');
-  const ans = prompt(`कोणत्या पेजवर जायचे आहे? (1 ते ${normalPages.length}):`, String(window.activePageId || 1));
-  if (ans === null) return;
-  const pNo = parseInt(ans);
-  if (normalPages.includes(pNo)) {
-    pmSwitchToPage(pNo);
-  } else {
-    alert('हा पेज नंबर उपलब्ध नाही.');
-  }
-}
-
-function insertMultiplePagesPrompt() {
-  closeMenus();
-  ensureDocStore();
-  const ans = prompt('किती नवीन पेजेस जोडून घ्यायची आहेत? (उदा. 2, 5, 10):', '2');
-  if (ans === null) return;
-  const cnt = Math.max(1, Math.min(40, parseInt(ans) || 1));
-  saveCurrentActivePageIntoData();
-  const { w, h, m } = getCurrentPageDims();
-  for (let i = 0; i < cnt; i++) {
-    const normalPages = window.pageOrder.filter(p => p !== 'M');
-    const nextNo = (normalPages.length ? Math.max(...normalPages) : 0) + 1;
-    window.pageOrder.push(nextNo);
-    window.pagesData[nextNo] = { html: '', width: w, height: h };
-    if (typeof pageMargins !== 'undefined') pageMargins[nextNo] = Object.assign({}, m);
-  }
-  refreshPageBarTabs();
-  persistActiveSession();
-  showQuickToast(`${cnt} नवीन पेजेस जोडली.`);
-}
-
-function removePagesRangePrompt() {
-  closeMenus();
-  ensureDocStore();
-  const normalPages = window.pageOrder.filter(p => p !== 'M');
-  if (normalPages.length <= 1) {
-    alert('किमान १ पान शिल्लक असणे आवश्यक आहे.');
-    return;
-  }
-  const fromStr = prompt('कोणत्या पेजपासून काढायचे? (From Page):', String(normalPages[normalPages.length - 1]));
-  if (fromStr === null) return;
-  const toStr = prompt('कोणत्या पेजपर्यंत काढायचे? (To Page):', fromStr);
-  if (toStr === null) return;
-  const fromP = parseInt(fromStr) || 1;
-  const toP = parseInt(toStr) || fromP;
-  if (!confirm(`Page ${fromP} ते ${toP} काढून टाकायचे का?`)) return;
-
-  window.pageOrder = window.pageOrder.filter(p => p === 'M' || p < fromP || p > toP);
-  if (!window.pageOrder.length) window.pageOrder = [1];
-  for (let p = fromP; p <= toP; p++) delete window.pagesData[p];
-  window.activePageId = window.pageOrder[0];
-  renderPageElementsIntoCanvas((window.pagesData[window.activePageId] || {}).html || '');
-  refreshPageBarTabs();
-  persistActiveSession();
-  showQuickToast(`Page ${fromP}-${toP} काढून टाकली.`);
-}
-
-function goPageRelative(delta) {
-  closeMenus();
-  ensureDocStore();
-  const normalPages = window.pageOrder.filter(p => p !== 'M');
-  const idx = normalPages.indexOf(window.activePageId);
-  const nextIdx = Math.max(0, Math.min(normalPages.length - 1, idx + delta));
-  pmSwitchToPage(normalPages[nextIdx]);
-}
-
-function openSortPagesModal() {
-  closeMenus();
-  saveCurrentActivePageIntoData();
-  const grid = document.getElementById('sort-pages-grid');
-  if (!grid) return;
-  grid.innerHTML = '';
-  const normalPages = window.pageOrder.filter(p => p !== 'M');
-  normalPages.forEach(pNo => {
-    const card = document.createElement('div');
-    card.style.cssText = 'background:#fff;border:2px solid #000;padding:8px;text-align:center;cursor:pointer;font-weight:bold;';
-    card.innerHTML = `<div style="height:64px;border:1px dashed #ccc;margin-bottom:4px;display:flex;align-items:center;justify-content:center;font-size:16px;">📄</div>Page ${pNo}`;
-    card.onclick = () => {
-      pmSwitchToPage(pNo);
-      closeAllModals();
-    };
-    grid.appendChild(card);
-  });
-  document.getElementById('modal-sort-pages').classList.add('open');
-}
-
-function openColumnGuidesPrompt() {
-  closeMenus();
-  const colsStr = prompt('पानावर किती कॉलम्स (Columns) पाहिजेत? (1 ते 12):', '3');
-  if (colsStr === null) return;
-  const count = Math.max(1, Math.min(12, parseInt(colsStr) || 1));
-  const gutStr = prompt('कॉलम्समध्ये अंतर किती इंच पाहिजे? (Space between columns, उदा. 0.25):', '0.25');
-  if (gutStr === null) return;
-  const gutter = Math.round((parseFloat(gutStr) || 0.25) * 96);
-  if (typeof pageColumns !== 'undefined') {
-    pageColumns[window.activePageId || 1] = { count, gutter };
-  }
-  renderColumnGuidesOnPage();
-  showQuickToast(`${count} कॉलम गाईड्स सेट केले.`);
-}
-
-function renderColumnGuidesOnPage() {
-  const layer = document.getElementById('guides-layer');
-  if (!layer) return;
-  layer.innerHTML = '';
-  const colCfg = (typeof pageColumns !== 'undefined') ? pageColumns[window.activePageId || 1] : null;
-  if (!colCfg || colCfg.count <= 1) return;
-  const { w, m } = getCurrentPageDims();
-  const usableW = Math.max(40, w - m.left - m.right);
-  const colW = (usableW - colCfg.gutter * (colCfg.count - 1)) / colCfg.count;
-  for (let c = 0; c < colCfg.count; c++) {
-    const x1 = Math.round(m.left + c * (colW + colCfg.gutter));
-    const x2 = Math.round(x1 + colW);
-    [x1, x2].forEach(x => {
-      const line = document.createElement('div');
-      line.style.cssText = `position:absolute;top:${m.top}px;bottom:${m.bottom}px;left:${x}px;width:1px;background:#00a8e8;pointer-events:none;`;
-      layer.appendChild(line);
-    });
-  }
-}
-
-function copyMasterGuides() {
-  closeMenus();
-  if (typeof pageColumns !== 'undefined') {
-    delete pageColumns[window.activePageId || 1];
-  }
-  renderColumnGuidesOnPage();
-  showQuickToast('Master Guides रिसेट केले.');
-}
-
-/* =========================================================
-   Color Palette Modes (Line / Fill / Both) & Custom Color (Class 4)
-   ========================================================= */
-function setColorTargetMode(mode) {
-  colorTargetMode = mode;
-  ['line', 'fill', 'both'].forEach(m => {
-    const btn = document.getElementById('cmode-' + m);
-    if (btn) btn.classList.toggle('active', m === mode);
-  });
-}
-
-function applyPaletteColor(c) {
-  if (c !== 'none') {
-    const picker = document.getElementById('picker-color');
-    if (picker) picker.value = c;
-  }
-  if (!selectedEl) return;
-
-  const tc = selectedEl.querySelector('.text-content');
-  if (tc && c !== 'none') {
-    applyStyleToSelectionOrContainer(tc, 'color', c, false);
-  }
-
-  if (isAncestryElement(selectedEl) && c !== 'none') {
-    selectedEl.dataset.strokeColor = c;
-    renderAncestryConnectorShape(selectedEl);
-  }
-
-  selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => {
-    if (colorTargetMode === 'line' || colorTargetMode === 'both') {
-      s.setAttribute('stroke', c);
-    }
-    if (colorTargetMode === 'fill' || colorTargetMode === 'both') {
-      s.setAttribute('fill', c);
-    }
-  });
-  selectedEl.querySelectorAll('line').forEach(s => {
-    if (colorTargetMode === 'line' || colorTargetMode === 'both') {
-      s.setAttribute('stroke', c);
-    }
-  });
-  saveCurrentActivePageIntoData();
-}
-
-function createCustomSwatchPrompt() {
-  const name = prompt('नवीन रंगाचे नाव लिहा (उदा. Sky Blue, Kesari):', 'Custom Color');
-  if (!name) return;
-  const hex = prompt('रंगाचा Hex कोड लिहा (उदा. #00bfff, #ff9933):', '#00bfff');
-  if (!hex) return;
-  const list = document.getElementById('color-swatch-list');
-  if (list) {
-    const row = document.createElement('div');
-    row.className = 'swatch-row';
-    row.innerHTML = `<span class="swatch-box" style="background:${hex}"></span>${name}`;
-    row.onclick = () => applyPaletteColor(hex);
-    list.appendChild(row);
-  }
-  applyPaletteColor(hex);
-  showQuickToast(`नवीन रंग तयार: ${name}`);
-}
-
-/* =========================================================
-   Fill & Stroke, Polygon Settings, Character/Paragraph & Border Charmap
-   ========================================================= */
-function openFillStrokeModal() {
-  closeMenus();
-  if (!selectedEl) {
-    alert('प्रथम कोणताही आकार निवडा.');
-    return;
-  }
-  document.getElementById('modal-fill-stroke').classList.add('open');
-}
-
-function applyFillStrokeModal() {
-  if (!selectedEl) return;
-  const fType = document.getElementById('fs-fill-type').value;
-  const fCol = fType === 'none' ? 'none' : document.getElementById('fs-fill-color').value;
-  const sW = parseFloat(document.getElementById('fs-stroke-w').value) || 0;
-  const sCol = sW === 0 ? 'none' : document.getElementById('fs-stroke-color').value;
-
-  if (isAncestryElement(selectedEl)) {
-    selectedEl.dataset.strokeColor = sCol;
-    selectedEl.dataset.strokeWidth = String(sW);
-    renderAncestryConnectorShape(selectedEl);
-  }
-  selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => {
-    s.setAttribute('fill', fCol);
-    s.setAttribute('stroke', sCol);
-    s.setAttribute('stroke-width', sW);
-  });
-  selectedEl.querySelectorAll('line').forEach(s => {
-    s.setAttribute('stroke', sCol);
-    s.setAttribute('stroke-width', sW);
-  });
-  saveCurrentActivePageIntoData();
-  closeAllModals();
-}
-
-function buildPolygonPoints(w, h, sides, insetPct) {
-  const n = Math.max(3, Math.min(40, parseInt(sides) || 6));
-  const inset = Math.max(0, Math.min(90, parseFloat(insetPct) || 0)) / 100;
-  const cx = w / 2;
-  const cy = h / 2;
-  const rx = Math.max(2, w / 2 - 2);
-  const ry = Math.max(2, h / 2 - 2);
-  const pts = [];
-
-  if (inset > 0) {
-    const totalPts = n * 2;
-    for (let i = 0; i < totalPts; i++) {
-      const angle = (Math.PI * 2 * i) / totalPts - Math.PI / 2;
-      const mult = (i % 2 === 0) ? 1 : (1 - inset);
-      const px = (cx + rx * mult * Math.cos(angle)).toFixed(1);
-      const py = (cy + ry * mult * Math.sin(angle)).toFixed(1);
-      pts.push(`${px},${py}`);
-    }
-  } else {
-    for (let i = 0; i < n; i++) {
-      const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-      const px = (cx + rx * Math.cos(angle)).toFixed(1);
-      const py = (cy + ry * Math.sin(angle)).toFixed(1);
-      pts.push(`${px},${py}`);
-    }
-  }
-  return pts.join(' ');
-}
-
-function openPolygonSettingsModal() {
-  closeMenus();
-  document.getElementById('poly-sides').value = globalPolygonSides;
-  document.getElementById('poly-inset').value = globalPolygonInset;
-  document.getElementById('modal-polygon').classList.add('open');
-}
-
-function applyPolygonSettingsModal() {
-  globalPolygonSides = Math.max(3, Math.min(40, parseInt(document.getElementById('poly-sides').value) || 6));
-  globalPolygonInset = Math.max(0, Math.min(90, parseFloat(document.getElementById('poly-inset').value) || 0));
-  if (selectedEl && (selectedEl.dataset.shapeType === 'polygon' || selectedEl.dataset.shapeType === 'polygonframe')) {
-    selectedEl.dataset.polySides = String(globalPolygonSides);
-    selectedEl.dataset.polyInset = String(globalPolygonInset);
-    const { w, h } = getElementExactSize(selectedEl);
-    populateShapeInner(selectedEl, selectedEl.dataset.shapeType, w, h);
-    saveCurrentActivePageIntoData();
-  }
-  closeAllModals();
-  showQuickToast(`Polygon: ${globalPolygonSides} बाजू · ${globalPolygonInset}% Star Inset`);
-}
-
-function openCharacterSpecsModal() {
-  closeMenus();
-  document.getElementById('modal-char-para').classList.add('open');
-}
-function openParagraphSpecsModal() {
-  closeMenus();
-  document.getElementById('modal-char-para').classList.add('open');
-}
-function openHyphenationModal() {
-  closeMenus();
-  document.getElementById('modal-char-para').classList.add('open');
-}
-
-function applyCharParaSpecsModal() {
-  if (!selectedEl) {
-    closeAllModals();
-    return;
-  }
-  const tc = selectedEl.querySelector('.text-content');
-  if (tc) {
-    const hScale = (parseFloat(document.getElementById('cp-hscale').value) || 100) / 100;
-    const indL = Math.round((parseFloat(document.getElementById('cp-ind-left').value) || 0) * 96);
-    const indF = Math.round((parseFloat(document.getElementById('cp-ind-first').value) || 0) * 96);
-    const indR = Math.round((parseFloat(document.getElementById('cp-ind-right').value) || 0) * 96);
-    const spB = parseInt(document.getElementById('cp-sp-before').value) || 0;
-    const spA = parseInt(document.getElementById('cp-sp-after').value) || 0;
-    const hyph = document.getElementById('cp-hyph').value;
-
-    tc.style.transform = hScale !== 1 ? `scaleX(${hScale})` : 'none';
-    tc.style.transformOrigin = 'left top';
-    tc.style.paddingLeft = indL + 'px';
-    tc.style.paddingRight = indR + 'px';
-    tc.style.textIndent = indF + 'px';
-    tc.style.paddingTop = spB + 'px';
-    tc.style.paddingBottom = spA + 'px';
-    tc.style.hyphens = hyph;
-    saveCurrentActivePageIntoData();
-  }
-  closeAllModals();
-}
-
-function setCustomFontSizePrompt() {
-  closeMenus();
-  const ans = prompt('फॉन्ट साइज टाका (उदा. 12, 24, 48, 72, 120):', '36');
-  if (ans === null) return;
-  const sz = Math.max(6, Math.min(300, parseInt(ans) || 16));
-  document.getElementById('font-size').value = sz;
-  changeFontSize(sz);
-}
-
-function openExpertTrackingModal() {
-  closeMenus();
-  setLetterTrackingPrompt();
-}
-
-function setTextAlignment(align) {
-  closeMenus();
-  if (!selectedEl) return;
-  const tc = selectedEl.querySelector('.text-content');
-  if (tc) {
-    tc.style.textAlign = align;
-    saveCurrentActivePageIntoData();
-  }
-}
-
-function openDefineStylesModal() {
-  closeMenus();
-  const names = Object.keys(customTextStyles).join(', ');
-  const choice = prompt(`उपलब्ध Styles: ${names}\nनवीन स्टाईल बनवायची असल्यास तिचे नाव लिहा, किंवा यातील नाव टाका:`, 'Headline');
-  if (!choice) return;
-  const trimmed = choice.trim();
-  if (!customTextStyles[trimmed]) {
-    const sz = prompt('नवीन स्टाईलसाठी Font Size (px):', '22') || '22';
-    const col = prompt('Color (उदा. #000000, #8b0000):', '#8b0000') || '#000000';
-    customTextStyles[trimmed] = { fontFamily: 'inherit', fontSize: sz + 'px', fontWeight: 'bold', fontStyle: 'normal', color: col };
-    showQuickToast(`नवीन स्टाईल "${trimmed}" तयार झाली.`);
-  }
-  if (selectedEl) {
-    const tc = selectedEl.querySelector('.text-content');
-    const st = customTextStyles[trimmed];
-    if (tc && st) {
-      tc.style.fontFamily = st.fontFamily;
-      tc.style.fontSize = st.fontSize;
-      tc.style.fontWeight = st.fontWeight;
-      tc.style.fontStyle = st.fontStyle;
-      tc.style.color = st.color;
-      saveCurrentActivePageIntoData();
-    }
-  }
-}
-
-/* Character Map Border Symbols (Class Border Video) */
-function openCharMapBorderModal() {
-  closeMenus();
-  const grid = document.getElementById('charmap-grid');
-  if (grid && !grid.children.length) {
-    const symbols = ['❖','❀','✿','❁','✾','❃','✦','✧','★','☆','✪','✫','✬','✭','✮','✯','❂','❉','❊','❋','❖','◈','◉','◊','❧','❦','☙','✤','✥','✱','✲','✳','✴','✵','✶','✷'];
-    symbols.forEach(sym => {
-      const cell = document.createElement('div');
-      cell.textContent = sym;
-      cell.style.cssText = 'border:1px solid #ccc;padding:4px;cursor:pointer;background:#fafafa;';
-      cell.onclick = () => {
-        document.getElementById('cm-selected-sym').value = sym;
-      };
-      grid.appendChild(cell);
-    });
-  }
-  document.getElementById('modal-charmap').classList.add('open');
-}
-
-function insertSymbolStripFromModal() {
-  const sym = document.getElementById('cm-selected-sym').value || '❖';
-  const count = Math.max(1, Math.min(60, parseInt(document.getElementById('cm-repeat-count').value) || 18));
-  const { m } = getCurrentPageDims();
-  const stripText = Array(count).fill(sym).join(' ');
-  const el = createPMElement(m.left, m.top, 600, 32);
-  el.style.border = 'none';
-  el.style.background = 'transparent';
-  const tc = document.createElement('div');
-  tc.className = 'text-content';
-  tc.contentEditable = 'true';
-  tc.style.fontSize = '20px';
-  tc.style.textAlign = 'center';
-  tc.innerText = stripText;
-  el.appendChild(tc);
-  attachElementEvents(el);
-  selectElement(el);
-  saveCurrentActivePageIntoData();
-  closeAllModals();
-}
-
-function insertFullPageBorderFromSymbol() {
-  const sym = document.getElementById('cm-selected-sym').value || '❖';
-  const { w, h, m } = getCurrentPageDims();
-  const innerW = Math.max(120, w - m.left - m.right);
-  const innerH = Math.max(120, h - m.top - m.bottom);
-  const hCount = Math.max(4, Math.floor(innerW / 24));
-  const vCount = Math.max(4, Math.floor(innerH / 24));
-  const hStr = Array(hCount).fill(sym).join('');
-  const vStr = Array(vCount).fill(sym).join('');
-
-  const makeStrip = (x, y, bw, bh, txt, rot) => {
-    const el = createPMElement(x, y, bw, bh);
-    el.style.border = 'none';
-    el.style.background = 'transparent';
-    el.dataset.rotation = rot;
-    if (rot) el.style.transform = `rotate(${rot}deg)`;
-    const tc = document.createElement('div');
-    tc.className = 'text-content';
-    tc.contentEditable = 'true';
-    tc.style.fontSize = '20px';
-    tc.style.lineHeight = '1';
-    tc.style.textAlign = 'center';
-    tc.innerText = txt;
-    el.appendChild(tc);
-    attachElementEvents(el);
-  };
-
-  makeStrip(m.left, m.top, innerW, 28, hStr, 0);
-  makeStrip(m.left, h - m.bottom - 28, innerW, 28, hStr, 0);
-  makeStrip(m.left - Math.round(innerH / 2) + 14, m.top + Math.round(innerH / 2) - 14, innerH, 28, vStr, 90);
-  makeStrip(w - m.right - Math.round(innerH / 2) - 14, m.top + Math.round(innerH / 2) - 14, innerH, 28, vStr, 90);
-
-  saveCurrentActivePageIntoData();
-  closeAllModals();
-  showQuickToast('चारही बाजूंनी शोभेची बॉर्डर तयार झाली.');
-}
-
-/* =========================================================
-   Edit Menu Extra Functions (Paste Special, Edit Original, Insert Object)
-   ========================================================= */
-function pasteSpecialPrompt() {
-  closeMenus();
-  if (!clipboardElementHTML) {
-    alert('प्रथम कोणताही घटक Copy करा.');
-    return;
-  }
-  const mode = prompt('Paste Special Format निवडा:\n1 = Bitmap (High Quality)\n2 = DIB Bitmap\n3 = PageMaker 7.0 Format', '1');
-  if (mode === null) return;
-  pasteCopied();
-  showQuickToast(mode === '1' ? 'Bitmap स्वरूपात पेस्ट केले.' : (mode === '2' ? 'DIB Bitmap स्वरूपात पेस्ट केले.' : 'PageMaker 7.0 Format मध्ये पेस्ट केले.'));
-}
-
-function editOriginalImage() {
-  closeMenus();
-  if (!selectedEl) {
-    alert('प्रथम कोणतीही इमेज निवडा.');
-    return;
-  }
-  const img = selectedEl.querySelector('.pm-image');
-  if (!img) {
-    alert('निवडलेल्या घटकामध्ये इमेज नाही.');
-    return;
-  }
-  const win = window.open('', '_blank');
-  if (win) {
-    win.document.write(`<title>Original Image View</title><body style="margin:0;background:#222;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="${img.src}" style="max-width:100%;height:auto;"></body>`);
-  }
-}
-
-function insertExternalObjectPrompt() {
-  closeMenus();
-  const choice = prompt('Insert Object निवडा:\n1 = Bitmap Drawing Box\n2 = Table / Worksheet Grid (Rows × Cols)', '2');
-  if (choice === null) return;
-  const { m } = getCurrentPageDims();
-  if (choice === '2') {
-    const r = Math.max(1, Math.min(20, parseInt(prompt('किती ओळी (Rows)?', '4')) || 4));
-    const c = Math.max(1, Math.min(12, parseInt(prompt('किती कॉलम्स (Columns)?', '3')) || 3));
-    const el = createPMElement(m.left + 20, m.top + 40, c * 110, r * 30);
-    const tc = document.createElement('div');
-    tc.className = 'text-content';
-    tc.contentEditable = 'true';
-    let tbl = '<table style="width:100%;height:100%;border-collapse:collapse;font-size:12px;">';
-    for (let i = 0; i < r; i++) {
-      tbl += '<tr>';
-      for (let j = 0; j < c; j++) {
-        tbl += '<td style="border:1px solid #000;padding:3px;">&nbsp;</td>';
-      }
-      tbl += '</tr>';
-    }
-    tbl += '</table>';
-    tc.innerHTML = tbl;
-    el.appendChild(tc);
-    attachElementEvents(el);
-    selectElement(el);
-    saveCurrentActivePageIntoData();
-  } else {
-    triggerPlaceImage();
-  }
-}
-
-function flipSelectedElement(axis) {
-  if (!selectedEl) return;
-  if (isElementLocked(selectedEl)) {
-    showQuickToast('घटक Lock आहे · आधी Unlock करा');
-    return;
-  }
-  const curScaleX = selectedEl.dataset.flipH === '1' ? -1 : 1;
-  const curScaleY = selectedEl.dataset.flipV === '1' ? -1 : 1;
-  const nextX = axis === 'h' ? -curScaleX : curScaleX;
-  const nextY = axis === 'v' ? -curScaleY : curScaleY;
-  selectedEl.dataset.flipH = nextX === -1 ? '1' : '0';
-  selectedEl.dataset.flipV = nextY === -1 ? '1' : '0';
-  const rot = parseInt(selectedEl.dataset.rotation) || 0;
-  selectedEl.style.transform = `rotate(${rot}deg) scale(${nextX}, ${nextY})`;
-  saveCurrentActivePageIntoData();
-}
-
-/* =========================================================
-   Saved Files Drawer & Session Persistence
-   ========================================================= */
 function parseFilesListSafe(raw) {
   try {
     const list = raw ? JSON.parse(raw) : [];
@@ -1222,7 +583,7 @@ function toggleControlPalette() {
 
 function toggleColorPalette() {
   const cp = document.getElementById('color-palette');
-  cp.style.display = (cp.style.display === 'none') ? 'block' : 'none';
+  cp.classList.toggle('open');
 }
 
 function makePaletteDraggable(boxId, handleId) {
@@ -1309,8 +670,6 @@ function toggleLockElement(el) {
   const nextLocked = !isElementLocked(el);
   el.dataset.locked = nextLocked ? '1' : '0';
   renderElementLockBadge(el);
-  const topBtn = document.getElementById('btn-lock-toggle');
-  if (topBtn) topBtn.textContent = nextLocked ? '🔓 Unlock' : '🔒 Lock';
   if (isAncestryElement(el) && el.classList.contains('selected')) {
     renderAncestryFloatingBar(el);
   }
@@ -1953,7 +1312,6 @@ function pmInsertAncestryTreePrompt(e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  pushUndoSnapshot();
   const ans = prompt('वरती १ टोक राहील — खाली किती टोके पाहिजेत? (उदा. 1, 2, 3, 4, 5)', '3');
   if (ans === null) return;
   const count = Math.max(1, Math.min(20, parseInt(ans) || 2));
@@ -2139,6 +1497,25 @@ function getLegacyFontType(fontVal) {
   return null;
 }
 
+function convertSelectedToLegacyFont() {
+  if (!selectedEl) {
+    alert('प्रथम कोणताही टेक्स्ट बॉक्स निवडा.');
+    return;
+  }
+  const tc = selectedEl.querySelector('.text-content');
+  if (!tc) return;
+  const fontVal = tc.style.fontFamily || document.getElementById('font-family').value;
+  const legacyType = getLegacyFontType(fontVal);
+  if (!legacyType) {
+    alert('कृपया आधी SHREE-DEV7, Kruti Dev, किंवा Shivaji फॉन्ट निवडा.');
+    return;
+  }
+  if (!tc.dataset.unicodeSource) tc.dataset.unicodeSource = tc.innerText;
+  tc.innerText = unicodeToLegacyDevanagari(tc.dataset.unicodeSource, legacyType);
+  checkTextOverflow(selectedEl);
+  saveCurrentActivePageIntoData();
+}
+
 function checkTextOverflow(el) {
   if (!el) return;
   const tc = el.querySelector('.text-content');
@@ -2180,7 +1557,6 @@ function attachElementEvents(el) {
         showQuickToast('घटक Lock आहे · आधी Unlock करा');
         return;
       }
-      pushUndoSnapshot();
       if (currentTool === 'crop') initCrop(e, el, dir);
       else initResize(e, el, dir);
     };
@@ -2205,7 +1581,6 @@ function attachElementEvents(el) {
 
       if (currentTool === 'rotate') {
         ev.preventDefault();
-        pushUndoSnapshot();
         initRotate(ev, el);
         return;
       }
@@ -2221,7 +1596,6 @@ function attachElementEvents(el) {
         const moveDist = Math.hypot(mEv.clientX - startX, mEv.clientY - startY);
         if (!draggingBox && moveDist >= 3) {
           draggingBox = true;
-          pushUndoSnapshot();
           if (document.activeElement === tc) {
             tc.blur();
           }
@@ -2279,7 +1653,6 @@ function attachElementEvents(el) {
       return;
     }
 
-    pushUndoSnapshot();
     if (currentTool === 'rotate') {
       initRotate(e, el);
     } else {
@@ -2322,8 +1695,7 @@ function populateShapeInner(el, type, w, h) {
     renderAncestryConnectorShape(el);
     return;
   }
-  el.dataset.shapeType = type;
-  const stroke = (document.getElementById('picker-color') && document.getElementById('picker-color').value) || '#000000';
+  const stroke = document.getElementById('picker-color').value || '#000000';
   let svgInner = '';
   let isFrame = false;
 
@@ -2336,28 +1708,17 @@ function populateShapeInner(el, type, w, h) {
     svgInner = `<rect x="1" y="1" width="${Math.max(1, w-2)}" height="${Math.max(1, h-2)}" fill="none" stroke="${stroke}" stroke-width="2"/>`;
   } else if (type === 'rectframe') {
     isFrame = true;
-    el.dataset.isFrame = '1';
     svgInner = `<rect x="1" y="1" width="${Math.max(1, w-2)}" height="${Math.max(1, h-2)}" fill="none" stroke="${stroke}" stroke-width="1"/><line x1="0" y1="0" x2="${w}" y2="${h}" stroke="#888" stroke-width="1"/><line x1="${w}" y1="0" x2="0" y2="${h}" stroke="#888" stroke-width="1"/>`;
   } else if (type === 'ellipse') {
     svgInner = `<ellipse cx="${w/2}" cy="${h/2}" rx="${Math.max(1, w/2-2)}" ry="${Math.max(1, h/2-2)}" fill="none" stroke="${stroke}" stroke-width="2"/>`;
   } else if (type === 'ellipseframe') {
     isFrame = true;
-    el.dataset.isFrame = '1';
-    el.style.borderRadius = '50%';
-    el.style.overflow = 'hidden';
     svgInner = `<ellipse cx="${w/2}" cy="${h/2}" rx="${Math.max(1, w/2-2)}" ry="${Math.max(1, h/2-2)}" fill="none" stroke="${stroke}" stroke-width="1"/><line x1="${w*0.15}" y1="${h*0.15}" x2="${w*0.85}" y2="${h*0.85}" stroke="#888" stroke-width="1"/><line x1="${w*0.85}" y1="${h*0.15}" x2="${w*0.15}" y2="${h*0.85}" stroke="#888" stroke-width="1"/>`;
   } else if (type === 'polygon') {
-    const sides = parseInt(el.dataset.polySides) || globalPolygonSides;
-    const inset = parseFloat(el.dataset.polyInset) || globalPolygonInset;
-    const pts = buildPolygonPoints(w, h, sides, inset);
-    svgInner = `<polygon points="${pts}" fill="none" stroke="${stroke}" stroke-width="2"/>`;
+    svgInner = `<polygon points="${w*0.5},2 ${w-2},${h*0.38} ${w*0.8},${h-2} ${w*0.2},${h-2} 2,${h*0.38}" fill="none" stroke="${stroke}" stroke-width="2"/>`;
   } else if (type === 'polygonframe') {
     isFrame = true;
-    el.dataset.isFrame = '1';
-    const sides = parseInt(el.dataset.polySides) || globalPolygonSides;
-    const inset = parseFloat(el.dataset.polyInset) || globalPolygonInset;
-    const pts = buildPolygonPoints(w, h, sides, inset);
-    svgInner = `<polygon points="${pts}" fill="none" stroke="${stroke}" stroke-width="1"/><line x1="${w*0.2}" y1="${h*0.25}" x2="${w*0.8}" y2="${h*0.85}" stroke="#888"/><line x1="${w*0.8}" y1="${h*0.25}" x2="${w*0.2}" y2="${h*0.85}" stroke="#888"/>`;
+    svgInner = `<polygon points="${w*0.5},2 ${w-2},${h*0.38} ${w*0.8},${h-2} ${w*0.2},${h-2} 2,${h*0.38}" fill="none" stroke="${stroke}" stroke-width="1"/><line x1="${w*0.2}" y1="${h*0.25}" x2="${w*0.8}" y2="${h*0.85}" stroke="#888"/><line x1="${w*0.8}" y1="${h*0.25}" x2="${w*0.2}" y2="${h*0.85}" stroke="#888"/>`;
   }
 
   const existingSvg = el.querySelector('.shape-svg');
@@ -2370,7 +1731,7 @@ function populateShapeInner(el, type, w, h) {
   svgNode.innerHTML = svgInner;
   el.appendChild(svgNode);
 
-  if (isFrame && !el.querySelector('.text-content') && !el.querySelector('.img-wrapper')) {
+  if (isFrame && !el.querySelector('.text-content')) {
     const c = document.createElement('div');
     c.className = 'text-content';
     c.style.position = 'absolute';
@@ -2390,7 +1751,6 @@ function handlePagePointerDown(e) {
   if (currentTool === 'hand' || currentTool === 'pointer' || currentTool === 'rotate' || currentTool === 'crop') return;
 
   e.stopPropagation();
-  pushUndoSnapshot();
   const rect = document.getElementById('page').getBoundingClientRect();
   const tapX = snapValue(Math.round((e.clientX - rect.left) / zoomLevel), 'v');
   const tapY = snapValue(Math.round((e.clientY - rect.top) / zoomLevel), 'h');
@@ -2477,37 +1837,14 @@ function handlePagePointerDown(e) {
 }
 
 function triggerPlaceImage() {
-  closeMenus();
-  pendingPlaceTargetFrame = (selectedEl && selectedEl.dataset && selectedEl.dataset.isFrame === '1') ? selectedEl : null;
   document.getElementById('image-input').click();
 }
 
 function placeImage(event) {
   const file = event.target.files[0];
   if (!file) return;
-  pushUndoSnapshot();
   const reader = new FileReader();
   reader.onload = function(e) {
-    if (pendingPlaceTargetFrame && pendingPlaceTargetFrame.isConnected) {
-      const frame = pendingPlaceTargetFrame;
-      pendingPlaceTargetFrame = null;
-      const oldTc = frame.querySelector('.text-content');
-      if (oldTc) oldTc.remove();
-      let wrap = frame.querySelector('.img-wrapper');
-      if (!wrap) {
-        wrap = document.createElement('div');
-        wrap.className = 'img-wrapper';
-        wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;';
-        frame.appendChild(wrap);
-      }
-      wrap.innerHTML = `<img src="${e.target.result}" class="pm-image">`;
-      selectElement(frame);
-      selectTool('pointer');
-      saveCurrentActivePageIntoData();
-      showQuickToast('फ्रेममध्ये इमेज बसवली.');
-      return;
-    }
-
     const el = createPMElement(96, 72, 180, 180);
     const w = document.createElement('div');
     w.className = 'img-wrapper';
@@ -2653,9 +1990,6 @@ function initResize(e, el, dir) {
     }
     if (isAncestryElement(el)) {
       renderAncestryConnectorShape(el);
-    } else if (el.dataset && el.dataset.shapeType) {
-      const { w: nw, h: nh } = getElementExactSize(el);
-      populateShapeInner(el, el.dataset.shapeType, nw, nh);
     }
     checkTextOverflow(el);
     updateControlPaletteInputs();
@@ -2679,8 +2013,6 @@ function selectElement(el) {
   el.classList.add('selected');
   if (currentTool === 'crop') el.classList.add('crop-mode');
   selectedEl = el;
-  const topBtn = document.getElementById('btn-lock-toggle');
-  if (topBtn) topBtn.textContent = isElementLocked(el) ? '🔓 Unlock' : '🔒 Lock';
   if (isAncestryElement(el)) {
     renderAncestryConnectorShape(el);
     renderAncestryFloatingBar(el);
@@ -2692,14 +2024,12 @@ function selectElement(el) {
 }
 
 function selectAllOnPage() {
-  closeMenus();
   const els = document.querySelectorAll('#page > .pm-element');
   els.forEach(el => el.classList.add('selected'));
   if (els.length > 0) selectedEl = els[els.length - 1];
 }
 
 function deselectAllElements() {
-  closeMenus();
   document.querySelectorAll('#page > .pm-element').forEach(i => {
     i.classList.remove('selected', 'crop-mode');
     if (isAncestryElement(i)) renderAncestryConnectorShape(i);
@@ -2715,16 +2045,13 @@ function deselectAll(e) {
 }
 
 function copySelected() {
-  closeMenus();
   if (!selectedEl) return;
   const clone = selectedEl.cloneNode(true);
   clone.classList.remove('selected', 'crop-mode');
   clipboardElementHTML = clone.outerHTML;
-  showQuickToast('Copied.');
 }
 
 function cutSelected() {
-  closeMenus();
   if (!selectedEl) return;
   if (isElementLocked(selectedEl)) {
     showQuickToast('घटक Lock आहे · आधी Unlock करा');
@@ -2735,9 +2062,7 @@ function cutSelected() {
 }
 
 function pasteCopied() {
-  closeMenus();
   if (!clipboardElementHTML) return;
-  pushUndoSnapshot();
   const temp = document.createElement('div');
   temp.innerHTML = clipboardElementHTML;
   const newEl = temp.firstElementChild;
@@ -2751,7 +2076,6 @@ function pasteCopied() {
 }
 
 function pasteMultiple() {
-  closeMenus();
   if (!selectedEl) {
     alert('प्रथम कोणताही घटक निवडा.');
     return;
@@ -2766,7 +2090,6 @@ function pasteMultiple() {
   const dx = parseInt(dxStr) || 0;
   const dy = parseInt(dyStr) || 0;
 
-  pushUndoSnapshot();
   let baseX = parseInt(selectedEl.style.left) || 40;
   let baseY = parseInt(selectedEl.style.top) || 40;
   let lastEl = selectedEl;
@@ -2802,16 +2125,11 @@ function updateBoxGeometry() {
     updateControlPaletteInputs();
     return;
   }
-  pushUndoSnapshot();
   selectedEl.style.left = (parseInt(document.getElementById('pos-x').value) || 0) + 'px';
   selectedEl.style.top = (parseInt(document.getElementById('pos-y').value) || 0) + 'px';
   selectedEl.style.width = (parseInt(document.getElementById('box-w').value) || 10) + 'px';
   selectedEl.style.height = (parseInt(document.getElementById('box-h').value) || 10) + 'px';
   if (isAncestryElement(selectedEl)) renderAncestryConnectorShape(selectedEl);
-  else if (selectedEl.dataset && selectedEl.dataset.shapeType) {
-    const { w, h } = getElementExactSize(selectedEl);
-    populateShapeInner(selectedEl, selectedEl.dataset.shapeType, w, h);
-  }
   checkTextOverflow(selectedEl);
   saveCurrentActivePageIntoData();
 }
@@ -2822,7 +2140,6 @@ function updateBoxRotation() {
     showQuickToast('घटक Lock आहे · आधी Unlock करा');
     return;
   }
-  pushUndoSnapshot();
   const d = parseInt(document.getElementById('box-rot').value) || 0;
   selectedEl.dataset.rotation = d;
   selectedEl.style.transform = `rotate(${d}deg)`;
@@ -2830,11 +2147,9 @@ function updateBoxRotation() {
 }
 
 function applyStyle(cmd, val = null) {
-  closeMenus();
   if (!selectedEl) return;
   const tc = selectedEl.querySelector('.text-content');
   if (!tc) return;
-  pushUndoSnapshot();
   const sel = window.getSelection();
   if (sel && sel.rangeCount > 0 && !sel.isCollapsed && tc.contains(sel.getRangeAt(0).commonAncestorContainer)) {
     if (cmd === 'bold') {
@@ -2843,8 +2158,6 @@ function applyStyle(cmd, val = null) {
       applyStyleToSelectionOrContainer(tc, 'fontStyle', 'italic', false);
     } else if (cmd === 'underline') {
       applyStyleToSelectionOrContainer(tc, 'textDecoration', 'underline', false);
-    } else if (cmd === 'strikeThrough') {
-      applyStyleToSelectionOrContainer(tc, 'textDecoration', 'line-through', false);
     } else if (cmd === 'fontName' && val) {
       applyFontFamily(val);
       return;
@@ -2865,11 +2178,9 @@ function applyStyle(cmd, val = null) {
 }
 
 function toggleReverseText() {
-  closeMenus();
   if (!selectedEl) return;
   const tc = selectedEl.querySelector('.text-content');
   if (!tc) return;
-  pushUndoSnapshot();
   const isRev = tc.dataset.reversed === '1';
   const nextCol = isRev ? '#000000' : '#ffffff';
   tc.dataset.reversed = isRev ? '0' : '1';
@@ -2887,7 +2198,6 @@ function setLetterTrackingPrompt() {
   const cur = parseFloat(tc.style.letterSpacing) || 0;
   const valStr = prompt('निवडलेल्या शब्दातील/मजकुरातील अक्षरांमधील आडवे अंतर (Letter Spacing px मध्ये, उदा. -1, 0, 1, 2, 4):', cur);
   if (valStr === null) return;
-  pushUndoSnapshot();
   const nextVal = (parseFloat(valStr) || 0) + 'px';
   applyStyleToSelectionOrContainer(tc, 'letterSpacing', nextVal, false);
   checkTextOverflow(selectedEl);
@@ -2904,7 +2214,6 @@ function setWordSpacingPrompt() {
   const cur = parseFloat(tc.style.wordSpacing) || 0;
   const valStr = prompt('दोन शब्दांमधील अंतर (Word Spacing px मध्ये, उदा. 0, 3, 6, 12):', cur);
   if (valStr === null) return;
-  pushUndoSnapshot();
   const nextVal = (parseFloat(valStr) || 0) + 'px';
   applyStyleToSelectionOrContainer(tc, 'wordSpacing', nextVal, false);
   checkTextOverflow(selectedEl);
@@ -2912,7 +2221,6 @@ function setWordSpacingPrompt() {
 }
 
 function setLineSpacingPrompt() {
-  closeMenus();
   if (!selectedEl) {
     alert('प्रथम टेक्स्ट बॉक्स निवडा.');
     return;
@@ -2922,7 +2230,6 @@ function setLineSpacingPrompt() {
   const cur = parseFloat(tc.style.lineHeight) || parseFloat(document.getElementById('line-leading').value) || 1.4;
   const valStr = prompt('निवडलेल्या ओळींमधील / उभे अंतर (Line Leading, उदा. 1.1, 1.4, 1.8, 2.2):', cur);
   if (valStr === null) return;
-  pushUndoSnapshot();
   const nextVal = parseFloat(valStr) || 1.4;
   document.getElementById('line-leading').value = nextVal;
   applyStyleToSelectionOrContainer(tc, 'lineHeight', String(nextVal), true);
@@ -2935,7 +2242,6 @@ function changeFontSize(s) {
   if (selectedEl) {
     const tc = selectedEl.querySelector('.text-content');
     if (tc) {
-      pushUndoSnapshot();
       applyStyleToSelectionOrContainer(tc, 'fontSize', sizeVal, false);
       checkTextOverflow(selectedEl);
       saveCurrentActivePageIntoData();
@@ -2949,7 +2255,6 @@ function setLineHeight(lh) {
   if (selectedEl) {
     const tc = selectedEl.querySelector('.text-content');
     if (tc) {
-      pushUndoSnapshot();
       applyStyleToSelectionOrContainer(tc, 'lineHeight', String(val), true);
       checkTextOverflow(selectedEl);
       saveCurrentActivePageIntoData();
@@ -2958,17 +2263,72 @@ function setLineHeight(lh) {
 }
 
 function applyColor(c) {
-  applyPaletteColor(c);
+  document.getElementById('picker-color').value = c;
+  if (!selectedEl) return;
+  const tc = selectedEl.querySelector('.text-content');
+  if (tc) {
+    applyStyleToSelectionOrContainer(tc, 'color', c, false);
+  }
+  if (isAncestryElement(selectedEl)) {
+    selectedEl.dataset.strokeColor = c;
+    renderAncestryConnectorShape(selectedEl);
+  }
+  selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke', c));
+  saveCurrentActivePageIntoData();
+}
+
+function applyFillColor() {
+  if (!selectedEl) return;
+  const c = document.getElementById('picker-color').value;
+  selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => s.setAttribute('fill', c));
+  saveCurrentActivePageIntoData();
+}
+
+function applyFillStrokePrompt() {
+  if (!selectedEl) {
+    alert('प्रथम कोणताही आकार निवडा.');
+    return;
+  }
+  const fillCol = prompt('Fill Color (उदा. #ffe4b5, none, #ffffff):', '#ffe4b5');
+  if (fillCol === null) return;
+  const strokeCol = prompt('Stroke Color (उदा. #000000, #ff0000):', '#000000');
+  if (strokeCol === null) return;
+  const strokeW = prompt('Stroke Width (pt/px मध्ये, उदा. 1, 2, 4):', '2');
+  if (strokeW === null) return;
+
+  if (isAncestryElement(selectedEl)) {
+    selectedEl.dataset.strokeColor = strokeCol.trim() || '#000000';
+    selectedEl.dataset.strokeWidth = String(parseFloat(strokeW) || 2);
+    renderAncestryConnectorShape(selectedEl);
+  }
+  selectedEl.querySelectorAll('rect, ellipse, polygon').forEach(s => {
+    s.setAttribute('fill', fillCol.trim() || 'none');
+    s.setAttribute('stroke', strokeCol.trim() || '#000000');
+    s.setAttribute('stroke-width', parseFloat(strokeW) || 1);
+  });
+  selectedEl.querySelectorAll('line').forEach(s => {
+    s.setAttribute('stroke', strokeCol.trim() || '#000000');
+    s.setAttribute('stroke-width', parseFloat(strokeW) || 1);
+  });
+  saveCurrentActivePageIntoData();
+}
+
+function changeStrokeWidth(w) {
+  if (!selectedEl) return;
+  if (isAncestryElement(selectedEl)) {
+    selectedEl.dataset.strokeWidth = String(parseFloat(w) || 2);
+    renderAncestryConnectorShape(selectedEl);
+  }
+  selectedEl.querySelectorAll('rect, ellipse, polygon, line').forEach(s => s.setAttribute('stroke-width', w));
+  saveCurrentActivePageIntoData();
 }
 
 function alignObjects(mode) {
-  closeMenus();
   const els = Array.from(document.querySelectorAll('#page > .pm-element.selected')).filter(el => !isElementLocked(el));
   if (els.length < 2) {
     alert('Align Objects साठी Select All किंवा एकापेक्षा जास्त अनलॉक घटक निवडा.');
     return;
   }
-  pushUndoSnapshot();
   const rects = els.map(el => {
     const { w, h } = getElementExactSize(el);
     return {
@@ -3008,7 +2368,6 @@ function alignObjects(mode) {
 }
 
 function toggleTextWrap() {
-  closeMenus();
   if (!selectedEl) return;
   const wrapped = selectedEl.dataset.textWrap === '1';
   if (wrapped) {
@@ -3022,7 +2381,6 @@ function toggleTextWrap() {
 }
 
 function openStoryEditor() {
-  closeMenus();
   if (!selectedEl) {
     alert('प्रथम कोणताही टेक्स्ट बॉक्स निवडा.');
     return;
@@ -3035,7 +2393,6 @@ function openStoryEditor() {
   const baseText = tc.dataset.unicodeSource || tc.innerText;
   const updated = prompt('Story Editor — मराठी मजकूर बदला:', baseText);
   if (updated !== null) {
-    pushUndoSnapshot();
     tc.dataset.unicodeSource = updated;
     const lType = getLegacyFontType(tc.style.fontFamily || document.getElementById('font-family').value);
     tc.innerText = lType ? unicodeToLegacyDevanagari(updated, lType) : updated;
@@ -3045,7 +2402,6 @@ function openStoryEditor() {
 }
 
 function exportPageAsPNG() {
-  closeMenus();
   try {
     const pageEl = document.getElementById('page');
     const w = parseInt(pageEl.style.width) || 816;
@@ -3103,10 +2459,21 @@ function exportPageAsPNG() {
   }
 }
 
-function bringToFront() { closeMenus(); if (selectedEl) { selectedEl.style.zIndex = 50; saveCurrentActivePageIntoData(); } }
-function sendToBack() { closeMenus(); if (selectedEl) { selectedEl.style.zIndex = 5; saveCurrentActivePageIntoData(); } }
+function duplicateSelected() {
+  if (!selectedEl) return;
+  const c = selectedEl.cloneNode(true);
+  c.dataset.locked = '0';
+  c.style.left = ((parseInt(selectedEl.style.left) || 0) + 20) + 'px';
+  c.style.top = ((parseInt(selectedEl.style.top) || 0) + 20) + 'px';
+  attachElementEvents(c);
+  document.getElementById('page').appendChild(c);
+  selectElement(c);
+  saveCurrentActivePageIntoData();
+}
+
+function bringToFront() { if (selectedEl) { selectedEl.style.zIndex = 50; saveCurrentActivePageIntoData(); } }
+function sendToBack() { if (selectedEl) { selectedEl.style.zIndex = 5; saveCurrentActivePageIntoData(); } }
 function bringForward() {
-  closeMenus();
   if (selectedEl) {
     const cur = parseInt(selectedEl.style.zIndex) || 10;
     selectedEl.style.zIndex = Math.min(80, cur + 1);
@@ -3114,7 +2481,6 @@ function bringForward() {
   }
 }
 function sendBackward() {
-  closeMenus();
   if (selectedEl) {
     const cur = parseInt(selectedEl.style.zIndex) || 10;
     selectedEl.style.zIndex = Math.max(3, cur - 1);
@@ -3122,16 +2488,27 @@ function sendBackward() {
   }
 }
 function deleteSelected() {
-  closeMenus();
   if (!selectedEl) return;
   if (isElementLocked(selectedEl)) {
     showQuickToast('घटक Lock आहे · आधी Unlock करा');
     return;
   }
-  pushUndoSnapshot();
   selectedEl.remove();
   selectedEl = null;
   removeAncestryFloatingBar();
+  saveCurrentActivePageIntoData();
+}
+
+function insertPageNumberBox() {
+  const curId = window.activePageId || 1;
+  const label = (curId === 'M') ? '#' : String(curId);
+  const el = createPMElement(275, 800, 50, 24);
+  const c = document.createElement('div');
+  c.className = 'text-content';
+  c.contentEditable = true;
+  c.style.textAlign = 'center';
+  c.innerText = label;
+  el.appendChild(c);
   saveCurrentActivePageIntoData();
 }
 
@@ -3140,7 +2517,6 @@ function findAndReplaceText() {
   if (!findVal) return;
   const repVal = prompt(`"${findVal}" ऐवजी कोणता शब्द टाकायचा आहे?`, '');
   if (repVal === null) return;
-  pushUndoSnapshot();
   document.querySelectorAll('.text-content').forEach(tc => {
     tc.innerHTML = tc.innerHTML.split(findVal).join(repVal);
   });
