@@ -332,14 +332,6 @@ body {
   transform-origin: top left;
 }
 
-/* Page-only Zoom / Touch Lock */
-.page.page-touch-locked .pm-element,
-.page.page-touch-locked .text-content {
-  pointer-events: none !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-}
-
 .margin-guide {
   position: absolute;
   top: 72px;
