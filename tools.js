@@ -60,7 +60,7 @@ function refreshPageBarTabs() {
   normalPages.forEach(pNum => {
     html += `<div class="page-tab ${curId === pNum ? 'active' : ''}" id="tab-${pNum}" onclick="switchPage(${pNum})">${pNum}</div>`;
   });
-  html += `<button type="button" class="add-page-btn" onclick="addBondPageBelow(event)">+ Page</button>`;
+  html += `<button type="button" class="add-page-btn" id="add-page-btn" onclick="pmActionAddPage(event)">+ Page</button>`;
   bar.innerHTML = html;
 
   const ind = document.getElementById('page-indicator');
@@ -143,7 +143,7 @@ function updateStackedPagesLayout() {
   stackContainer.innerHTML = html;
 }
 
-function addBondPageBelow(e) {
+function pmActionAddPage(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -184,62 +184,75 @@ function addBondPageBelow(e) {
   }
 }
 
-function saveAllPagesAsViewableDoc(fileName = 'Bond_Document_All_Pages.html') {
-  persistAllPagesAutoSave();
-  try {
-    const { w, h } = getCurrentPageDims();
-    const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
-    const pageEl = document.getElementById('page');
+function triggerHtmlDownload(fileName, htmlContent) {
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 1200);
+}
 
-    let renderedPagesHtml = '';
-    for (let i = 0; i < normalPages.length; i++) {
-      const pNo = normalPages[i];
-      let rawHtml = '';
-      if (i === 0 && pageEl) {
-        const clone = pageEl.cloneNode(true);
-        const stack = clone.querySelector('#stacked-pages-container');
-        if (stack) stack.remove();
-        ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
-          clone.querySelectorAll(sel).forEach(n => n.remove());
-        });
-        clone.querySelectorAll('.pm-element').forEach(el => {
-          el.classList.remove('selected', 'crop-mode');
-          el.style.outline = 'none';
-          el.style.border = 'none';
-          el.style.boxShadow = 'none';
-        });
-        rawHtml = clone.innerHTML;
-      } else {
-        const pData = (typeof pagesData !== 'undefined' && pagesData[pNo]) ? pagesData[pNo] : null;
-        const temp = document.createElement('div');
-        temp.innerHTML = pData && pData.html ? pData.html : '';
-        ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
-          temp.querySelectorAll(sel).forEach(n => n.remove());
-        });
-        temp.querySelectorAll('.pm-element').forEach(el => {
-          el.classList.remove('selected', 'crop-mode');
-          el.style.outline = 'none';
-          el.style.border = 'none';
-          el.style.boxShadow = 'none';
-        });
-        rawHtml = temp.innerHTML;
-      }
+function buildViewableDocumentHtml() {
+  const { w, h } = getCurrentPageDims();
+  const normalPages = (typeof pageOrder !== 'undefined') ? pageOrder.filter(p => p !== 'M') : [1];
+  const pageEl = document.getElementById('page');
 
-      renderedPagesHtml += `
-        <div class="doc-page" data-page-no="${pNo}" style="width:${w}px;height:${h}px;position:relative;background:#fff;margin:0 auto 24px auto;box-shadow:0 2px 8px rgba(0,0,0,0.25);overflow:hidden;page-break-after:always;break-after:page;">
-          <div style="position:relative;width:100%;height:100%;">${rawHtml}</div>
-        </div>
-      `;
+  let renderedPagesHtml = '';
+  for (let i = 0; i < normalPages.length; i++) {
+    const pNo = normalPages[i];
+    let rawHtml = '';
+    if (i === 0 && pageEl) {
+      const clone = pageEl.cloneNode(true);
+      const stack = clone.querySelector('#stacked-pages-container');
+      if (stack) stack.remove();
+      ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
+        clone.querySelectorAll(sel).forEach(n => n.remove());
+      });
+      clone.querySelectorAll('.pm-element').forEach(el => {
+        el.classList.remove('selected', 'crop-mode');
+        el.style.outline = 'none';
+        el.style.border = 'none';
+        el.style.boxShadow = 'none';
+      });
+      rawHtml = clone.innerHTML;
+    } else {
+      const pData = (typeof pagesData !== 'undefined' && pagesData[pNo]) ? pagesData[pNo] : null;
+      const temp = document.createElement('div');
+      temp.innerHTML = pData && pData.html ? pData.html : '';
+      ['.margin-guide', '.guides-layer', '.handle', '.overflow-badge'].forEach(sel => {
+        temp.querySelectorAll(sel).forEach(n => n.remove());
+      });
+      temp.querySelectorAll('.pm-element').forEach(el => {
+        el.classList.remove('selected', 'crop-mode');
+        el.style.outline = 'none';
+        el.style.border = 'none';
+        el.style.boxShadow = 'none';
+      });
+      rawHtml = temp.innerHTML;
     }
 
-    const projectBackup = {
-      version: '1.0',
-      pageOrder: normalPages,
-      pagesData: typeof pagesData !== 'undefined' ? pagesData : {},
-      pageMargins: typeof pageMargins !== 'undefined' ? pageMargins : {}
-    };
+    renderedPagesHtml += `
+      <div class="doc-page" data-page-no="${pNo}" style="width:${w}px;height:${h}px;position:relative;background:#fff;margin:0 auto 24px auto;box-shadow:0 2px 8px rgba(0,0,0,0.25);overflow:hidden;page-break-after:always;break-after:page;">
+        <div style="position:relative;width:100%;height:100%;">${rawHtml}</div>
+      </div>
+    `;
+  }
 
-    const viewableHtml = `<!DOCTYPE html>
+  const projectBackup = {
+    version: '1.0',
+    pageOrder: normalPages,
+    pagesData: typeof pagesData !== 'undefined' ? pagesData : {},
+    pageMargins: typeof pageMargins !== 'undefined' ? pageMargins : {}
+  };
+
+  return `<!DOCTYPE html>
 <html lang="mr">
 <head>
 <meta charset="UTF-8">
@@ -255,24 +268,28 @@ ${renderedPagesHtml}
 <script id="pm-project-data" type="application/json">${JSON.stringify(projectBackup)}</script>
 </body>
 </html>`;
-
-    const blob = new Blob([viewableHtml], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return true;
-  } catch (err) {
-    alert('फाईल सेव्ह करताना अडचण आली.');
-    return false;
-  }
 }
 
-function startFreshDocumentKeepSaved() {
+function pmActionSave(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  persistAllPagesAutoSave();
+  const htmlDoc = buildViewableDocumentHtml();
+  triggerHtmlDownload('Bond_All_Pages.html', htmlDoc);
+  showQuickToast('सर्व पेजेस फाईलमध्ये सेव्ह झाली.');
+}
+
+function pmActionNew(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  persistAllPagesAutoSave();
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-  saveAllPagesAsViewableDoc(`Bond_Saved_${stamp}.html`);
+  const htmlDoc = buildViewableDocumentHtml();
+  triggerHtmlDownload(`Bond_Saved_${stamp}.html`, htmlDoc);
 
   if (typeof saveState === 'function') saveState();
 
@@ -301,7 +318,7 @@ function startFreshDocumentKeepSaved() {
   const pb = document.getElementById('pasteboard');
   if (pb) pb.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
 
-  showQuickToast('जुनी पेजेस फाईलमध्ये सेव्ह झाली; स्क्रीनवर नवीन कोरे पान (Page 1) तयार आहे.');
+  showQuickToast('जुनी पेजेस सेव्ह झाली; नवीन कोरे पान (Page 1) तयार आहे.');
 }
 
 function openSavedFileCleanly(event) {
@@ -457,44 +474,7 @@ function exportAllPagesToPDFPrint() {
   window.print();
 }
 
-function wireBondPageButtons() {
-  const addBtns = document.querySelectorAll('.add-page-btn');
-  addBtns.forEach(btn => {
-    btn.onclick = (e) => addBondPageBelow(e);
-  });
-
-  const projInput = document.getElementById('project-input');
-  if (projInput) {
-    projInput.accept = '.html,.json';
-    projInput.onchange = (e) => openSavedFileCleanly(e);
-  }
-
-  document.querySelectorAll('button, .btn, .dropdown-item').forEach(el => {
-    const txt = (el.textContent || '').trim();
-    if (txt === 'Save' || txt.includes('Save Project')) {
-      el.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        saveAllPagesAsViewableDoc();
-      };
-    } else if (txt.includes('PDF/Print') || txt.includes('Export / Print (PDF)')) {
-      el.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        exportAllPagesToPDFPrint();
-      };
-    } else if (txt === 'New' || txt.includes('New Publication')) {
-      el.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        startFreshDocumentKeepSaved();
-      };
-    }
-  });
-}
-
 window.addEventListener('DOMContentLoaded', () => {
-  wireBondPageButtons();
   refreshPageBarTabs();
   updateStackedPagesLayout();
   setInterval(persistAllPagesAutoSave, 4000);
