@@ -8,6 +8,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Annapurna+SIL:wght@400;700&family=Baloo+Bhaina+2:wght@400;600;700&family=Eczar:wght@400;600;700&family=Gotu&family=Hind:wght@400;600;700&family=Jaini&family=Jaini+Purva&family=Kalam:wght@400;700&family=Karma:wght@400;600;700&family=Khula:wght@400;600;700&family=Khand:wght@500;700&family=Laila:wght@400;600;700&family=Martel:wght@400;700&family=Martel+Sans:wght@400;700&family=Modak&family=Mukta:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Serif+Devanagari:wght@400;700&family=Palanquin:wght@400;600;700&family=Palanquin+Dark:wght@400;700&family=Poppins:wght@400;600;700&family=Pragati+Narrow:wght@400;700&family=Rajdhani:wght@500;700&family=Rozha+One&family=Sahitya:wght@400;700&family=Teko:wght@500;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Tiro+Devanagari+Marathi:ital@0;1&family=Yatra+One&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<style>
+  @font-face {
+    font-family: 'SHREE-DEV7-0714';
+    src: url('./fonts/SHREE-DEV7-0714 Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+</style>
 </head>
 <body onclick="closeMenus()">
   <div class="menu-bar" id="menu-bar">
@@ -220,10 +229,10 @@
       <div class="control-body">
         <div class="ctrl-row">
           <select id="font-family" onchange="applyFontFamily(this.value)">
-            <optgroup label="SHREE-DEV7 (Local /fonts)">
+            <optgroup label="SHREE-DEV7 (0714 TTF)">
+              <option value="'SHREE-DEV7-0714'" style="font-family:'SHREE-DEV7-0714',sans-serif;">SHREE-DEV7-0714 (0714 TTF)</option>
               <option value="'SHREE-DEV7-0702', 'Tiro Devanagari Marathi', serif" style="font-family:'SHREE-DEV7-0702','Tiro Devanagari Marathi',serif;">SHREE-DEV7-0702 Regular</option>
               <option value="'SHREE-DEV7-0708', 'Tiro Devanagari Marathi', serif" style="font-family:'SHREE-DEV7-0708','Tiro Devanagari Marathi',serif;">SHREE-DEV7-0708 Regular</option>
-              <option value="'SHREE-DEV7-0714', 'Tiro Devanagari Marathi', serif" style="font-family:'SHREE-DEV7-0714','Tiro Devanagari Marathi',serif;">SHREE-DEV7-0714 Regular</option>
               <option value="'SHREE-DEV7-0720', 'Tiro Devanagari Marathi', serif" style="font-family:'SHREE-DEV7-0720','Tiro Devanagari Marathi',serif;">SHREE-DEV7-0720 Regular</option>
             </optgroup>
             <optgroup label="Kruti Dev (Local /fonts)">
