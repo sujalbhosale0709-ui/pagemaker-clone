@@ -679,6 +679,58 @@ function setAncestryLegInch(el, nextInch) {
   showQuickToast(`उंची: ${clampedInch.toFixed(2)}" (वर + खाली सर्व टोके)`);
 }
 
+function spawnBorderlessNameAt(x, y, defaultLabel = 'नाव') {
+  const boxW = 140;
+  const boxH = 32;
+  const snapped = snapBoxPosition(x, y, boxW, boxH);
+
+  const el = createPMElement(snapped.x, snapped.y, boxW, boxH);
+  el.style.border = 'none';
+  el.style.outline = 'none';
+  el.style.background = 'transparent';
+  el.style.boxShadow = 'none';
+  el.dataset.borderlessName = '1';
+
+  const content = document.createElement('div');
+  content.className = 'text-content';
+  content.contentEditable = 'true';
+  content.style.touchAction = 'none';
+  content.style.webkitUserSelect = 'text';
+  content.style.userSelect = 'text';
+  content.style.pointerEvents = 'auto';
+  content.style.border = 'none';
+  content.style.outline = 'none';
+  content.style.background = 'transparent';
+  content.style.boxShadow = 'none';
+  content.style.textAlign = 'center';
+  content.style.padding = '2px 4px';
+
+  const chosenFont = (document.getElementById('font-family') && document.getElementById('font-family').value) || 'inherit';
+  const chosenSize = (document.getElementById('font-size') && parseInt(document.getElementById('font-size').value)) || 16;
+  const chosenLeading = (document.getElementById('line-leading') && parseFloat(document.getElementById('line-leading').value)) || 1.3;
+  const chosenColor = (document.getElementById('picker-color') && document.getElementById('picker-color').value) || '#000000';
+
+  content.style.fontFamily = chosenFont;
+  content.style.fontSize = chosenSize + 'px';
+  content.style.lineHeight = chosenLeading;
+  content.style.color = chosenColor;
+
+  content.dataset.unicodeSource = defaultLabel;
+  const lType = getLegacyFontType(chosenFont);
+  content.innerText = lType ? unicodeToLegacyDevanagari(defaultLabel, lType) : defaultLabel;
+
+  el.appendChild(content);
+  attachElementEvents(el);
+  checkTextOverflow(el);
+  selectElement(el);
+  selectTool('pointer');
+  saveCurrentActivePageIntoData();
+  setTimeout(() => {
+    content.focus();
+  }, 0);
+  showQuickToast('नाव टाईप करा · कंट्रोल पॅलेटमधून फॉन्ट/साइज/कलर बदला');
+}
+
 function renderAncestryConnectorShape(el) {
   if (!el || !isAncestryElement(el)) return;
   el.style.minHeight = '0px';
@@ -933,6 +985,7 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   });
   uiLayer.appendChild(rightHandle);
 
+  // वरच्या १ टोकाचे हँडल (डावी/उजवी ड्रॅग) + त्याखाली '+' टायपिंग आयकॉन
   const topHandle = document.createElement('div');
   topHandle.title = 'वरचे टोक डावीकडे/उजवीकडे सरकवा';
   topHandle.style.cssText = `position:absolute;left:${topX - 11}px;top:-11px;width:22px;height:22px;background:#8b0000;color:#fff;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;`;
@@ -962,11 +1015,26 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
   });
   uiLayer.appendChild(topHandle);
 
+  const topPlusBtn = document.createElement('button');
+  topPlusBtn.type = 'button';
+  topPlusBtn.title = 'वरच्या टोकाखाली मजकूर टाईप करा';
+  topPlusBtn.textContent = '+';
+  topPlusBtn.style.cssText = `position:absolute;left:${topX - 10}px;top:-34px;width:20px;height:20px;background:#0a246a;color:#fff;border:1.5px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;pointer-events:auto;touch-action:manipulation;cursor:pointer;padding:0;line-height:1;`;
+  topPlusBtn.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const boxLeft = (parseInt(el.style.left) || 0) + topX - 70;
+    const boxTop = (parseInt(el.style.top) || 0) - 36;
+    spawnBorderlessNameAt(boxLeft, boxTop, 'वरचे नाव');
+  });
+  uiLayer.appendChild(topPlusBtn);
+
+  // खालच्या प्रत्येक टोकाचे हँडल (डावी/उजवी ड्रॅग) + त्याखाली '+' टायपिंग आयकॉन
   dropXs.forEach((dx, idx) => {
     const dHandle = document.createElement('div');
     dHandle.title = `टोक ${idx + 1} डावीकडे/उजवीकडे सरकवा`;
     dHandle.style.cssText = `position:absolute;left:${dx - 11}px;bottom:-11px;width:22px;height:22px;background:#006400;color:#fff;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;pointer-events:auto;touch-action:none;cursor:ew-resize;`;
-    dHandle.textContent = String(idx + 1);
+    dHandle.textContent = '+';
     dHandle.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -998,6 +1066,20 @@ function renderAncestryTouchHandles(el, cw, ch, barY, padX, usableW, topX, dropX
       window.addEventListener('pointercancel', onUp);
     });
     uiLayer.appendChild(dHandle);
+
+    const dPlusBtn = document.createElement('button');
+    dPlusBtn.type = 'button';
+    dPlusBtn.title = `टोक ${idx + 1} खाली मजकूर टाईप करा`;
+    dPlusBtn.textContent = '+';
+    dPlusBtn.style.cssText = `position:absolute;left:${dx - 10}px;bottom:-34px;width:20px;height:20px;background:#006400;color:#fff;border:1.5px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;pointer-events:auto;touch-action:manipulation;cursor:pointer;padding:0;line-height:1;`;
+    dPlusBtn.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const boxLeft = (parseInt(el.style.left) || 0) + dx - 70;
+      const boxTop = (parseInt(el.style.top) || 0) + ch + 14;
+      spawnBorderlessNameAt(boxLeft, boxTop, `नाव ${idx + 1}`);
+    });
+    uiLayer.appendChild(dPlusBtn);
   });
 }
 
