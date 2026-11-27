@@ -2305,9 +2305,9 @@ function applyStyle(cmd, val = null) {
 }
 
 function toggleReverseText() {
-  const nextCol = (pmGetActiveTextHost() && pmGetActiveTextHost().dataset.reversed === '1') ? '#000000' : '#ffffff';
   const host = pmGetActiveTextHost();
   if (!host) return;
+  const nextCol = host.dataset.reversed === '1' ? '#000000' : '#ffffff';
   host.dataset.reversed = nextCol === '#ffffff' ? '1' : '0';
   if (pmApplyStyleToSelectionOnly('color', nextCol, false)) { saveCurrentActivePageIntoData(); return; }
   host.style.color = nextCol;
